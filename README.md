@@ -666,7 +666,7 @@ Without a NAS, a Droplet does the same job, with DigitalOcean Spaces as the S3
 store instead of RustFS:
 
 1. Create a Space (for example `dbn` in `nyc3`) and a Spaces access key for it.
-2. Create a Droplet (Docker on Ubuntu, 1 GB is enough) and copy
+2. Create a Droplet (Docker on Ubuntu, starting with 2 GB) and copy
    `docker-compose.yml` and `.env.example` to it, as for a NAS.
 3. In `.env`, point the worker at the Space instead of the local S3 server:
    `S3_SERVICE_URL=https://nyc3.digitaloceanspaces.com`, the Space's name as

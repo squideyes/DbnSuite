@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dbnsuite.squideyes.com/sitemap.xml

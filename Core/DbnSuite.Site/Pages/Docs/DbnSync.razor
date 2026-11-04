@@ -33,7 +33,7 @@
 <h2 id="requirements">Requirements</h2>
 <ul>
     <li><strong>A Databento API key</strong> for a subscription that includes historical data from a <a href="docs#datasets">supported dataset</a>, today CME Globex (<code>GLBX.MDP3</code>). See <a href="docs/dbnsync#plans">Databento plans</a>.</li>
-    <li><strong>A machine that stays on</strong>, running <a href="@Links.Docker">Docker Engine</a> with the Compose plugin (v2). A NAS, a Linux server or a small cloud server all work; 1 GB of memory is enough.</li>
+    <li><strong>A machine that stays on</strong>, running <a href="@Links.Docker">Docker Engine</a> with the Compose plugin (v2). A NAS, a Linux server or a small cloud server all work. Allow 8 GB of memory for all three containers, since RustFS alone can use 4 GB.</li>
     <li><strong>Disk for the archive.</strong> The defaults need about 90 GB on day one and grow about 750 GB a year, almost all of it order books. Fewer roots need far less; see <a href="docs/dbnsync#what">What it keeps</a>.</li>
 </ul>
 <p>
@@ -158,7 +158,7 @@
 <p>A Droplet runs the worker and Seq, and a DigitalOcean Space replaces RustFS as the S3 store.</p>
 <ol class="steps-list">
     <li><strong>Create a Space</strong> (for example <code>dbn</code> in <code>nyc3</code>) and, under API → Spaces Keys, an access key for it. Spaces costs $5 a month for 250 GB, then $0.02 per GB.</li>
-    <li><strong>Create a Droplet</strong> from the Docker image on Ubuntu; the 1 GB size is enough. SSH in and do steps 1 and 2 above.</li>
+    <li><strong>Create a Droplet</strong> from the Docker image on Ubuntu; start with the 2 GB size. SSH in and do steps 1 and 2 above.</li>
     <li>
         <strong>Point <code>.env</code> at the Space.</strong>
         The <code>S3_ROOT_*</code>, <code>S3_DATA_PATH</code> settings are unused but need a value.

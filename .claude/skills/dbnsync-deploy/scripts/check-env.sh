@@ -40,6 +40,47 @@ fi
 
 [ -n "$(value DBNSYNC_LOGS_URL)" ] || echo "note DBNSYNC_LOGS_URL is empty, so the dashboard hides its log links"
 
+logs=$(value DBNSYNC_LOGS_URL)
+seq=$(value SEQ_PORT)
+seq=${seq:-5341}
+case $logs in
+    ""|*":$seq"|*":$seq/"*) ;;
+    *) echo "note DBNSYNC_LOGS_URL does not use SEQ_PORT ($seq), so its links may open another Seq" ;;
+esac
+
+# Two installs on one machine must stay apart. A second RustFS on a live archive
+# folder is the worst mistake open here, and nothing else stops it.
+dir=$(cd "$(dirname "$file")" && pwd)
+project=$(value COMPOSE_PROJECT_NAME)
+project=${project:-dbnsync}
+path=$(value S3_DATA_PATH)
+case $path in ./*) path="$dir/${path#./}" ;; esac
+
+if ids=$(docker ps -q 2>/dev/null); then
+    clash=0
+    format='{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.project.working_dir"}}|{{range .Mounts}}{{.Source}};{{end}}'
+
+    while IFS='|' read -r name home mounts; do
+        [ -n "$name$home$mounts" ] || continue
+        [ "$home" != "$dir" ] || continue
+
+        case ";$mounts" in
+            *";$path;"*) fail "S3_DATA_PATH is already in use by the install in $home"; clash=1 ;;
+        esac
+
+        if [ "$name" = "$project" ] && [ "$clash" -eq 0 ]; then
+            fail "project name $project belongs to the install in $home: set COMPOSE_PROJECT_NAME"
+            clash=1
+        fi
+    done <<EOF
+$([ -z "$ids" ] || docker inspect -f "$format" $ids 2>/dev/null)
+EOF
+
+    [ "$clash" -ne 0 ] || ok "no other install here uses this archive folder or project name"
+else
+    echo "note docker is not reachable, so another install on this machine could not be checked for"
+fi
+
 case $(ls -l "$file") in
     -??-------*) ok "$file is private to its owner" ;;
     *) echo "note $file is readable by others: chmod 600 $file" ;;

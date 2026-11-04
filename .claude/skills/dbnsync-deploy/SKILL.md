@@ -5,9 +5,11 @@ description: Install, update, check or troubleshoot DbnSync, the Docker service 
 
 # Deploy DbnSync
 
-DbnSync is three containers: RustFS (S3, holding the archive), Seq (logs) and the worker. This skill takes someone from nothing to a healthy service, then helps them keep it that way. Be prescriptive: use the defaults unless the person has a reason not to, and don't offer a menu.
+DbnSync is three containers: RustFS (S3, holding the archive), Seq (logs) and the worker, with Caddy as an optional fourth for reaching it from the internet. This skill takes someone from nothing to a healthy service, then helps them keep it that way. Be prescriptive: use the defaults unless the person has a reason not to, and don't offer a menu.
 
 The people using this are often traders, not system administrators. Say what a step does in plain words before you do it, and explain any failure in terms of what they should do next.
+
+Give one action at a time. When the person has to do something, ask for that one thing in a few lines, then wait for them to say it is done. Opening a file, pasting into it and saving it are three actions, not one.
 
 ## Say this first
 
@@ -33,7 +35,7 @@ Ask only what you can't see for yourself:
 
 1. **Which machine?** A NAS, a Linux server, Docker Desktop, or a DigitalOcean Droplet. For anything but a plain Linux server, read `references/targets.md` now; it changes several steps below.
 2. **Are you on that machine?** If not, run each command over `ssh <host>` and copy files with `scp` (`scp -O` on UGOS). Ask for the host name, never a password; SSH keys or their own prompt handle sign-in.
-3. **Is DbnSync already there?** Look, don't just ask: run `docker compose ls` and `docker ps`, and look for a `dbnsync` folder with a `.env`. If it is there this is an update or a repair, not an install: go to step 7 or `references/troubleshooting.md`, and read `references/existing-install.md` before changing anything. The Compose file is named `dbnsync`, so a second copy in another folder takes over the running containers rather than sitting beside them.
+3. **Is DbnSync already there?** Look, don't just ask: run `docker compose ls` and `docker ps`, and look for a `dbnsync` folder with a `.env`. If it is there, read `references/existing-install.md` before changing anything: it covers updating it and trying a second copy beside it. For a repair, go to `references/troubleshooting.md`. The Compose file is named `dbnsync`, so a second copy in another folder takes over the running containers rather than sitting beside them.
 
 Then check the machine and tell them what you found:
 
@@ -47,7 +49,7 @@ The defaults need about 90 GB on day one and grow about 750 GB a year, nearly al
 
 ## 2. Get the deployment files
 
-From a checkout of this repository, copy `Deploy/docker-compose.yml`, `Deploy/Caddyfile` and `Deploy/.env.example` to the target's folder, the last as `.env`. Otherwise:
+From a checkout of this repository, copy `Deploy/docker-compose.yml`, `Deploy/Caddyfile` and `Deploy/.env.example` to the target's folder, the last as `.env`, then `chmod 600 .env`. Otherwise:
 
 ```sh
 mkdir -p ~/dbnsync && cd ~/dbnsync
@@ -57,7 +59,7 @@ curl -fsSL https://raw.githubusercontent.com/squideyes/DbnSuite/main/Deploy/.env
 chmod 600 .env
 ```
 
-Copy this skill's `scripts/` beside them when you are working over SSH.
+Copy this skill's `scripts/` into a `scripts` folder beside them when you are working over SSH, so that the commands below work as written.
 
 ## 3. Make the archive folder
 
@@ -67,6 +69,8 @@ RustFS runs as user id 10001, so that user has to own the folder. Put it on the 
 sudo mkdir -p /srv/dbnsync/s3
 sudo chown -R 10001:10001 /srv/dbnsync/s3
 ```
+
+`sudo` asks for the password of the account they signed in with, and only they type it, so over SSH give them the whole command to run themselves: `ssh -t <host> "sudo chown -R 10001:10001 <folder>"`. It shows nothing as they type and prints nothing when it works, so check with `ls -ld <folder>` rather than asking them to run it again. If they don't know the password, stop there: it is theirs to find or reset in the NAS's own account settings. Don't work round it with a container running as root.
 
 ## 4. Fill in .env
 
@@ -78,7 +82,7 @@ Set these yourself, since none is a secret:
 - `DBNSYNC_LOGS_URL`: Seq as their browser reaches it, such as `http://myserver:5341`.
 - `DBNSYNC_ROOTS` and `DBNSYNC_SCHEMAS`, only if they want other than the defaults (twelve CME index, energy and metal roots; `mbo,ohlcv-1s,definition,statistics,status`).
 
-Then ask them to open `.env` and paste their Databento key after `DATABENTO_API_KEY=`, and to say when that's done. It comes from the API keys page of their Databento portal and starts `db-`.
+Then have them put their Databento key in `.env`. Call it the settings file in the deployment folder, since the name means nothing to most people. The key is at https://databento.com/portal/keys and starts `db-`; it goes straight after `DATABENTO_API_KEY=`, with no spaces. Over SSH, give them the command that opens the file: `ssh -t <host> "nano <folder>/.env"`. In nano, Ctrl+U does not paste from the clipboard: they right-click in the terminal instead. Ctrl+O then Enter saves, and Ctrl+X closes.
 
 Run `scripts/check-env.sh .env` and fix whatever it marks `FAIL`. Treat `PAID` as a stop: tell them spending is on and ask whether they meant that.
 
@@ -102,13 +106,17 @@ curl -s http://localhost:8080/status     # the worker's state
 docker compose logs --tail 50 dbnsync    # a pass has started; no refusals
 ```
 
+These use the default port. If `DBNSYNC_PORT` is set, use that, or you will be checking some other install.
+
+The first pass only submits jobs and stores nothing. Files come on the next pass, about five minutes after the first ends, so wait for `stored:` lines in the logs before calling it done.
+
 Then report in plain words: the dashboard's address (`http://<server>:8080`), where the archive lives, and what happens next. With the defaults the first backfill is about 670 Databento jobs, at most 30 at a time, and takes a day or two; the dashboard's ETA gives the time to expect.
 
 If anything fails, use `references/troubleshooting.md`.
 
 ## 7. Afterwards
 
-Offer these, in this order, and do only what they accept:
+Offer these, in this order, and do only what they accept. Skip them for a trial:
 
 1. **Separate keys.** Until this is done the worker uses the S3 administrator's key, which can delete the archive. `references/keys.md`.
 2. **Reach it from elsewhere.** `references/internet.md`. Recommend Tailscale unless they need to share with people outside their own devices.
