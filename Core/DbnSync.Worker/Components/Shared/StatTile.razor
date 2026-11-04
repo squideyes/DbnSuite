@@ -1,0 +1,28 @@
+@if (Href is null)
+{
+    <div class="tile">@Body</div>
+}
+else
+{
+    <a class="tile tile-link" href="@Href">@Body</a>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+
+    [Parameter, EditorRequired] public string Value { get; set; } = "";
+
+    [Parameter] public string? Note { get; set; }
+
+    /// <summary>Where the tile leads, when its number has a page behind it.</summary>
+    [Parameter] public string? Href { get; set; }
+
+    private RenderFragment Body => @<text>
+        <span class="label">@Label</span>
+        <span class="value">@Value</span>
+        @if (Note is not null)
+        {
+            <span class="note">@Note</span>
+        }
+    </text>;
+}

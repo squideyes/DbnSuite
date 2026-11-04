@@ -1,0 +1,132 @@
+@page "/"
+
+<PageTitle>Corpus · DbnSync</PageTitle>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h1>Corpus</h1>
+            <span class="sub">
+                @if (Snapshot is { } s)
+                {
+                    <text>Scanned @Format.Relative(s.ScannedAt, Clock.GetUtcNow()) · @Options.Dataset</text>
+                }
+                else
+                {
+                    <text>First scan running…</text>
+                }
+            </span>
+        </div>
+        <button @onclick="RescanAsync" disabled="@Index.Scanning">@(Index.Scanning ? "Scanning…" : "Rescan")</button>
+    </div>
+
+    @if (Snapshot?.Failure is { } failure)
+    {
+        <div class="panel error-text" role="alert">Last scan failed: @failure</div>
+    }
+
+    <div class="panel spend @(Options.Spend.Paid ? "paid" : "")" role="status">
+        <strong>Spend policy:</strong> @Options.Spend.Describe().
+        @if (Options.Spend.Paid)
+        {
+            <text> Quoted so far: @Money(Spent.Today) today, @Money(Spent.Month) this month. Paid jobs are billed by
+            Databento to your account, at your own risk; the ledger is DbnSync's own count, not Databento's bill.</text>
+        }
+    </div>
+
+    @if (Snapshot is { } corpus)
+    {
+        <div class="tiles">
+            <StatTile Label="Stored" Value="@Format.Bytes(corpus.TotalBytes)"
+                      Note="@($"{Format.Count(corpus.Count(DayState.Held))} day files")" />
+            <StatTile Label="Pending jobs" Value="@Format.Count(corpus.Pending.Count)"
+                      Note="@($"{Format.Count(corpus.Count(DayState.Pending))} days in flight")" />
+            <StatTile Label="Owed" Value="@Format.Count(corpus.Count(DayState.Owed))" Note="days not yet asked for" />
+            <StatTile Label="ETA" Value="@EtaValue(Estimate(corpus))" Note="@EtaNote(Estimate(corpus))" />
+            <StatTile Label="Lost" Value="@Format.Count(corpus.Count(DayState.Lost))" Note="aged out unstored" />
+            <StatTile Label="Issues, 24 h" Value="@Format.Count(RecentIssues.Count)" Href="activity"
+                      Note="@($"{Format.Count(RecentIssues.Count(i => i.Level == IssueLevel.Error))} errors")" />
+        </div>
+
+        <section class="panel">
+            <div class="page-head">
+                <h2>Coverage</h2>
+                <StateLegend />
+            </div>
+            <div class="scroll">
+                <table class="matrix">
+                    <thead>
+                        <tr>
+                            <th scope="col">Root</th>
+                            @foreach (var schema in Schemas)
+                            {
+                                <th scope="col">@schema.Name <span class="muted">@schema.Level</span></th>
+                            }
+                            <th scope="col" class="num">Stored</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var root in Roots)
+                        {
+                            <tr>
+                                <th scope="row">@root</th>
+                                @foreach (var schema in Schemas)
+                                {
+                                    var series = Find(corpus, schema.Name, root);
+
+                                    <td>
+                                        @if (series is null)
+                                        {
+                                            <span class="muted">not kept</span>
+                                        }
+                                        else
+                                        {
+                                            <a class="cell-link" href="@($"series/{schema.Name}/{root}")">
+                                                <StateBar Series="series" />
+                                                <span class="cell-text">
+                                                    <span>@Format.Count(series.Count(DayState.Held)) days · @Format.Bytes(series.TotalBytes)</span>
+                                                    <Health Series="series" />
+                                                </span>
+                                            </a>
+                                        }
+                                    </td>
+                                }
+                                <td class="num">@Format.Bytes(corpus.Series.Where(s => s.Root == root).Sum(s => s.TotalBytes))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Pending jobs</h2>
+            @if (corpus.Pending.Count == 0)
+            {
+                <p class="muted">None in flight.</p>
+            }
+            else
+            {
+                <div class="scroll">
+                    <table>
+                        <thead>
+                            <tr><th>Job</th><th>Schema</th><th>Root</th><th>Days</th><th>Submitted</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var job in corpus.Pending)
+                            {
+                                <tr>
+                                    <td><a href="@($"job/{job.Id}")"><code>@job.Id</code></a></td>
+                                    <td>@job.Schema</td>
+                                    <td>@job.Root</td>
+                                    <td>@job.Range</td>
+                                    <td>@Format.Relative(job.SubmittedAt, Clock.GetUtcNow())</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>

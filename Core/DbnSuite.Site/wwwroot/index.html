@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DbnSuite: open-source tools for Databento data</title>
+    <meta name="description" content="Open-source .NET tools for Databento market data: DbnSync archives what your plan includes into your own S3, and DbnFetch and DbnClient turn it into bars, rebuilt order books and continuous futures. MIT licensed. Independent of Databento." />
+    <base href="/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" />
+    <link rel="preload" id="webassembly" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" type="image/png" href="img/squidly.png" />
+    <script type="importmap"></script>
+</head>
+
+<body>
+    <div id="app">
+        <div class="loading">
+            <img src="img/squidly.png" alt="" width="72" height="72" />
+            <p>Loading DbnSuite…</p>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        Something went wrong. <a href="." class="reload">Reload</a>
+        <span class="dismiss">×</span>
+    </div>
+    <script>
+        // The docs' copy buttons: plain DOM, no interop needed.
+        function copyCode(button) {
+            const show = text => {
+                button.textContent = text;
+                setTimeout(() => button.textContent = "Copy", 1500);
+            };
+            navigator.clipboard.writeText(button.closest(".code").querySelector("code").innerText)
+                .then(() => show("Copied"), () => show("Select to copy"));
+        }
+
+        // Links to a #section of the page already open: Blazor's router would swallow them, so scroll here,
+        // in the capture phase, before it sees the click.
+        window.addEventListener("click", event => {
+            const link = event.target.closest("a[href*='#']");
+            if (!link || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
+            const url = new URL(link.href);
+            if (url.origin !== location.origin || url.pathname !== location.pathname) return;
+            const target = document.getElementById(decodeURIComponent(url.hash.slice(1)));
+            if (!target) return;
+            event.preventDefault();
+            event.stopPropagation();
+            history.pushState(null, "", url.pathname + url.hash);
+            target.scrollIntoView({ behavior: "smooth" });
+        }, true);
+
+        // Arriving at a #section from elsewhere: the page renders after load, so wait for the section.
+        if (location.hash) {
+            const id = decodeURIComponent(location.hash.slice(1));
+            const started = Date.now();
+            const wait = setInterval(() => {
+                const target = document.getElementById(id);
+                if (target) target.scrollIntoView();
+                if (target || Date.now() - started > 5000) clearInterval(wait);
+            }, 50);
+        }
+    </script>
+    <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
+</body>
+
+</html>

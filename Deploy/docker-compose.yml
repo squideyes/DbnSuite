@@ -1,0 +1,110 @@
+# DbnSync on the NAS: an S3 server holding the archive, the worker that fills
+# it, Seq for its logs, and (optionally) HTTPS for reaching S3 from the internet.
+#
+#   cp .env.example .env    # then fill it in; .env is never committed
+#   docker compose up -d
+#
+# To update after a new image is published:
+#
+#   docker compose pull && docker compose up -d
+#
+# The worker writes through the S3 API only. Never copy files into the S3
+# server's data folder by hand: it keeps its own on-disk format, so a file put
+# there directly is not an object.
+
+name: dbnsync
+
+services:
+  s3:
+    image: rustfs/rustfs:1.0.4
+    restart: unless-stopped
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ROOT_ACCESS_KEY:?set S3_ROOT_ACCESS_KEY in .env}
+      RUSTFS_SECRET_KEY: ${S3_ROOT_SECRET_KEY:?set S3_ROOT_SECRET_KEY in .env}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports:
+      - "${S3_PORT:-9000}:9000"
+      - "${S3_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - ${S3_DATA_PATH:?set S3_DATA_PATH in .env}:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9000/health || wget -qO- http://localhost:9000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  # Searchable logs, linked from the dashboard's issues and job pages. Seq is
+  # free for individual use; it keeps everything until a retention policy
+  # is set in its Settings.
+  seq:
+    image: datalust/seq:2025.2
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_ADMINPASSWORD: ${SEQ_ADMIN_PASSWORD:?set SEQ_ADMIN_PASSWORD in .env}
+    ports:
+      - "${SEQ_PORT:-5341}:80"
+    volumes:
+      - seq:/data
+
+  dbnsync:
+    image: ${DBNSYNC_IMAGE:-ghcr.io/squideyes/dbnsync:latest}
+    build:
+      context: ..
+    restart: unless-stopped
+    depends_on:
+      s3:
+        condition: service_healthy
+      seq:
+        condition: service_started
+    environment:
+      ConnectionStrings__seq: http://seq
+      # Seq as your browser reaches it, e.g. http://nas.local:5341. Empty hides the log links.
+      Dashboard__LogsUrl: ${DBNSYNC_LOGS_URL:-}
+      DATABENTO_API_KEY: ${DATABENTO_API_KEY:?set DATABENTO_API_KEY in .env}
+      # The S3 server above, or another such as DigitalOcean Spaces.
+      Store__ServiceUrl: ${S3_SERVICE_URL:-http://s3:9000}
+      Store__Bucket: ${S3_BUCKET:-dbn}
+      Store__AccessKey: ${DBNSYNC_ACCESS_KEY:-${S3_ROOT_ACCESS_KEY}}
+      Store__SecretKey: ${DBNSYNC_SECRET_KEY:-${S3_ROOT_SECRET_KEY}}
+      DbnSync__Roots: ${DBNSYNC_ROOTS:-ES,MES,NQ,MNQ,YM,MYM,RTY,M2K,CL,MCL,GC,MGC}
+      DbnSync__Schemas: ${DBNSYNC_SCHEMAS:-mbo,ohlcv-1s,definition,statistics,status}
+      # Spending at Databento. Off by default: a job goes only when quoted at exactly $0.
+      # Paid jobs are billed to your Databento account, at your own risk. See .env.example.
+      DbnSync__Spend__AllowPaidJobs: ${DBNSYNC_ALLOW_PAID_JOBS:-false}
+      DbnSync__Spend__MaxPerJob: ${DBNSYNC_MAX_PER_JOB:-0}
+      DbnSync__Spend__MaxPerDay: ${DBNSYNC_MAX_PER_DAY:-0}
+      DbnSync__Spend__MaxPerMonth: ${DBNSYNC_MAX_PER_MONTH:-0}
+    ports:
+      - "${DBNSYNC_PORT:-8080}:8080"
+    volumes:
+      - scratch:/scratch
+
+  # HTTPS in front of the S3 API and the dashboard, for reaching them from the
+  # internet. Off unless started with --profile internet. See Caddyfile; the
+  # router forwards the internet's port 443 to HTTPS_PORT here, since UGOS
+  # keeps 80 and 443 for its own web page.
+  https:
+    image: caddy:2.10.2
+    profiles: [internet]
+    restart: unless-stopped
+    environment:
+      S3_DOMAIN: ${S3_DOMAIN:-}
+      DASHBOARD_DOMAIN: ${DASHBOARD_DOMAIN:-}
+      DASHBOARD_USER: ${DASHBOARD_USER:-}
+      DASHBOARD_PASSWORD_HASH: ${DASHBOARD_PASSWORD_HASH:-}
+    depends_on:
+      s3:
+        condition: service_healthy
+      dbnsync:
+        condition: service_started
+    ports:
+      - "${HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - https:/data
+
+volumes:
+  scratch:
+  seq:
+  https:

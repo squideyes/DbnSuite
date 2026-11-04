@@ -1,0 +1,46 @@
+.day-grid {
+    width: auto;
+}
+
+.day-grid th,
+.day-grid td {
+    padding: 1px;
+    border: 0;
+    text-align: center;
+}
+
+.day-grid th[scope="row"] {
+    padding-right: 0.6rem;
+    text-align: left;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.day-grid .dom {
+    width: 16px;
+    color: var(--muted);
+    font-size: 0.7rem;
+}
+
+.day-grid .num {
+    padding-left: 0.75rem;
+    text-align: right;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* The cell is the mark; its cell padding is the 2px gap between marks and the hover target. */
+.cell {
+    display: block;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    outline: 1px solid var(--ring);
+    outline-offset: -1px;
+}
+
+.cell:hover {
+    outline: 2px solid var(--ink);
+    outline-offset: 0;
+}

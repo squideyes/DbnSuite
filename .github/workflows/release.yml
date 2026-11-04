@@ -1,0 +1,93 @@
+name: release
+
+# Push a tag such as v1.0.0 to publish DbnClient and DbnFetch to nuget.org
+# and attach native dbnf binaries to a GitHub release. Needs the NUGET_API_KEY
+# secret: an API key from nuget.org scoped to push DbnClient and DbnFetch.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  VERSION: ${{ github.ref_name }}
+
+jobs:
+  # A Native AOT binary builds only on its own operating system, so each
+  # platform's DbnFetch package is packed on a runner of that system.
+  native:
+    strategy:
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: win-arm64
+            os: windows-latest
+          - rid: linux-x64
+            os: ubuntu-latest
+          - rid: osx-arm64
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Pack DbnFetch for ${{ matrix.rid }}
+        shell: bash
+        run: dotnet pack Core/DbnFetch -c Release -r ${{ matrix.rid }} -p:Version=${VERSION#v} -o packages
+
+      - name: Publish the dbnf binary
+        shell: bash
+        run: |
+          dotnet publish Core/DbnFetch -c Release -r ${{ matrix.rid }} -p:Version=${VERSION#v} -o bin/${{ matrix.rid }}
+          cd bin/${{ matrix.rid }}
+          7z a ../../dbnf-${{ matrix.rid }}.zip dbnf* > /dev/null || zip ../../dbnf-${{ matrix.rid }}.zip dbnf*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.rid }}
+          path: |
+            packages/*.nupkg
+            dbnf-${{ matrix.rid }}.zip
+
+  publish:
+    needs: native
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - run: dotnet test DbnSuite.slnx -c Release
+
+      # The pointer package that lists the platform packages, a portable
+      # fallback for any other platform, and the library.
+      - name: Pack the rest
+        run: |
+          V=${VERSION#v}
+          dotnet pack Core/DbnFetch -c Release -p:Version=$V -o packages
+          dotnet pack Core/DbnFetch -c Release -r any -p:PublishAot=false -p:Version=$V -o packages
+          dotnet pack Core/DbnClient -c Release -p:Version=$V -o packages
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          merge-multiple: true
+          path: native
+
+      - name: Push to nuget.org
+        run: |
+          dotnet nuget push "packages/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+          dotnet nuget push "native/packages/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$VERSION" native/*.zip --title "DbnSuite $VERSION" --generate-notes

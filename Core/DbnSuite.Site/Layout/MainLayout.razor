@@ -1,0 +1,32 @@
+@inherits LayoutComponentBase
+
+<header class="site-header">
+    <div class="wrap header-row">
+        <a class="brand" href="">
+            <img src="img/squidly.png" alt="" width="36" height="36" />
+            <span>DbnSuite</span>
+        </a>
+        <nav class="site-nav" aria-label="Main">
+            <NavLink href="" Match="NavLinkMatch.All">Features</NavLink>
+            <NavLink href="docs">Docs</NavLink>
+            <a class="button small" href="@Links.GitHub">GitHub</a>
+        </nav>
+    </div>
+</header>
+
+<main>
+    @Body
+</main>
+
+<footer class="site-footer">
+    <div class="wrap footer-row">
+        <span>© @DateTime.UtcNow.Year SquidEyes. MIT licensed, provided as is, without warranty: use at your own risk. An independent project with no official connection with Databento, Inc. Databento® is a registered trademark of Databento, Inc.; other names are trademarks of their owners. Use only as your Databento agreements allow.</span>
+        <nav aria-label="Project">
+            <a href="@Links.GitHub">Source</a>
+            <a href="@Links.Issues">Issues</a>
+            <a href="@Links.Contributing">Contributing</a>
+            <a href="@Links.License">Licence</a>
+            <a href="@Links.Notice">Notice</a>
+        </nav>
+    </div>
+</footer>

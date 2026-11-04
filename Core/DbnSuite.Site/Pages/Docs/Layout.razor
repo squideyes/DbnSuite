@@ -1,0 +1,254 @@
+@page "/docs/layout"
+
+<PageTitle>Data layout: DbnSuite</PageTitle>
+
+<h1>Data layout</h1>
+<p class="lead">
+    The exact shape of the raw archive and of every processed file, as rules. Tools that read or write either can
+    rely on what follows; anything not stated here is not promised.
+</p>
+
+<div class="note"><p>
+    <strong>Version 1 of the layout.</strong> A change that breaks a rule on this page changes the version and is
+    called out in the release notes. Where a rule says <em>must</em>, a file that breaks it is not a DbnSuite archive
+    or export, and the tools may refuse it.
+</p></div>
+
+<nav class="toc" aria-label="On this page">
+    <p>On this page</p>
+    <ul>
+        <li><a href="docs/layout#conventions">Conventions</a></li>
+        <li><a href="docs/layout#raw">The raw archive</a></li>
+        <li><a href="docs/layout#raw-keys">Raw keys</a></li>
+        <li><a href="docs/layout#raw-files">Raw file contents</a></li>
+        <li><a href="docs/layout#raw-rules">Rules for readers and writers</a></li>
+        <li><a href="docs/layout#processed">Processed files</a></li>
+        <li><a href="docs/layout#names">File names</a></li>
+        <li><a href="docs/layout#types">Values and types by format</a></li>
+        <li><a href="docs/layout#columns">Columns by schema</a></li>
+        <li><a href="docs/layout#bars">Bars</a></li>
+        <li><a href="docs/layout#books">Rebuilt books and trades</a></li>
+        <li><a href="docs/layout#nt8">NinjaTrader 8 files</a></li>
+    </ul>
+</nav>
+
+<h2 id="conventions">Conventions</h2>
+<ul>
+    <li><strong>Dataset</strong> is the code Databento® gives it, upper case: <code>GLBX.MDP3</code>. The archive's first path segment is always the dataset, so datasets never mix. Version 1 of the layout defines one dataset, <code>GLBX.MDP3</code>; each dataset added later gets its own rules below for the <code>{root}</code> segment and its trading day, and a dataset without them is not part of the layout. See <a href="docs/datasets">Datasets</a>.</li>
+    <li><strong>Schema</strong> is Databento's schema name, lower case: <code>mbo</code>, <code>ohlcv-1s</code>, <code>definition</code>.</li>
+    <li><strong>Root</strong>, for <code>GLBX.MDP3</code>, is the futures product code, upper case, 1 to 6 letters or digits: <code>ES</code>, <code>MNQ</code>, <code>M2K</code>.</li>
+    <li><strong>Contract</strong> symbols are written with a two-digit year: <code>ESZ26</code>. Spreads join their legs with <code>-</code>: <code>ESZ26-ESH27</code>.</li>
+    <li><strong>A UTC day</strong> runs from 00:00:00 to 24:00:00 UTC. Raw files are UTC days.</li>
+    <li><strong>A trade date</strong>, for <code>GLBX.MDP3</code>, runs from 17:00 Chicago time on the previous calendar day to 16:00 Chicago time on the trade date, following CME's Globex week; Monday's opens on Sunday. Trading stops at 16:00, but settlement and status messages land in the hour after it, so the <code>eth</code> session also keeps records stamped 16:00 to 17:00 Chicago time, under the trade date that just closed. Processed files are trade dates.</li>
+    <li><strong>Raw times</strong> are unsigned 64-bit nanoseconds since 1970-01-01T00:00:00Z. <strong>Raw prices</strong> are signed 64-bit integers in units of 10<sup>-9</sup>; <code>9223372036854775807</code> means no price.</li>
+</ul>
+
+<h2 id="raw">The raw archive</h2>
+<p>
+    The raw archive is a set of objects in one S3 bucket, optionally under a prefix (<code>Store:Prefix</code>), or the
+    same tree in a local folder. Paths below are relative to the bucket or prefix and use <code>/</code>.
+</p>
+
+<h3 id="raw-keys">Raw keys</h3>
+<CodeBlock Title="Grammar" Text="@KeyGrammar" />
+<div class="table">
+    <table>
+        <thead><tr><th>Part</th><th>Rule</th><th>Example</th></tr></thead>
+        <tbody>
+            <tr><td><code>{dataset}</code></td><td>Upper case, as Databento writes it.</td><td><code>GLBX.MDP3</code></td></tr>
+            <tr><td><code>{schema}</code></td><td>Lower case Databento schema name.</td><td><code>mbo</code></td></tr>
+            <tr><td><code>{root}</code></td><td>For <code>GLBX.MDP3</code>, the upper case futures root; appears twice, and both must match.</td><td><code>MNQ</code></td></tr>
+            <tr><td><code>{yyyy}</code></td><td>The four-digit year of the UTC day.</td><td><code>2026</code></td></tr>
+            <tr><td><code>{yyyyMMdd}</code></td><td>The UTC day the object covers.</td><td><code>20261028</code></td></tr>
+            <tr><td><code>.dbn.zst</code></td><td>A data object.</td><td></td></tr>
+            <tr><td><code>.empty</code></td><td>A marker: the day was asked for and Databento had no data.</td><td></td></tr>
+        </tbody>
+    </table>
+</div>
+<CodeBlock Title="Examples" Text="@KeyExamples" />
+
+<h3 id="raw-files">Raw file contents</h3>
+<ul>
+    <li>A <code>.dbn.zst</code> object is the file Databento's batch API delivered for that day, <strong>byte for byte</strong>: zstd-compressed DBN, version 3, with Databento's metadata header. Its size and SHA-256 match Databento's manifest at the time it was stored.</li>
+    <li>It holds one UTC day of one schema for one root, as Databento splits a batch job by day.</li>
+    <li>Its metadata lists what was requested and maps every <code>instrument_id</code> in it to a requested symbol:
+        <ul>
+            <li><code>mbo</code>, <code>mbp-1</code>, <code>mbp-10</code>, <code>tbbo</code>, <code>trades</code> and <code>bbo-*</code> request the leading outrights by open interest, <code>{root}.n.0</code> to <code>{root}.n.{Depth−1}</code> (<code>stype_in</code> continuous). With the default depth, that is <code>.n.0</code> and <code>.n.1</code>.</li>
+            <li>Every other schema requests every instrument of the root, <code>{root}.FUT</code> (<code>stype_in</code> parent): outrights and spreads.</li>
+        </ul>
+    </li>
+    <li>A <code>.empty</code> object has zero bytes. It carries no data and no metadata.</li>
+</ul>
+
+<h3 id="raw-rules">Rules for readers and writers</h3>
+<ol class="steps-list">
+    <li><strong>One object per day, never both.</strong> For each dataset, schema, root and UTC day there is a <code>.dbn.zst</code> object, a <code>.empty</code> object, or neither. A writer must not leave both.</li>
+    <li><strong>Neither means not fetched.</strong> Readers must not treat a missing day as a day without trading. Only <code>.empty</code> says that.</li>
+    <li><strong>Data objects are immutable.</strong> Once stored, a <code>.dbn.zst</code> object is never rewritten. A reader may cache it by key and ETag indefinitely.</li>
+    <li><strong>Everything else is ignored.</strong> Readers must skip any key that does not match the grammar. <code>_dbnsync/</code> belongs to the DbnSync worker (its job, pass and spend records) and its contents may change without a layout version change.</li>
+    <li><strong>The archive is read through S3.</strong> Copying files into an S3 server's own data folder does not create objects. Write through the S3 API, or keep a plain folder tree that follows the grammar.</li>
+    <li><strong>Other writers are welcome</strong>, and DbnFetch and DbnClient read their files, if every object follows these rules: Databento's own daily DBN v3 files, zstd-compressed, under keys in the grammar above. <code>dbnf pull --out</code> writes exactly this layout; <code>--flat</code> does not, and a flat folder is not an archive.</li>
+</ol>
+
+<h2 id="processed">Processed files</h2>
+<p>
+    <code>dbnf export</code> and DbnClient's <code>Exporter</code> write processed files. Each covers trade dates, not
+    UTC days, and only the hours asked for (<code>--session</code> or <code>--hours</code>).
+</p>
+
+<h3 id="names">File names</h3>
+<div class="table">
+    <table>
+        <thead><tr><th>Layout</th><th>Name</th><th>Example</th></tr></thead>
+        <tbody>
+            <tr><td>One per trade date (default)</td><td><code>{series}.{kind}.{yyyyMMdd}.{ext}</code></td><td><code>ES.v.0.5m.20261030.csv</code></td></tr>
+            <tr><td><code>--single</code></td><td><code>{series}.{kind}.{from}-{to}.{ext}</code></td><td><code>ES.v.0.5m.20260101-20261030.parquet</code></td></tr>
+            <tr><td><code>--partition</code></td><td><code>series={series}/date={yyyy-MM-dd}/{kind}.{ext}</code></td><td><code>series=MNQ.n.0/date=2026-10-30/mbp-10.parquet</code></td></tr>
+            <tr><td><code>--format nt8</code></td><td><code>{instrument}.Last.txt</code></td><td><code>ES 12-26.Last.txt</code></td></tr>
+            <tr><td><code>--name</code></td><td>Your template, with the placeholders below. Without <code>{date}</code>, one file for the whole export.</td><td></td></tr>
+        </tbody>
+    </table>
+</div>
+<ul>
+    <li><code>{series}</code> is the symbol as asked for, upper case: a root (<code>ES</code>), a contract (<code>ESZ26</code>) or a continuous name (<code>ES.v.0</code>).</li>
+    <li><code>{kind}</code> is the <code>--as</code> schema if given, else the <code>--bars</code> size, else the schema: <code>trades</code>, <code>5m</code>, <code>ohlcv-1s</code>.</li>
+    <li><code>{from}</code>, <code>{to}</code> and <code>{yyyyMMdd}</code> are trade dates.</li>
+    <li><code>{ext}</code> is <code>csv</code>, <code>parquet</code>, <code>jsonl</code> or <code>dbn</code>, followed by <code>.gz</code> or <code>.zst</code> when compressed.</li>
+    <li>A trade date with no rows writes no file. Days missing from the archive are listed when the export ends and are never filled in.</li>
+</ul>
+
+<h3 id="types">Values and types by format</h3>
+<p>Every column has one of four kinds. Each format writes them as follows.</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Kind</th><th>CSV</th><th>JSON Lines</th><th>Parquet</th></tr></thead>
+        <tbody>
+            <tr><td>Time</td><td>As <code>--time</code> says, in <code>--tz</code> (below)</td><td>A string for <code>iso</code>, a number otherwise</td><td><code>INT64</code> <code>TIMESTAMP(NANOS, UTC)</code>, always UTC; <code>--tz</code> and <code>--time</code> do not apply</td></tr>
+            <tr><td>Price</td><td>Plain decimal, up to 9 places, no exponent</td><td>A number, same digits</td><td><code>DOUBLE</code>; exact to about 15 significant digits</td></tr>
+            <tr><td>Integer</td><td>Plain integer</td><td>A number</td><td><code>INT64</code></td></tr>
+            <tr><td>Text</td><td>Quoted only if it holds a comma, quote or line break</td><td>A string</td><td><code>BYTE_ARRAY</code> UTF-8 string, dictionary-encoded</td></tr>
+            <tr><td>No value</td><td>Empty field</td><td><code>null</code></td><td>Null (every column is optional)</td></tr>
+        </tbody>
+    </table>
+</div>
+<ul>
+    <li><strong>CSV:</strong> UTF-8 without a byte-order mark, comma-separated, <code>\n</code> line endings, one header row of column names.</li>
+    <li><strong>JSON Lines:</strong> UTF-8, one object per line, keys in column order, <code>\n</code> line endings.</li>
+    <li><strong>Parquet:</strong> flat schema, zstd compression, row groups of at most 1,000,000 rows, <code>created_by</code> <code>DbnClient</code>.</li>
+    <li><strong>DBN:</strong> the matching records copied unchanged, after a DBN version 3 metadata header. Columns, units and time options do not apply.</li>
+</ul>
+<div class="table">
+    <table>
+        <thead><tr><th><code>--time</code></th><th>Text written</th></tr></thead>
+        <tbody>
+            <tr><td><code>iso</code> (default)</td><td><code>2026-10-30T08:30:00.000000000-05:00</code>: ISO 8601 in <code>--tz</code> (Chicago by default), nine fractional digits, with the offset</td></tr>
+            <tr><td><code>iso</code> with <code>--split-time</code></td><td>In CSV and JSON Lines, two columns or fields, <code>{name}_date</code> (<code>2026-10-30</code>) and <code>{name}_time</code> (<code>08:30:00.000000000</code>), in <code>--tz</code>, without the offset</td></tr>
+            <tr><td><code>unix-ns</code></td><td>Nanoseconds since the UNIX epoch, UTC</td></tr>
+            <tr><td><code>unix-ms</code></td><td>Milliseconds since the UNIX epoch, UTC, truncated</td></tr>
+            <tr><td><code>excel</code></td><td>Days since 1899-12-30 in <code>--tz</code>, as a decimal fraction</td></tr>
+        </tbody>
+    </table>
+</div>
+<div class="table">
+    <table>
+        <thead><tr><th><code>--price</code></th><th>Value written</th></tr></thead>
+        <tbody>
+            <tr><td><code>decimal</code> (default)</td><td>The price in the contract's quote units: <code>6876.25</code></td></tr>
+            <tr><td><code>ticks</code></td><td>The price divided by the contract's tick size: <code>27505</code></td></tr>
+            <tr><td><code>raw</code></td><td>Databento's integer, in units of 10<sup>-9</sup></td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    For a continuous series with <code>--adjust</code>, every price column is adjusted before its units are applied:
+    <code>difference</code> adds the sum of later roll gaps; <code>ratio</code> multiplies by the product of later
+    roll ratios. The newest contract's prices are never changed.
+</p>
+<ul>
+    <li><strong>Adjustment applies to bars</strong> and to the other records of a series on a roll schedule. Order book events keep raw prices, so <code>--adjust</code> on an <code>mbo</code> series, with or without <code>--as</code> or <code>--bars</code>, is refused.</li>
+    <li><strong>A roll needs both settlements</strong> from the session before it. Without them it has no gap or ratio, and an adjusted export that crosses it is refused before a file is written, with the error <code>export.no_settlement</code> naming the roll and its contracts. Unadjusted exports and <code>dbnf rolls</code> are not affected.</li>
+</ul>
+
+<h3 id="columns">Columns by schema</h3>
+<p>
+    Records are exported with these columns, in this order. <code>symbol</code> is always the contract;
+    <code>series</code> is appended last, and only for a continuous series. <code>--columns</code> chooses and orders
+    them.
+</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Schema</th><th>Columns</th></tr></thead>
+        <tbody>
+            <tr><td><code>mbo</code></td><td><code>ts_recv</code>, <code>ts_event</code>, <code>symbol</code>, <code>instrument_id</code>, <code>action</code>, <code>side</code>, <code>price</code>, <code>size</code>, <code>order_id</code>, <code>flags</code>, <code>channel_id</code>, <code>sequence</code></td></tr>
+            <tr><td><code>ohlcv-*</code></td><td><code>ts_event</code>, <code>symbol</code>, <code>instrument_id</code>, <code>open</code>, <code>high</code>, <code>low</code>, <code>close</code>, <code>volume</code></td></tr>
+            <tr><td><code>statistics</code></td><td><code>ts_event</code>, <code>ts_ref</code>, <code>symbol</code>, <code>instrument_id</code>, <code>stat_type</code>, <code>price</code>, <code>quantity</code>, <code>update_action</code></td></tr>
+            <tr><td><code>status</code></td><td><code>ts_event</code>, <code>symbol</code>, <code>instrument_id</code>, <code>action</code>, <code>reason</code>, <code>trading_event</code>, <code>is_trading</code></td></tr>
+            <tr><td><code>definition</code></td><td><code>ts_event</code>, <code>symbol</code>, <code>raw_symbol</code>, <code>instrument_id</code>, <code>asset</code>, <code>instrument_class</code>, <code>min_price_increment</code>, <code>activation</code>, <code>expiration</code></td></tr>
+            <tr><td>Any other</td><td><code>ts_event</code>, <code>symbol</code>, <code>instrument_id</code>, <code>rtype</code></td></tr>
+        </tbody>
+    </table>
+</div>
+<ul>
+    <li>Field meanings are Databento's; see the schema reference in its documentation. <code>action</code> and <code>side</code> are single characters (<code>A</code>, <code>C</code>, <code>M</code>, <code>R</code>, <code>T</code>, <code>F</code>; <code>B</code>, <code>A</code>, <code>N</code>).</li>
+    <li><code>stat_type</code> is written as a name (<code>settlement_price</code>, <code>open_interest</code>), or the number when DbnClient doesn't know it. <code>ts_ref</code> and <code>quantity</code> are empty when Databento leaves them undefined.</li>
+    <li><code>raw_symbol</code> is CME's own symbol (<code>ESZ6</code>); <code>symbol</code> the two-digit-year form.</li>
+    <li>A record belongs to the trade date of its <code>ts_recv</code> for <code>mbo</code>, and of its <code>ts_event</code> for every other schema. Rows within a file keep the archive's order, which is time order. A record whose <code>ts_event</code> runs back over a trade date goes to the end of that date's file; nothing already there is lost.</li>
+</ul>
+
+<h3 id="bars">Bars</h3>
+<p>With <code>--bars</code>, rows are bars with these columns:</p>
+<CodeBlock Title="Bar columns" Text="ts_event, ts_end, symbol, open, high, low, close, volume[, trades][, series]" />
+<ul>
+    <li><code>trades</code> is present only for bars built from <code>mbo</code>.</li>
+    <li><strong>Time bars</strong> (<code>5s</code> to <code>1h</code>): <code>ts_event</code> is the bar's start and <code>ts_end</code> its end, exclusive, on a grid that starts at the session's open. A bar is written only if something traded in it; empty bars are never filled in.</li>
+    <li><strong><code>1d</code>, <code>1w</code>, <code>1mo</code></strong>: <code>ts_event</code> is the open of the first session in the bar and <code>ts_end</code> the close of the last. Weekly bars run Monday to Friday by trade date; monthly bars by the trade date's calendar month.</li>
+    <li><strong>Tick and volume bars</strong> (<code>500t</code>, <code>1000v</code>): <code>ts_event</code> is the first trade's time and <code>ts_end</code> the last's. A bar closes on its count; a volume bar's last trade is not split, so <code>volume</code> may exceed the size. No bar spans two trade dates.</li>
+    <li>A bar belongs to one contract. Bars of a root interleave by contract; bars of a continuous series take the contract held on each trade date. So a <code>1w</code> or <code>1mo</code> bar of a continuous series splits at a roll: one bar per contract.</li>
+</ul>
+
+<h3 id="books">Rebuilt books and trades</h3>
+<p>With <code>--as</code>, rows are rebuilt from <code>mbo</code> and follow Databento's own field names:</p>
+<div class="table">
+    <table>
+        <thead><tr><th><code>--as</code></th><th>Columns</th></tr></thead>
+        <tbody>
+            <tr><td><code>trades</code></td><td><code>ts_recv</code>, <code>ts_event</code>, <code>symbol</code>, <code>instrument_id</code>, <code>side</code>, <code>price</code>, <code>size</code>, <code>sequence</code></td></tr>
+            <tr><td><code>tbbo</code></td><td>As <code>trades</code>, then <code>bid_px_00</code>, <code>bid_sz_00</code>, <code>bid_ct_00</code>, <code>ask_px_00</code>, <code>ask_sz_00</code>, <code>ask_ct_00</code>: the book just before the trade</td></tr>
+            <tr><td><code>mbp-1</code></td><td>As <code>trades</code>, then <code>action</code>, then level 00 as for <code>tbbo</code></td></tr>
+            <tr><td><code>mbp-10</code></td><td>As <code>mbp-1</code>, with levels <code>00</code> to <code>09</code>, each <code>bid_px</code>, <code>bid_sz</code>, <code>bid_ct</code>, <code>ask_px</code>, <code>ask_sz</code>, <code>ask_ct</code></td></tr>
+            <tr><td><code>bbo-1s</code>, <code>bbo-1m</code></td><td><code>ts_recv</code>, <code>symbol</code>, <code>instrument_id</code>, <code>price</code>, <code>size</code>, then level 00: the book at the end of each interval</td></tr>
+        </tbody>
+    </table>
+</div>
+<ul>
+    <li>Each <code>mbo</code> day opens with a snapshot of the book; the rebuilt book starts from it and is never crossed.</li>
+    <li><code>mbp-1</code> and <code>mbp-10</code> write a row for every trade and whenever the levels they hold change, once the event that changed them is complete. <code>trades</code> and <code>tbbo</code> write a row for every trade.</li>
+    <li>A level with no orders has no value in its price, size and count.</li>
+    <li>The trades of a day add up to the archive's own <code>ohlcv-1s</code> volume for the same contract.</li>
+</ul>
+
+<h3 id="nt8">NinjaTrader 8 files</h3>
+<p>NinjaTrader's own import format, one line per bar or tick, <code>;</code>-separated, <code>\r\n</code> line endings, no header:</p>
+<CodeBlock Title="Bars (stamped with the bar's end)" Text="yyyyMMdd HHmmss;open;high;low;close;volume" />
+<CodeBlock Title="Bars of a day or longer, stamped with the date of the bar's end" Text="yyyyMMdd;open;high;low;close;volume" />
+<CodeBlock Title="Ticks, from --as trades" Text="yyyyMMdd HHmmss fffffff;price;volume" />
+<ul>
+    <li>The bar form goes by bar size alone: <code>1d</code>, <code>1w</code>, <code>1mo</code> and time bars of 24 hours or more are date-only, whatever the session, so <code>1d --session rth</code> has no time. Every shorter bar has one.</li>
+    <li>Times and dates are in <code>--tz</code>. NinjaTrader's import must be told the same zone.</li>
+    <li>The layout is fixed, so <code>--columns</code> is refused with <code>--format nt8</code>.</li>
+</ul>
+
+<div class="next"><a href="docs/archive">← The archive</a><a href="docs/datasets">Datasets →</a></div>
+
+@code {
+    private const string KeyGrammar = """
+        {dataset}/{schema}/{root}/{yyyy}/{root}.{schema}.{yyyyMMdd}.dbn.zst
+        {dataset}/{schema}/{root}/{yyyy}/{root}.{schema}.{yyyyMMdd}.empty
+        """;
+
+    private const string KeyExamples = """
+        GLBX.MDP3/mbo/MNQ/2026/MNQ.mbo.20261028.dbn.zst
+        GLBX.MDP3/mbo/MNQ/2026/MNQ.mbo.20261031.empty
+        GLBX.MDP3/ohlcv-1s/ES/2020/ES.ohlcv-1s.20200102.dbn.zst
+        """;
+}

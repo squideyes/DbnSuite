@@ -1,0 +1,93 @@
+@page "/docs"
+
+<PageTitle>Docs: DbnSuite</PageTitle>
+
+<h1>Documentation</h1>
+<p class="lead">
+    DbnSuite is three tools around one archive. DbnSync fills it; DbnFetch and DbnClient read it. You can run all
+    three, or only the readers against an archive your team keeps under the same Databento® licence.
+</p>
+
+<DatabentoNotice />
+
+<h2 id="how">How the pieces fit</h2>
+<ol class="steps-list">
+    <li>
+        <strong>DbnSync fills an S3 bucket.</strong>
+        It runs in Docker beside an S3 server, on a NAS, a home server or a cloud server. Each pass works out which
+        days the store is missing, asks Databento for the ones your plan includes at no charge, and stores each file
+        exactly as delivered.
+    </li>
+    <li>
+        <strong>The archive is plain S3.</strong>
+        One zstd-compressed DBN file per root, schema and UTC day, under predictable keys. Anything that speaks S3
+        and reads DBN can use it, without DbnSync running. See <a href="docs/archive">The archive</a>.
+    </li>
+    <li>
+        <strong>DbnFetch and DbnClient read it.</strong>
+        Each person gets a read-only key. <code>dbnf</code> lists the archive, downloads raw files and exports
+        processed data; DbnClient does the same from your own C#.
+    </li>
+</ol>
+
+<h2 id="start">Where to start</h2>
+<div class="table">
+    <table>
+        <thead><tr><th>You want to</th><th>Read</th></tr></thead>
+        <tbody>
+            <tr><td>Keep an archive of your Databento data</td><td><a href="docs/dbnsync">DbnSync</a>: requirements, installation, keys and configuration</td></tr>
+            <tr><td>Get bars, continuous futures or order books from an archive</td><td><a href="docs/dbnfetch">DbnFetch</a>: installing dbnf, logging in, every command</td></tr>
+            <tr><td>Read the archive from your own .NET code</td><td><a href="docs/dbnclient">DbnClient</a>: the library, with examples</td></tr>
+            <tr><td>Read the archive from Python, the AWS CLI or anything else</td><td><a href="docs/archive">The archive</a>: layout, file format and other clients. DbnClient itself is C# only; a client in another language is a <a href="@Links.Contributing">welcome contribution</a>.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h2 id="requirements">Requirements</h2>
+<div class="table">
+    <table>
+        <thead><tr><th>Tool</th><th>Needs</th></tr></thead>
+        <tbody>
+            <tr><td>DbnSync</td><td>A Databento subscription that includes historical data from a <a href="docs#datasets">supported dataset</a>; Docker with Compose v2; disk for the archive (about 90 GB to start with the defaults, growing about 750 GB a year).</td></tr>
+            <tr><td>DbnFetch</td><td>The <a href="@Links.DotNet">.NET 10 SDK</a> on Windows, macOS or Linux, or a standalone binary from <a href="@Links.Releases">Releases</a>; a read-only key to an archive.</td></tr>
+            <tr><td>DbnClient</td><td>A .NET 10 project.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h2 id="datasets">Datasets</h2>
+<p>
+    DbnSuite is built for Databento's whole corpus. What differs from one dataset to the next is written down in a
+    dataset profile, which is either verified (run by the maintainer every day) or contributed (run by someone else,
+    against their own subscription). Supported today: <code>GLBX.MDP3</code>, CME Globex futures, verified. Features
+    named for futures (continuous series, rolls, CME trade dates) apply to futures datasets only. Examples in these
+    docs use <code>GLBX.MDP3</code>. See <a href="docs/datasets">Datasets</a>, which also explains how to add one.
+</p>
+
+<h2 id="risk">Use at your own risk</h2>
+<div class="note warn"><p>
+    DbnSuite is free software, provided as is, without warranty of any kind, under the
+    <a href="@Links.License">MIT licence</a>. SquidEyes builds it for its own use and accepts no liability for how
+    you use it. Before you rely on it, know that:
+</p></div>
+<ul>
+    <li><strong>Money:</strong> DbnSync acts on your Databento account. It spends nothing unless you set a <a href="docs/dbnsync#spend">spend policy</a>, and if you do, what it spends is billed to you, whatever DbnSync's own ledger says.</li>
+    <li><strong>Data:</strong> processed files (bars, back-adjusted series, rebuilt order books) come from code that can be wrong. Check them against your own expectations before you research, trade or report on them.</li>
+    <li><strong>Licensing:</strong> Databento's terms apply to every file DbnSync stores. Sharing an archive with anyone your Databento licence doesn't cover may breach it; that is between you and Databento.</li>
+    <li><strong>Security:</strong> the archive, its keys and anything you expose to the internet are yours to secure. Follow <a href="docs/dbnsync#keys">Keys</a> and <a href="docs/dbnsync#internet">Reaching it from the internet</a>.</li>
+    <li><strong>Libraries:</strong> if you build DbnClient into your own software, you adopt it at your own risk, and its behaviour may change between versions.</li>
+</ul>
+
+<h2 id="terms">Terms used here</h2>
+<div class="table">
+    <table>
+        <tbody>
+            <tr><td><strong>Root</strong></td><td>A product, such as <code>ES</code> or <code>MNQ</code>. Contracts of a root are named like <code>ESZ26</code>.</td></tr>
+            <tr><td><strong>Schema</strong></td><td>Databento's name for a kind of data: <code>mbo</code> (every order book event), <code>ohlcv-1s</code> (1-second bars), <code>definition</code>, <code>statistics</code>, <code>status</code> and others.</td></tr>
+            <tr><td><strong>Continuous series</strong></td><td>A name like <code>ES.v.0</code> that follows the leading contract and rolls to the next: <code>c</code> by calendar, <code>v</code> by volume, <code>n</code> by open interest.</td></tr>
+            <tr><td><strong>Trade date</strong></td><td>CME's session day: Tuesday's session runs from Monday 17:00 to Tuesday 16:00 Chicago time. Settlement and status messages land in the hour after, so records stamped 16:00 to 17:00 count to the same trade date. Archive files are UTC days; exports are trade dates.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="next"><span></span><a href="docs/dbnsync">DbnSync →</a></div>

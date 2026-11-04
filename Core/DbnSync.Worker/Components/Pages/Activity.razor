@@ -1,0 +1,137 @@
+@page "/activity"
+
+<PageTitle>Activity · DbnSync</PageTitle>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h1>Activity</h1>
+            <span class="sub">Passes that changed the archive or met a problem</span>
+        </div>
+        <div class="filters" role="group" aria-label="Range">
+            @foreach (var days in RangeChoices)
+            {
+                <button class="@(Days == days ? "on" : "")" @onclick="() => ShowAsync(days)">@(days == 1 ? "24 h" : $"{days} days")</button>
+            }
+        </div>
+    </div>
+
+    @if (LoadError is not null)
+    {
+        <div class="panel error-text" role="alert">Pass history unavailable: @LoadError</div>
+    }
+
+    <section class="panel">
+        <div class="page-head">
+            <h2>Issues</h2>
+            <div class="filters" role="group" aria-label="Level">
+                <button class="@(Level is null ? "on" : "")" @onclick="() => Level = null">All @Format.Count(Issues.Count)</button>
+                <button class="@(Level == IssueLevel.Error ? "on" : "")" @onclick="() => Level = IssueLevel.Error">Errors @Format.Count(Count(IssueLevel.Error))</button>
+                <button class="@(Level == IssueLevel.Warning ? "on" : "")" @onclick="() => Level = IssueLevel.Warning">Warnings @Format.Count(Count(IssueLevel.Warning))</button>
+            </div>
+        </div>
+        @if (Shown.Count == 0)
+        {
+            <p class="muted">@(Loading ? "Loading…" : "No issues in this range.")</p>
+        }
+        else
+        {
+            <div class="scroll">
+                <table>
+                    <thead>
+                        <tr><th><span class="visually-hidden">Detail</span></th><th>When</th><th>Level</th><th>Issue</th><th>Series</th><th>Days</th><th>Job</th><th>Message</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var issue in Shown)
+                        {
+                            var open = issue == Open;
+
+                            <tr class="issue-row @(open ? "open" : "")" @onclick="() => Toggle(issue)">
+                                <td>
+                                    <button class="toggle" aria-expanded="@(open ? "true" : "false")"
+                                            aria-label="@(open ? "Hide detail" : "Show detail")"
+                                            @onclick="() => Toggle(issue)" @onclick:stopPropagation>@(open ? "▾" : "▸")</button>
+                                </td>
+                                <td class="nowrap">@Format.Time(issue.At)</td>
+                                <td>
+                                    @if (issue.Level == IssueLevel.Error)
+                                    {
+                                        <span class="chip critical">✕ Error</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="chip warning">▲ Warning</span>
+                                    }
+                                </td>
+                                <td class="nowrap">
+                                    <span class="title">@IssueGuide.For(issue.Code).Title</span>
+                                    <code>@issue.Code</code>
+                                </td>
+                                <td class="nowrap">
+                                    @if (issue.Schema is { } schema && issue.Root is { } root)
+                                    {
+                                        <a href="@($"series/{schema}/{root}")" @onclick:stopPropagation>@root @schema</a>
+                                    }
+                                </td>
+                                <td class="nowrap">@issue.Range</td>
+                                <td class="nowrap">
+                                    @if (issue.JobId is { } job)
+                                    {
+                                        <a href="@($"job/{job}")" @onclick:stopPropagation><code>@job</code></a>
+                                    }
+                                </td>
+                                <td class="message">@issue.Message</td>
+                            </tr>
+                            @if (open)
+                            {
+                                <tr class="detail-row">
+                                    <td></td>
+                                    <td colspan="7"><IssueDetail Issue="issue" /></td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="panel">
+        <h2>Passes</h2>
+        @if (Passes.Count == 0)
+        {
+            <p class="muted">@(Loading ? "Loading…" : "No recorded passes in this range.")</p>
+        }
+        else
+        {
+            <div class="scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Started</th><th class="num">Took</th><th class="num">Collected</th><th class="num">Submitted</th>
+                            <th class="num">Pending</th><th class="num">Owed</th><th class="num">Files</th><th class="num">Stored</th>
+                            <th class="num">No data</th><th class="num">Issues</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var pass in Passes)
+                        {
+                            <tr>
+                                <td class="nowrap">@Format.Time(pass.StartedAt)</td>
+                                <td class="num">@Took(pass)</td>
+                                <td class="num">@pass.JobsCollected</td>
+                                <td class="num">@pass.JobsSubmitted</td>
+                                <td class="num">@pass.JobsPending</td>
+                                <td class="num">@Format.Count(pass.JobsOwed)</td>
+                                <td class="num">@pass.FilesStored</td>
+                                <td class="num">@Format.Bytes(pass.BytesStored)</td>
+                                <td class="num">@pass.EmptyDays</td>
+                                <td class="num @(pass.Errors > 0 ? "error-text" : "")">@pass.Issues.Count</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>

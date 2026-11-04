@@ -1,0 +1,40 @@
+.matrix th[scope="row"] {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.matrix td {
+    min-width: 128px;
+}
+
+.cell-link {
+    display: grid;
+    gap: 0.3rem;
+    color: var(--ink);
+    padding: 0.2rem;
+    margin: -0.2rem;
+    border-radius: 6px;
+}
+
+.cell-link:hover {
+    background: var(--surface-2);
+    text-decoration: none;
+}
+
+.cell-text {
+    display: grid;
+    font-size: 0.8rem;
+    color: var(--ink-2);
+}
+
+code {
+    font-size: 0.8rem;
+}
+
+.spend {
+    font-size: 0.9rem;
+}
+
+.spend.paid {
+    border-left: 3px solid var(--state-owed);
+}

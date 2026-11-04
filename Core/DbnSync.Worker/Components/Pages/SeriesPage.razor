@@ -1,0 +1,88 @@
+@page "/series/{Schema}/{Root}"
+@implements IDisposable
+@inject CorpusIndex Index
+
+<PageTitle>@Root @Schema · DbnSync</PageTitle>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h1>@Root · @Schema</h1>
+            <span class="sub"><a href="">Corpus</a></span>
+        </div>
+    </div>
+
+    @if (Current is not { } series)
+    {
+        <p class="muted">@(Index.Snapshot is null ? "First scan running…" : $"{Root} {Schema} is not kept.")</p>
+    }
+    else
+    {
+        <div class="tiles">
+            <StatTile Label="Stored" Value="@Format.Bytes(series.TotalBytes)"
+                      Note="@($"{Format.Count(series.Count(DayState.Held))} day files")" />
+            <StatTile Label="No data" Value="@Format.Count(series.Count(DayState.Empty))" Note="weekends and holidays" />
+            <StatTile Label="Pending" Value="@Format.Count(series.Count(DayState.Pending))" />
+            <StatTile Label="Owed" Value="@Format.Count(series.Count(DayState.Owed))" />
+            <StatTile Label="Lost" Value="@Format.Count(series.Count(DayState.Lost))" />
+            <StatTile Label="Free from" Value="@Format.Day(series.FreeFrom)"
+                      Note="@($"{series.Schema.Level} · {series.Schema.Selection}")" />
+        </div>
+
+        <section class="panel">
+            <div class="page-head">
+                <h2>Days</h2>
+                <StateLegend />
+            </div>
+            <DayGrid Series="series" />
+        </section>
+
+        <section class="panel">
+            <h2>Gaps</h2>
+            @if (Gaps(series) is { Count: > 0 } gaps)
+            {
+                <div class="scroll">
+                    <table>
+                        <thead>
+                            <tr><th>State</th><th>From</th><th>To</th><th class="num">Days</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var (state, range) in gaps)
+                            {
+                                <tr>
+                                    <td><span class="chip"><i class="swatch @Format.Css(state)"></i>@Format.Name(state)</span></td>
+                                    <td>@Format.Day(range.From)</td>
+                                    <td>@Format.Day(range.Upto)</td>
+                                    <td class="num">@Format.Count(range.Days)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="muted">None: every day is stored or marked empty.</p>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter] public string Schema { get; set; } = "";
+
+    [Parameter] public string Root { get; set; } = "";
+
+    private Series? Current => Index.Snapshot?.Series.FirstOrDefault(s =>
+        s.Schema.Name.Equals(Schema, StringComparison.OrdinalIgnoreCase)
+        && s.Root.Equals(Root, StringComparison.OrdinalIgnoreCase));
+
+    private static IReadOnlyList<(DayState State, DayRange Range)> Gaps(Series series) =>
+        [.. series.Runs(DayState.Lost, DayState.Owed, DayState.Pending).OrderByDescending(r => r.Range.From)];
+
+    protected override void OnInitialized() => Index.Changed += Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Index.Changed -= Refresh;
+}

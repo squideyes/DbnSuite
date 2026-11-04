@@ -1,0 +1,39 @@
+h1 code {
+    font-size: 1.1rem;
+}
+
+.verdict {
+    margin: 0 0 0.75rem;
+    font-weight: 600;
+}
+
+.problem + .problem {
+    border-top: 1px solid var(--grid);
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+}
+
+h3 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+h3 code,
+td code {
+    font-size: 0.8rem;
+    font-weight: 400;
+}
+
+.problem p {
+    margin: 0.2rem 0 0;
+    font-size: 0.8rem;
+}
+
+.nowrap {
+    white-space: nowrap;
+}

@@ -1,0 +1,527 @@
+@page "/docs/dbnsync"
+
+<PageTitle>DbnSync docs: DbnSuite</PageTitle>
+
+<h1>DbnSync</h1>
+<p class="lead">
+    A Docker service that fetches the data your Databento® plan includes and keeps it in an S3 store you own. It
+    runs unattended, checks every file, and by default never submits a job that costs money.
+</p>
+
+<nav class="toc" aria-label="On this page">
+    <p>On this page</p>
+    <ul>
+        <li><a href="docs/dbnsync#requirements">Requirements</a></li>
+        <li><a href="docs/dbnsync#claude">Install with Claude Code</a></li>
+        <li><a href="docs/dbnsync#install">Install with Docker Compose</a></li>
+        <li><a href="docs/dbnsync#nas">Notes for NAS systems</a></li>
+        <li><a href="docs/dbnsync#desktop">Docker Desktop on Windows or macOS</a></li>
+        <li><a href="docs/dbnsync#digitalocean">DigitalOcean, without a NAS</a></li>
+        <li><a href="docs/dbnsync#keys">Keys for the worker and readers</a></li>
+        <li><a href="docs/dbnsync#internet">Reaching it from the internet</a></li>
+        <li><a href="docs/dbnsync#what">What it keeps</a></li>
+        <li><a href="docs/dbnsync#plans">Databento plans</a></li>
+        <li><a href="docs/dbnsync#spend">Spend policy</a></li>
+        <li><a href="docs/dbnsync#how">How a pass works</a></li>
+        <li><a href="docs/dbnsync#dashboard">The dashboard</a></li>
+        <li><a href="docs/dbnsync#configuration">Configuration</a></li>
+        <li><a href="docs/dbnsync#operating">Updating and day-to-day</a></li>
+        <li><a href="docs/dbnsync#troubleshooting">Troubleshooting</a></li>
+    </ul>
+</nav>
+
+<h2 id="requirements">Requirements</h2>
+<ul>
+    <li><strong>A Databento API key</strong> for a subscription that includes historical data from a <a href="docs#datasets">supported dataset</a>, today CME Globex (<code>GLBX.MDP3</code>). See <a href="docs/dbnsync#plans">Databento plans</a>.</li>
+    <li><strong>A machine that stays on</strong>, running <a href="@Links.Docker">Docker Engine</a> with the Compose plugin (v2). A NAS, a Linux server or a small cloud server all work; 1 GB of memory is enough.</li>
+    <li><strong>Disk for the archive.</strong> The defaults need about 90 GB on day one and grow about 750 GB a year, almost all of it order books. Fewer roots need far less; see <a href="docs/dbnsync#what">What it keeps</a>.</li>
+</ul>
+<p>
+    The Compose file runs three containers: <strong>RustFS</strong>, an S3 server that holds the archive in a folder you
+    choose; <strong>Seq</strong>, which keeps the worker's logs searchable; and the <strong>DbnSync worker</strong>,
+    published as <code>ghcr.io/squideyes/dbnsync</code>. An optional fourth, <strong>Caddy</strong>, adds HTTPS.
+</p>
+
+<h2 id="claude">Install with Claude Code</h2>
+<p>
+    The repository includes a Claude Code skill, <code>dbnsync-deploy</code>, that follows the steps on this page for
+    you: on the machine you run it on, or on a NAS or server over SSH. It checks Docker and disk space, sets up the
+    folders and <code>.env</code>, starts the containers and proves the service is healthy. Later it updates DbnSync,
+    sets up keys and helps with problems.
+</p>
+<CodeBlock Title="Shell on your computer" Text="@ClaudeStart" />
+<p>Then tell it where DbnSync should run, or just say <em>get this running on my NAS</em>. It is written to protect you:</p>
+<ul>
+    <li><strong>Your Databento key stays out of the conversation.</strong> You type it into <code>.env</code> yourself, and the other secrets are generated straight into the file.</li>
+    <li><strong>It never turns on spending.</strong> The spend policy is yours alone to set.</li>
+    <li><strong>It asks first</strong> before anything that costs money, opens a port or touches a folder that already holds data.</li>
+</ul>
+<div class="note warn"><p>
+    The skill is instructions for an AI model, not a guarantee: it can make mistakes, and you remain responsible for
+    your machine, your account and your data. Read each command before you approve it.
+</p></div>
+
+<h2 id="install">Install with Docker Compose</h2>
+<p>These steps are for any Linux machine with Docker. NAS systems, Docker Desktop and DigitalOcean differ in a few places, covered after.</p>
+<ol class="steps-list">
+    <li>
+        <strong>Check Docker and Compose.</strong>
+        Both commands should print a version. Compose must be v2 (<code>docker compose</code>, with a space).
+        <CodeBlock Title="Shell on the server" Text="@CheckDocker" />
+    </li>
+    <li>
+        <strong>Make a folder and download the deployment files.</strong>
+        <code>docker-compose.yml</code> describes the containers, <code>Caddyfile</code> is used only for
+        <a href="docs/dbnsync#internet">HTTPS</a>, and <code>.env.example</code> becomes your <code>.env</code>, which
+        holds your settings and secrets.
+        <CodeBlock Title="Shell on the server" Text="@Download" />
+    </li>
+    <li>
+        <strong>Make the archive folder.</strong>
+        RustFS runs as user id 10001, so that user must own the folder. Put it on the disk with room for the archive.
+        <CodeBlock Title="Shell on the server" Text="@DataFolder" />
+    </li>
+    <li>
+        <strong>Fill in <code>.env</code>.</strong>
+        Open it in an editor (<code>nano .env</code>) and set at least these:
+        <div class="table">
+            <table>
+                <thead><tr><th>Setting</th><th>What to put</th></tr></thead>
+                <tbody>
+                    <tr><td><code>DATABENTO_API_KEY</code></td><td>Your key, from the API keys page of your Databento portal. It starts <code>db-</code>.</td></tr>
+                    <tr><td><code>S3_ROOT_ACCESS_KEY</code></td><td>The S3 server's administrator name. The default, <code>dbnsync-admin</code>, is fine.</td></tr>
+                    <tr><td><code>S3_ROOT_SECRET_KEY</code></td><td>A long random secret: run <code>openssl rand -base64 30</code> and paste the result.</td></tr>
+                    <tr><td><code>S3_DATA_PATH</code></td><td>The archive folder from step 3, such as <code>/srv/dbnsync/s3</code>.</td></tr>
+                    <tr><td><code>SEQ_ADMIN_PASSWORD</code></td><td>A password for Seq's <code>admin</code> user, used on its first start.</td></tr>
+                    <tr><td><code>DBNSYNC_LOGS_URL</code></td><td>Seq as your browser reaches it, such as <code>http://myserver:5341</code>, so the dashboard can link problems to their logs. Leave it empty to hide the links.</td></tr>
+                </tbody>
+            </table>
+        </div>
+        Every other setting is optional; <a href="docs/dbnsync#configuration">Configuration</a> lists them.
+    </li>
+    <li>
+        <strong>Start it.</strong>
+        <code>pull</code> downloads the images, and <code>up -d</code> starts the containers in the background. They
+        restart by themselves after a reboot.
+        <CodeBlock Title="Shell on the server, in the dbnsync folder" Text="@Start" />
+    </li>
+    <li>
+        <strong>Check it is running.</strong>
+        All three containers should be <em>running</em>, and <code>s3</code> <em>healthy</em>. The health endpoint
+        answers <code>Healthy</code>.
+        <CodeBlock Title="Shell on the server" Text="@Check" />
+    </li>
+    <li>
+        <strong>Open the dashboard</strong> at <code>http://&lt;server&gt;:8080</code>. The first pass starts at once.
+        With the defaults the first backfill is about 670 Databento jobs, at most 30 in flight at a time, and takes a
+        day or two; the dashboard's ETA says when it expects to finish.
+    </li>
+    <li>
+        <strong>Give the worker and your readers their own keys.</strong>
+        Until you do, the worker uses the S3 administrator's key. <a href="docs/dbnsync#keys">Keys</a> takes five
+        minutes and is worth doing before anyone else connects.
+    </li>
+</ol>
+
+<h3 id="ports">Ports</h3>
+<div class="table">
+    <table>
+        <thead><tr><th>Port</th><th>What</th><th>Setting</th></tr></thead>
+        <tbody>
+            <tr><td><code>9000</code></td><td>The S3 API. Point S3 clients and <code>dbnf login</code> here, path-style.</td><td><code>S3_PORT</code></td></tr>
+            <tr><td><code>9001</code></td><td>The RustFS console, for users, keys and policies.</td><td><code>S3_CONSOLE_PORT</code></td></tr>
+            <tr><td><code>8080</code></td><td>The DbnSync dashboard, plus <code>/status</code> and <code>/health</code>.</td><td><code>DBNSYNC_PORT</code></td></tr>
+            <tr><td><code>5341</code></td><td>Seq, the worker's logs.</td><td><code>SEQ_PORT</code></td></tr>
+            <tr><td><code>8443</code></td><td>Caddy's HTTPS, only with <code>--profile internet</code>.</td><td><code>HTTPS_PORT</code></td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h2 id="nas">Notes for NAS systems</h2>
+<p>Synology, QNAP, UGREEN and similar systems run DbnSync the same way. The differences are where things are switched on:</p>
+<ul>
+    <li><strong>Turn on SSH</strong> in the NAS's control panel (Synology: Control Panel → Terminal &amp; SNMP; UGREEN UGOS: Control Panel → Terminal), and <strong>install Docker</strong> from its app centre (Synology calls it Container Manager). Then follow the steps above in an SSH session, prefixing <code>docker</code> commands with <code>sudo</code>.</li>
+    <li><strong>Use a shared folder</strong> for the deployment and the archive, such as <code>/volume1/docker/dbnsync</code> and <code>/volume1/docker/dbnsync/s3</code>.</li>
+    <li><strong>Copying files from your PC instead of downloading them?</strong> UGOS's SFTP service does not see <code>/volume1</code>, so use the classic protocol: <code>scp -O docker-compose.yml Caddyfile .env user@@nas:/volume1/docker/dbnsync/</code>.</li>
+    <li><strong>Ports 80 and 443</strong> usually belong to the NAS's own web page. That is why Caddy listens on 8443; see <a href="docs/dbnsync#internet">Reaching it from the internet</a>.</li>
+    <li>Some NAS systems switch SSH off again after a while. Switch it back on if a session drops; DbnSync keeps running either way.</li>
+</ul>
+
+<h2 id="desktop">Docker Desktop on Windows or macOS</h2>
+<p>
+    Good for trying DbnSync, though a machine that sleeps will pause it. Skip step 3's <code>chown</code>: Docker Desktop
+    handles ownership itself. Set <code>S3_DATA_PATH=./s3</code> to keep the archive beside the Compose file, and
+    download the files in PowerShell with <code>curl.exe -fsSLO</code> in place of <code>curl -fsSLO</code>.
+</p>
+
+<h2 id="digitalocean">DigitalOcean, without a NAS</h2>
+<p>A Droplet runs the worker and Seq, and a DigitalOcean Space replaces RustFS as the S3 store.</p>
+<ol class="steps-list">
+    <li><strong>Create a Space</strong> (for example <code>dbn</code> in <code>nyc3</code>) and, under API → Spaces Keys, an access key for it. Spaces costs $5 a month for 250 GB, then $0.02 per GB.</li>
+    <li><strong>Create a Droplet</strong> from the Docker image on Ubuntu; the 1 GB size is enough. SSH in and do steps 1 and 2 above.</li>
+    <li>
+        <strong>Point <code>.env</code> at the Space.</strong>
+        The <code>S3_ROOT_*</code>, <code>S3_DATA_PATH</code> settings are unused but need a value.
+        <CodeBlock Title=".env on the Droplet" Text="@SpacesEnv" />
+    </li>
+    <li>
+        <strong>Start the worker and Seq</strong> without the local S3 server:
+        <CodeBlock Title="Shell on the Droplet" Text="@SpacesStart" />
+    </li>
+    <li><strong>Reach the dashboard privately.</strong> Don't open port 8080 to the internet; use an SSH tunnel (<code>ssh -L 8080:localhost:8080 root@@droplet</code>, then <code>http://localhost:8080</code>) or Tailscale.</li>
+</ol>
+
+<h2 id="keys">Keys for the worker and readers</h2>
+<p>
+    The S3 administrator's key can do anything, including delete the archive. Keep it on the server and give
+    everything else a key of its own: the worker can read and write the bucket, and every reader can only read it.
+</p>
+<ol class="steps-list">
+    <li><strong>Open the RustFS console</strong> at <code>http://&lt;server&gt;:9001</code> and sign in with <code>S3_ROOT_ACCESS_KEY</code> and <code>S3_ROOT_SECRET_KEY</code>.</li>
+    <li>
+        <strong>Create two policies</strong>, <code>dbn-readonly</code> and <code>dbn-readwrite</code>:
+        <CodeBlock Title="dbn-readonly" Text="@ReadOnlyPolicy" />
+        <CodeBlock Title="dbn-readwrite" Text="@ReadWritePolicy" />
+    </li>
+    <li><strong>Create a user for the worker</strong> with <code>dbn-readwrite</code> attached, and give it an access key. Put the key in <code>.env</code> as <code>DBNSYNC_ACCESS_KEY</code> and <code>DBNSYNC_SECRET_KEY</code>, then run <code>docker compose up -d</code> to restart the worker with it.</li>
+    <li><strong>Create a user for each reader</strong> (each person, notebook server or machine) with <code>dbn-readonly</code> attached, and give each an access key. They use it with <a href="docs/dbnfetch#login"><code>dbnf login</code></a> or any S3 client. A key of their own can be revoked on its own.</li>
+</ol>
+<p>The bucket is named <code>dbn</code> unless you set <code>S3_BUCKET</code>; change the policies to match if you do.</p>
+
+<h2 id="internet">Reaching it from the internet</h2>
+<p>Readers on your own network use <code>http://&lt;server&gt;:9000</code>. From elsewhere there are two ways.</p>
+<h3>Only your own devices: Tailscale</h3>
+<p>
+    Install <a href="https://tailscale.com/download">Tailscale</a> on the server and on each device. They then reach
+    <code>http://&lt;server's Tailscale name&gt;:9000</code> from anywhere, encrypted, with no port opened on your
+    router. This is the safer choice and needs no domain or certificate.
+</p>
+<h3>Anyone with a key: HTTPS on your own domain</h3>
+<p>
+    The optional <code>https</code> service puts Caddy in front of the S3 API and the dashboard, each under its own
+    name, and gets and renews a Let's Encrypt certificate for each by itself.
+</p>
+<ol class="steps-list">
+    <li><strong>Give the server a fixed address</strong> on your router (a DHCP reservation), so a forwarding rule keeps pointing at it.</li>
+    <li><strong>Point two DNS names at your public IP</strong>, such as <code>s3.example.com</code> and <code>dbnsync.example.com</code>, with <code>A</code> records wherever your domain's DNS is hosted.</li>
+    <li><strong>Forward TCP port 443</strong> on your router to the server's port 8443. Forward nothing else: not 80, 9000, 9001, 8080 or 5341.</li>
+    <li>
+        <strong>Set the names and a dashboard password</strong> in <code>.env</code>. Make the password hash with:
+        <CodeBlock Title="Shell on the server" Text="@HashPassword" />
+        <CodeBlock Title=".env" Text="@InternetEnv" />
+    </li>
+    <li>
+        <strong>Start Caddy</strong> with the other containers:
+        <CodeBlock Title="Shell on the server, in the dbnsync folder" Text="@InternetStart" />
+    </li>
+</ol>
+<p>
+    <code>https://s3.example.com</code> is then the S3 endpoint and <code>https://dbnsync.example.com</code> the
+    dashboard, behind its password.
+</p>
+<div class="note warn"><p>
+    Exposed this way, the S3 API is reachable by anyone who finds it, and only the keys keep them out. Use long
+    generated secrets, give readers read-only keys, never use the administrator's key from outside, and keep the
+    images up to date.
+</p></div>
+
+<h2 id="what">What it keeps</h2>
+<p>The defaults, all configurable:</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Schema</th><th>Level</th><th>Instruments</th><th>Days per job</th></tr></thead>
+        <tbody>
+            <tr><td><code>mbo</code></td><td>L3</td><td>The two leading outrights by open interest (<code>MNQ.n.0</code>, <code>MNQ.n.1</code>)</td><td>5</td></tr>
+            <tr><td><code>ohlcv-1s</code></td><td>L0</td><td>Every instrument of the root (<code>MNQ.FUT</code>)</td><td>92</td></tr>
+            <tr><td><code>definition</code>, <code>statistics</code>, <code>status</code></td><td>L0</td><td>Every instrument of the root</td><td>366</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    Roots: <code>ES</code>, <code>MES</code>, <code>NQ</code>, <code>MNQ</code>, <code>YM</code>, <code>MYM</code>,
+    <code>RTY</code>, <code>M2K</code>, <code>CL</code>, <code>MCL</code>, <code>GC</code>, <code>MGC</code>.
+</p>
+<ul>
+    <li><strong><code>mbo</code> takes the leading outrights, not the whole root.</strong> Spreads dominate the bytes: CL's whole-root <code>mbo</code> was 51 GB in October 2026 against 5 GB for its front month. Two outrights cover both sides of a roll.</li>
+    <li><strong>Off by default, and switched on in <code>DBNSYNC_SCHEMAS</code>:</strong> <code>mbp-10</code> (about five times the size of <code>mbo</code>), <code>trades</code>, <code>tbbo</code> and <code>bbo-*</code> (all rebuilt from <code>mbo</code> by <code>dbnf export --as</code>), <code>mbp-1</code> (the one L1 schema with something <code>mbo</code> lacks, implied liquidity, at about 500 GB a year), and <code>ohlcv-1m/1h/1d</code> (exact merges of <code>ohlcv-1s</code>).</li>
+</ul>
+<h3 id="sizes">Sizes</h3>
+<p>Front-month <code>mbo</code>, uncompressed GB per month, October 2026:</p>
+<div class="table">
+    <table>
+        <thead><tr><th>MNQ</th><th>NQ</th><th>ES</th><th>MES</th><th>MGC</th><th>GC</th><th>MYM</th><th>M2K</th><th>RTY</th><th>CL</th><th>YM</th><th>MCL</th></tr></thead>
+        <tbody><tr><td>67.4</td><td>30.6</td><td>17.2</td><td>16.7</td><td>8.8</td><td>8.3</td><td>6.8</td><td>5.5</td><td>5.4</td><td>5.0</td><td>4.6</td><td>3.9</td></tr></tbody>
+    </table>
+</div>
+<p>
+    Files are stored zstd-compressed as Databento ships them, about 3.1 times smaller: roughly 65 GB for a month of
+    <code>mbo</code> across the default roots, plus about 25 GB of L0 back to 2020. To keep order books for fewer
+    roots without touching the rest, narrow one schema by adding a line under <code>environment:</code> for the
+    <code>dbnsync</code> service in <code>docker-compose.yml</code>, then running <code>docker compose up -d</code>:
+</p>
+<CodeBlock Title="docker-compose.yml, dbnsync service" Text="@NarrowMbo" />
+
+<h2 id="plans">Databento plans</h2>
+<p>
+    Out of the box, DbnSync submits a job only when Databento's own cost API quotes it at exactly $0, so what it
+    fetches depends on what your plan includes:
+</p>
+<ul>
+    <li><strong>Standard and similar subscriptions</strong> include history in rolling windows by level: L0 (bars, definitions, statistics, status) back many years, L1 for 12 months, and L2/L3 (<code>mbp-10</code>, <code>mbo</code>) for one month. DbnSync plans from these windows and works through what ages out first, so an order book day is stored before it leaves the plan.</li>
+    <li><strong>Plans that include longer history</strong> quote $0 for more of it. Set <code>DbnSync__ReachBackTo</code> to the oldest day you want at L1 and above, and DbnSync asks for those days too, once every day inside the Standard windows is stored.</li>
+    <li><strong>Usage-based pricing</strong> has a cost on every job, so by default DbnSync submits nothing. Each refusal is logged and shown on the dashboard. A <a href="docs/dbnsync#spend">spend policy</a> can allow paid jobs.</li>
+</ul>
+<p><code>DbnSync__HistoryStart</code> (default <code>2020-01-01</code>) is the oldest day it ever asks for, at any level.</p>
+
+<h2 id="spend">Spend policy</h2>
+<div class="note warn"><p>
+    <strong>Paid jobs are at your own risk.</strong> They are billed by Databento to your account. DbnSync checks each
+    quote against your limits and its own ledger of what it has spent, but it is free software provided as is, with no
+    warranty, under the MIT licence: a bug, a price change, a quote that differs from the bill or a mistaken setting can
+    cost real money, and SquidEyes accepts no liability for it. Watch your Databento billing page, and set no limit
+    higher than you can afford to lose.
+</p></div>
+<p>
+    By default DbnSync spends nothing. To let it pay for data, such as order book history older than your plan
+    includes, every one of these must be set in <code>.env</code>; DbnSync refuses to start on a policy that is half
+    set, or whose limits don't nest (per job ≤ per day ≤ per month).
+</p>
+<div class="table">
+    <table>
+        <thead><tr><th>.env setting</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+            <tr><td><code>DBNSYNC_ALLOW_PAID_JOBS</code></td><td><code>false</code></td><td>Off, every limit counts as $0, whatever it says.</td></tr>
+            <tr><td><code>DBNSYNC_MAX_PER_JOB</code></td><td><code>0</code></td><td>The most one job may be quoted at, in US dollars.</td></tr>
+            <tr><td><code>DBNSYNC_MAX_PER_DAY</code></td><td><code>0</code></td><td>The most all jobs submitted in one UTC day may be quoted at, together.</td></tr>
+            <tr><td><code>DBNSYNC_MAX_PER_MONTH</code></td><td><code>0</code></td><td>The same for one UTC calendar month.</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>How the limits are applied:</p>
+<ol class="steps-list">
+    <li><strong>Days your plan includes come first.</strong> Paid days are planned only after every included day is stored or in flight, so the budget never crowds out a free day that is about to age out.</li>
+    <li><strong>Each job is quoted</strong> with <code>metadata.get_cost</code>. A quote of $0 goes as before.</li>
+    <li><strong>An earlier purchase is looked for.</strong> If DbnSync dies just after Databento accepts a paid job, the job ledger never hears of it. But every purchase is in the spend ledger before it is submitted, so DbnSync looks there first, 60 days back, for an entry with the same root, schema and range. With none, the job cannot have been bought, and Databento is not asked. An entry whose job is in the job ledger doesn't count.</li>
+    <li><strong>If there is one, Databento is asked.</strong> DbnSync lists Databento's jobs from that entry's date on, which costs nothing, and looks for one with the same dataset, schema, symbols, symbol type, range and encoding that the job ledger doesn't know and that hasn't expired or failed. If there is one, it is taken up: recorded in the job ledger and collected as usual. That spends nothing and adds nothing to the spend ledger, and what was already counted for it stays counted. This happens even with nothing left to spend, and shows on the Activity page as <em>Job taken up</em>. If the list can't be fetched or read, that job is not bought this pass, and the issue says why; other paid jobs with no such entry, and $0 jobs, go as before.</li>
+    <li><strong>Only an exact match is taken up.</strong> A job for other days is left alone, even if some days overlap, so those days can be bought twice. That can happen if a new day becomes available while DbnSync is down after a crash. A job with no entry in the spend ledger, such as one bought by hand, is left alone too.</li>
+    <li><strong>A quote above what is left</strong> (the smallest of the per-job limit, today's remainder and this month's remainder) is refused and nothing is recorded.</li>
+    <li><strong>The ledger is written first.</strong> A paid job is recorded under <code>_dbnsync/spend/</code> with its quote <em>before</em> it is submitted, and Databento is asked to take it only at that quote or less. If DbnSync dies in between, the money counts as spent: the ledger over-counts rather than under-counts. A definite refusal from Databento removes the entry; an unclear failure, such as a timeout or a server error from Databento, leaves it counted.</li>
+    <li><strong>Days older than the plan</strong> are asked about newest first, and only until one is refused; the rest wait for a later pass rather than being quoted every few minutes.</li>
+</ol>
+<p>
+    The dashboard shows the policy at the top of the Corpus page and, when paid jobs are on, what the ledger says was
+    spent today and this month. The worker logs a warning with the policy each time it starts. The ledger is
+    DbnSync's own count of Databento's quotes, not Databento's bill; the bill is what you pay.
+</p>
+<p>
+    To reach back further than your plan includes, also set <code>DbnSync__ReachBackTo</code> under
+    <code>environment:</code> for the <code>dbnsync</code> service in <code>docker-compose.yml</code>, such as
+    <code>DbnSync__ReachBackTo: 2025-01-01</code>. Without a paid policy, those days are fetched only if your plan
+    quotes them at $0.
+</p>
+
+<h2 id="how">How a pass works</h2>
+<ol class="steps-list">
+    <li><strong>Read the store.</strong> It lists what the bucket holds, day by day. A day counts as held when its data file or its <code>.empty</code> marker exists, so planning never trusts a record of its own over what is actually there.</li>
+    <li><strong>Collect finished jobs.</strong> Each file of a finished Databento job is downloaded, checked against Databento's size and SHA-256, and uploaded. A job's <code>.empty</code> markers, for days with no data, are written only after all its files have landed.</li>
+    <li><strong>Plan what is missing</strong>, ordered by what leaves the plan first: order books, then L1, then L0, oldest days first within each. Days older than the plan includes, with <code>ReachBackTo</code>, come after all of those, newest first.</li>
+    <li><strong>Quote, then submit.</strong> Each job is quoted with <code>metadata.get_cost</code> just before it is submitted, and submitted only at exactly $0 unless the <a href="docs/dbnsync#spend">spend policy</a> allows more. A book job that straddles the edge of its window sheds its oldest day and is quoted again, up to three times; anything else that quotes above the policy is logged and skipped.</li>
+</ol>
+<p>Passes run every five minutes while work is pending, and every six hours once caught up.</p>
+
+<h2 id="dashboard">The dashboard</h2>
+<p>On port 8080, or at your dashboard name behind its password.</p>
+<ul>
+    <li><strong>Corpus</strong> (<code>/</code>): totals, an ETA for the backfill, and every root and schema with its days as a bar, its size and its state in words. Each cell opens the series.</li>
+    <li><strong>Series</strong> (<code>/series/mbo/MNQ</code>): every day as a cell, a month to a row, with each month's size, and a table of every gap.</li>
+    <li><strong>Activity</strong> (<code>/activity</code>): every warning and error of the last 24 hours, 7 days or 30 days. Click one for what it means, what DbnSync does about it by itself, and whether it needs you.</li>
+    <li><strong>Job</strong> (<code>/job/GLBX-20261102-WT7SQW3ED5</code>): where one Databento job stands, its days, and every issue it has met.</li>
+</ul>
+<div class="table">
+    <table>
+        <thead><tr><th>Day state</th><th>Meaning</th></tr></thead>
+        <tbody>
+            <tr><td>Stored</td><td>A data file is in the archive.</td></tr>
+            <tr><td>No data</td><td>Asked for; Databento had none (weekends, holidays).</td></tr>
+            <tr><td>Pending</td><td>In a submitted job, not yet stored.</td></tr>
+            <tr><td>Owed</td><td>Included in the plan and not yet asked for; a later pass will take it.</td></tr>
+            <tr><td>Lost</td><td>Left the plan's window before it was stored. Only a paid request brings it back.</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    <strong>Lost</strong> is the one to watch: an <code>mbo</code> day becomes Lost if the worker is down for more than
+    a month. Every other state resolves by itself. <code>/status</code> returns the last pass as JSON, and
+    <code>/health</code> suits a monitoring check.
+</p>
+
+<h2 id="configuration">Configuration</h2>
+<p>
+    Settings go in <code>.env</code>, which the Compose file passes to the containers. These are the Compose file's own
+    names:
+</p>
+<div class="table">
+    <table>
+        <thead><tr><th>.env setting</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+            <tr><td><code>DATABENTO_API_KEY</code></td><td>required</td><td>Your Databento key.</td></tr>
+            <tr><td><code>S3_ROOT_ACCESS_KEY</code>, <code>S3_ROOT_SECRET_KEY</code></td><td>required</td><td>The RustFS administrator.</td></tr>
+            <tr><td><code>S3_DATA_PATH</code></td><td>required</td><td>The folder RustFS keeps the archive in.</td></tr>
+            <tr><td><code>SEQ_ADMIN_PASSWORD</code></td><td>required</td><td>Seq's admin password on its first start.</td></tr>
+            <tr><td><code>DBNSYNC_LOGS_URL</code></td><td>empty</td><td>Seq as a browser reaches it, for the dashboard's log links.</td></tr>
+            <tr><td><code>DBNSYNC_ACCESS_KEY</code>, <code>DBNSYNC_SECRET_KEY</code></td><td>the root key</td><td>The worker's own S3 key.</td></tr>
+            <tr><td><code>DBNSYNC_ROOTS</code></td><td>the twelve above</td><td>Comma-separated roots.</td></tr>
+            <tr><td><code>DBNSYNC_SCHEMAS</code></td><td><code>mbo,ohlcv-1s,definition,statistics,status</code></td><td>Comma-separated schemas.</td></tr>
+            <tr><td><code>S3_SERVICE_URL</code></td><td><code>http://s3:9000</code></td><td>Another S3 store, such as Spaces.</td></tr>
+            <tr><td><code>S3_BUCKET</code></td><td><code>dbn</code></td><td>The bucket.</td></tr>
+            <tr><td><code>DBNSYNC_IMAGE</code></td><td><code>ghcr.io/squideyes/dbnsync:latest</code></td><td>Pin a version by its tag.</td></tr>
+            <tr><td><code>S3_DOMAIN</code>, <code>DASHBOARD_DOMAIN</code>, <code>DASHBOARD_USER</code>, <code>DASHBOARD_PASSWORD_HASH</code></td><td>empty</td><td>HTTPS through Caddy.</td></tr>
+            <tr><td><code>DBNSYNC_ALLOW_PAID_JOBS</code>, <code>DBNSYNC_MAX_PER_JOB</code>, <code>DBNSYNC_MAX_PER_DAY</code>, <code>DBNSYNC_MAX_PER_MONTH</code></td><td>off, $0</td><td>The <a href="docs/dbnsync#spend">spend policy</a>. Read its caveats first.</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    The worker reads more settings as <code>DbnSync__*</code> environment variables. To set one, add it under
+    <code>environment:</code> for the <code>dbnsync</code> service in <code>docker-compose.yml</code>.
+</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Worker setting</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+            <tr><td><code>DbnSync__Dataset</code></td><td><code>GLBX.MDP3</code></td><td>The dataset to keep. It must have a <a href="docs/datasets">profile</a>.</td></tr>
+            <tr><td><code>DbnSync__AllowContributedProfile</code></td><td><code>false</code></td><td>Starts on a dataset whose profile was contributed and never run by the maintainer, at your own risk.</td></tr>
+            <tr><td><code>DbnSync__RootsBySchema__&lt;schema&gt;</code></td><td>none</td><td>Replaces the roots for one schema.</td></tr>
+            <tr><td><code>DbnSync__HistoryStart</code></td><td><code>2020-01-01</code></td><td>The oldest day ever asked for.</td></tr>
+            <tr><td><code>DbnSync__ReachBackTo</code></td><td>none</td><td>The oldest day asked for at L1 and above, when older than the Standard windows.</td></tr>
+            <tr><td><code>DbnSync__Interval</code></td><td><code>06:00:00</code></td><td>Time between passes once caught up.</td></tr>
+            <tr><td><code>DbnSync__BusyInterval</code></td><td><code>00:05:00</code></td><td>Time between passes while work is pending.</td></tr>
+            <tr><td><code>DbnSync__MaxPendingJobs</code></td><td><code>30</code></td><td>Databento jobs in flight at once.</td></tr>
+            <tr><td><code>DbnSync__DownloadConcurrency</code></td><td><code>2</code></td><td>Files downloaded at once per job.</td></tr>
+            <tr><td><code>DbnSync__Depth</code></td><td><code>2</code></td><td>Leading outrights kept for book and L1 schemas.</td></tr>
+            <tr><td><code>Store__Prefix</code></td><td>empty</td><td>A folder in the bucket to keep the archive under.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h2 id="operating">Updating and day-to-day</h2>
+<p>A new worker image is published on every change to <code>main</code>. To update:</p>
+<CodeBlock Title="Shell on the server, in the dbnsync folder" Text="@Start" />
+<ul>
+    <li><strong>Logs:</strong> <code>docker compose logs -f dbnsync</code>, or search them in Seq at port 5341. Seq keeps everything until you set a retention policy in its Settings; 30 days is plenty.</li>
+    <li><strong>Stop and start:</strong> <code>docker compose stop</code> and <code>docker compose start</code>. Stopping loses nothing: the next pass picks up whatever was pending.</li>
+    <li><strong>Moving the archive:</strong> copy it through S3 (<code>rclone sync</code> or <code>aws s3 sync</code>), never by copying RustFS's data folder into another server's. S3 servers keep their own on-disk format.</li>
+    <li><strong>Backups:</strong> the archive is the only state; the worker keeps none of its own. Back up the bucket like any other.</li>
+</ul>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+<div class="table">
+    <table>
+        <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+        <tbody>
+            <tr><td><code>s3</code> keeps restarting, or logs <em>permission denied</em></td><td>The archive folder is not owned by user 10001. Run <code>sudo chown -R 10001:10001</code> on it, then <code>docker compose up -d</code>.</td></tr>
+            <tr><td><code>set DATABENTO_API_KEY in .env</code> on start</td><td>A required setting is empty, or <code>.env</code> is not beside <code>docker-compose.yml</code>.</td></tr>
+            <tr><td>Every job is refused as over the spend limit</td><td>The key's plan does not include that data at $0. Check the plan, <code>DbnSync__HistoryStart</code>, <code>DbnSync__ReachBackTo</code> and the schemas you switched on.</td></tr>
+            <tr><td>The worker won't start: <em>Spend limits must nest</em> or <em>must all be set</em></td><td>The spend policy is half set. Set all four spend settings, or none.</td></tr>
+            <tr><td>The Activity page shows <em>Databento had a server error</em></td><td>A 5xx from Databento's side. DbnSync tries again on the next pass, and a paid job it was submitting stays counted. Check Databento's status page if it lasts for hours.</td></tr>
+            <tr><td>A paid job stops going, with others still going</td><td>The spend ledger shows an earlier purchase of it, and DbnSync couldn't get or read Databento's list of jobs to see whether that purchase went through, so it won't buy this job until it can. The issue on the Activity page says why.</td></tr>
+            <tr><td>The dashboard shows Lost days</td><td>The worker was down, or couldn't reach Databento, for longer than a window. The Activity page says why.</td></tr>
+            <tr><td>A reader's key is refused</td><td>Check the user has <code>dbn-readonly</code> attached and the bucket name matches the policy.</td></tr>
+            <tr><td>The ETA reads Unknown</td><td>Nothing has been stored in the last 24 hours. The Activity page shows what is in the way.</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>Still stuck? <a href="@Links.Issues">Open an issue</a> with the issue code from the dashboard.</p>
+
+<div class="next"><a href="docs">← Overview</a><a href="docs/dbnfetch">DbnFetch →</a></div>
+
+@code {
+    private const string ClaudeStart = $"""
+        git clone {Links.GitHub}
+        cd DbnSuite
+        claude "/dbnsync-deploy"
+        """;
+
+    private const string CheckDocker = """
+        docker --version
+        docker compose version
+        """;
+
+    private const string Download = $"""
+        mkdir -p ~/dbnsync && cd ~/dbnsync
+        curl -fsSLO {Links.Deploy}/docker-compose.yml
+        curl -fsSLO {Links.Deploy}/Caddyfile
+        curl -fsSL {Links.Deploy}/.env.example -o .env
+        chmod 600 .env
+        """;
+
+    private const string DataFolder = """
+        sudo mkdir -p /srv/dbnsync/s3
+        sudo chown -R 10001:10001 /srv/dbnsync/s3
+        """;
+
+    private const string Start = """
+        docker compose pull
+        docker compose up -d
+        """;
+
+    private const string Check = """
+        docker compose ps
+        curl http://localhost:8080/health
+        """;
+
+    private const string SpacesEnv = """
+        S3_SERVICE_URL=https://nyc3.digitaloceanspaces.com
+        S3_BUCKET=dbn
+        DBNSYNC_ACCESS_KEY=<your Spaces access key>
+        DBNSYNC_SECRET_KEY=<its secret>
+        S3_ROOT_ACCESS_KEY=unused
+        S3_ROOT_SECRET_KEY=unused
+        S3_DATA_PATH=/tmp/unused
+        """;
+
+    private const string SpacesStart = """
+        docker compose pull dbnsync seq
+        docker compose up -d --no-deps dbnsync seq
+        """;
+
+    private const string ReadOnlyPolicy = """
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            { "Effect": "Allow", "Action": ["s3:GetBucketLocation", "s3:ListBucket"], "Resource": ["arn:aws:s3:::dbn"] },
+            { "Effect": "Allow", "Action": ["s3:GetObject"], "Resource": ["arn:aws:s3:::dbn/*"] }
+          ]
+        }
+        """;
+
+    private const string ReadWritePolicy = """
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            { "Effect": "Allow", "Action": ["s3:GetBucketLocation", "s3:ListBucket", "s3:ListBucketMultipartUploads"], "Resource": ["arn:aws:s3:::dbn"] },
+            { "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:AbortMultipartUpload", "s3:ListMultipartUploadParts"], "Resource": ["arn:aws:s3:::dbn/*"] }
+          ]
+        }
+        """;
+
+    private const string HashPassword = """
+        docker run --rm caddy:2.10.2 caddy hash-password --plaintext 'your password' | base64 -w0
+        """;
+
+    private const string InternetEnv = """
+        S3_DOMAIN=s3.example.com
+        DASHBOARD_DOMAIN=dbnsync.example.com
+        DASHBOARD_USER=admin
+        DASHBOARD_PASSWORD_HASH=<the output of the command above>
+        """;
+
+    private const string InternetStart = """
+        docker compose --profile internet up -d
+        """;
+
+    private const string NarrowMbo = """
+          dbnsync:
+            environment:
+              DbnSync__RootsBySchema__mbo: MNQ,MES,MGC,MCL
+        """;
+}

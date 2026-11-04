@@ -1,0 +1,153 @@
+﻿@page "/"
+
+<PageTitle>DbnSuite: open-source tools for Databento data</PageTitle>
+
+<section class="hero">
+    <div class="wrap hero-row">
+        <div class="hero-text">
+            <p class="eyebrow">Open source · MIT · .NET 10</p>
+            <h1>Your Databento® data, archived and research-ready.</h1>
+            <p class="lead">
+                DbnSync keeps the data your Databento subscription includes in S3 storage you control. DbnFetch and
+                DbnClient turn that archive into bars, rebuilt order books and, for futures, back-adjusted continuous
+                series, for your research, your backtests and trading platforms such as NinjaTrader, MetaTrader and
+                TradeStation.
+            </p>
+            <div class="actions">
+                <a class="button" href="docs">Read the docs</a>
+                <a class="button ghost" href="@Links.GitHub">Source on GitHub</a>
+            </div>
+        </div>
+        <img class="hero-art" src="img/squidly-hero.png" alt="Squidly, the SquidEyes mascot" width="300" height="300" />
+    </div>
+</section>
+
+<section class="wrap">
+    <DatabentoNotice />
+</section>
+
+<section class="wrap tools" aria-label="The tools">
+    @foreach (var tool in Tools)
+    {
+        <a class="card tool-card" href="@($"#{tool.Id}")">
+            <span class="kind">@tool.Kind</span>
+            <h2>@tool.Name</h2>
+            <p>@tool.Summary</p>
+        </a>
+    }
+</section>
+
+@foreach (var tool in Tools)
+{
+    <section class="wrap feature-set" id="@tool.Id">
+        <div class="feature-head">
+            <p class="eyebrow">@tool.Kind</p>
+            <h2>@tool.Name</h2>
+            <p class="lead">@tool.Lead</p>
+        </div>
+        <div class="features">
+            @foreach (var feature in tool.Features)
+            {
+                <div class="feature">
+                    <h3>@feature.Title</h3>
+                    <p>@feature.Text</p>
+                </div>
+            }
+        </div>
+        <p class="more"><a href="@($"docs/{tool.Id}")">@tool.Name documentation →</a></p>
+    </section>
+}
+
+<section class="wrap datasets">
+    <h2>Datasets</h2>
+    <p class="lead">
+        DbnSuite is built for Databento's whole corpus. Each dataset is described by a profile, archived by DbnSync,
+        laid out by the same rules and read by DbnFetch and DbnClient. A verified profile is run by the maintainer every
+        day; a contributed one is run by whoever subscribes to that dataset.
+    </p>
+    <div class="table">
+        <table>
+            <thead><tr><th>Dataset</th><th>Venue</th><th>Profile</th></tr></thead>
+            <tbody>
+                <tr><td><code>GLBX.MDP3</code></td><td>CME Globex: CME, CBOT, NYMEX and COMEX futures</td><td>Verified</td></tr>
+                <tr><td>Databento's other 30 datasets</td><td>Equities, options, indices and other futures exchanges</td><td>None yet: <a href="docs/datasets#adding">contribute one</a></td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p class="fine-print">
+        Features named for futures, such as continuous series, rolls and CME trade dates, apply to futures datasets only.
+    </p>
+</section>
+
+<section class="wrap needs">
+    <h2>What you need</h2>
+    <ul>
+        <li><strong>A Databento subscription</strong>One whose plan includes the historical data you want, from a supported dataset. By default DbnSync asks only for what that plan covers at no extra charge.</li>
+        <li><strong>Somewhere to run Docker</strong>A NAS, a home server or a small cloud server for DbnSync, with S3 storage beside it.</li>
+        <li><strong>The .NET 10 SDK</strong>For DbnFetch and DbnClient, on Windows, macOS or Linux. The standalone dbnf binaries need nothing.</li>
+    </ul>
+</section>
+
+<section class="wrap oss">
+    <div>
+        <h2>Free and open source</h2>
+        <p class="lead">
+            MIT licensed and developed in the open by SquidEyes, which builds DbnSuite for its own trading research.
+            Everything runs on your machines with your own Databento account; no data passes through anyone else.
+        </p>
+        <p class="fine-print">
+            Provided as is, without warranty of any kind. You use DbnSuite, and anything it does with your Databento
+            account, at your own risk.
+        </p>
+    </div>
+    <div class="actions">
+        <a class="button" href="@Links.GitHub">Star or fork on GitHub</a>
+        <a class="button ghost" href="@Links.Issues">Report an issue</a>
+    </div>
+</section>
+
+@code {
+    private sealed record Feature(string Title, string Text);
+
+    private sealed record Tool(string Id, string Kind, string Name, string Summary, string Lead, Feature[] Features);
+
+    private static readonly Tool[] Tools =
+    [
+        new("dbnsync", "Archive", "DbnSync",
+            "A Docker service that keeps your Databento data in your own S3 store, day by day.",
+            "An unattended service that fetches the data your Databento plan includes and keeps it in any S3-compatible store, exactly as Databento delivers it.",
+            [
+                new("Spends nothing unless you say so", "Every job is priced with Databento's own cost API before it is submitted. Out of the box only $0 jobs go; a spend policy with per-job, daily and monthly limits can allow more, at your own risk."),
+                new("Your markets, your schemas", "Choose the schemas and the products to keep, per schema if you like. The defaults are order books (mbo), 1-second bars, definitions, statistics and status for twelve CME index, energy and metal futures."),
+                new("Nothing missed, nothing twice", "Each pass plans from what the store actually holds, day by day, so a gap left by any failure is asked for again, and days without trading are marked so they are never asked for twice."),
+                new("Verified, untouched files", "Each file is checked against Databento's size and SHA-256 before it is stored, zstd-compressed exactly as delivered. Any DBN reader opens it."),
+                new("Any S3 store", "Ships with RustFS in its Docker Compose file, and works the same with MinIO, Garage, SeaweedFS or DigitalOcean Spaces. One object per root, schema and day, in a plain layout."),
+                new("A dashboard that explains itself", "Coverage of every root and schema, every day of a series at a glance, an ETA for the backfill, and each warning explained: what it means, what DbnSync does about it, and whether it needs you."),
+            ]),
+        new("dbnfetch", "Command line", "DbnFetch",
+            "The dbnf command: browse the archive, download raw files and export research-ready data.",
+            "The dbnf command reads a DbnSync archive, or any folder of DBN files, and writes the data your research tools want.",
+            [
+                new("See what is there", "List every series with its days and size, draw a root's coverage day by day, list instruments with expiry and tick size, and print a day's records at the terminal."),
+                new("Raw files, fast", "Parallel downloads that resume where they stopped, a local cache that skips what you already have, and a dry run that says how many GB would come down."),
+                new("Sessions, not just days", "Exports follow the market's own trading day, for futures the CME trade date, which opens at 17:00 Chicago time: the whole session, regular hours, or hours of your own, with times written in any zone."),
+                new("Bars of every kind", "Time bars from 5 seconds to a month from ohlcv-1s, and tick or volume bars from mbo, counted from the session's open."),
+                new("Continuous futures", "For futures: roll by calendar, volume or open interest, back-adjusted by difference or ratio from the settlement gap at each roll. dbnf rolls lists every roll."),
+                new("Order books rebuilt from MBO", "trades, tbbo, mbp-1, mbp-10, bbo-1s and bbo-1m, built from the full order book. The rebuilt book is never crossed, and its trades add up to the archive's own volume."),
+                new("Formats your tools read", "CSV, Parquet, JSON Lines and DBN for research stacks and trading platforms alike, NinjaTrader 8's own import format, gzip or zstd compression, and partitioned folders that DuckDB, Polars and Spark read as one table."),
+                new("Your columns, your units", "Pick the columns and their order, prices as decimals, ticks or Databento's integers, and times as ISO, UNIX or Excel, in one column or two."),
+                new("Native on every desktop", "A native binary for Windows (x64 and ARM64), macOS on Apple silicon and Linux x64 that starts instantly. Your key's secret is encrypted on Windows and private to you elsewhere."),
+            ]),
+        new("dbnclient", "C# library", "DbnClient",
+            "The engine under dbnf, as a NuGet package for your own .NET systems.",
+            "Everything dbnf does, as a library for your own C# research tools, services and trading systems.",
+            [
+                new("Archive access", "Open an archive in S3 or a local folder, list its series and days, and fetch files through a local cache."),
+                new("A typed DBN reader", "Streams DBN version 3 records as C# records through IAsyncEnumerable: order book events, bars, definitions, statistics and status, with prices as decimals."),
+                new("Market building blocks", "Instruments from definitions, sessions and trading days, an order book and a bar builder, and for futures, contracts and roll schedules, each usable on its own."),
+                new("The whole exporter", "One ExportRequest does whatever dbnf export does: bars, continuous series, rebuilt books, every format."),
+                new("Lean and AOT-ready", "Native AOT compatible, with only the AWS S3 SDK and a zstd library as dependencies. Parquet is written by its own code."),
+                new("Errors you can branch on", "Expected failures, such as a day never stored or a key refused, come back as results with stable codes rather than exceptions."),
+            ]),
+    ];
+}

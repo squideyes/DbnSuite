@@ -1,0 +1,46 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject SyncStatus Status
+@inject TimeProvider Clock
+
+<header class="bar">
+    <div class="bar-inner">
+        <a class="brand" href=""><img src="@Assets["img/squidly.png"]" alt="" width="28" height="28" />DbnSync</a>
+        <nav>
+            <NavLink href="" Match="NavLinkMatch.All">Corpus</NavLink>
+            <NavLink href="activity">Activity</NavLink>
+        </nav>
+        <span class="pass" role="status">
+            @if (Status.Snapshot.Running)
+            {
+                <span class="dot running"></span><span>Pass running</span>
+            }
+            else if (Status.Snapshot.NextPassAt is { } next)
+            {
+                <span class="dot"></span><span>Next pass @Format.Relative(next, Clock.GetUtcNow())</span>
+            }
+            else
+            {
+                <span class="dot"></span><span>Starting</span>
+            }
+        </span>
+    </div>
+</header>
+
+<main>
+    @Body
+</main>
+
+<footer class="notice">
+    DbnSync is an independent project with no official connection with Databento, Inc. Databento® is a registered trademark of
+    Databento, Inc. Use it only as your Databento
+    agreements allow. Free software, provided as is, without warranty: use at your own risk.
+</footer>
+
+@code {
+    protected override void OnInitialized() => Status.Changed += Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Status.Changed -= Refresh;
+}

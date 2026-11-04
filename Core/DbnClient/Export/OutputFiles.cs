@@ -1,0 +1,151 @@
+using System.Globalization;
+using DbnClient.Contracts;
+using DbnClient.Export.Parquet;
+
+namespace DbnClient.Export;
+
+/// <summary>
+/// The files an export writes into, opened as rows arrive: one per trade date,
+/// one for the range, or one per partition folder. Only one file is open at a
+/// time. Rows nearly always come in date order; one that comes late, as a
+/// non-bar record's event time can, reopens its file and adds to it.
+/// </summary>
+internal sealed class OutputFiles : IAsyncDisposable
+{
+    private readonly ExportRequest request;
+    private readonly IReadOnlyList<Column> columns;
+    private readonly int[] projection;
+    private readonly string kind;
+    private readonly CellFormat format;
+    private readonly Cell[] projected;
+    private readonly List<string> files = [];
+
+    /// <summary>Every file closed so far, with what a Parquet one needs to be carried on.</summary>
+    private readonly Dictionary<string, ParquetRowWriter.Closed?> closed = new(StringComparer.Ordinal);
+
+    private IRowWriter? writer;
+    private string? writing;
+    private DateOnly? openFor;
+
+    public OutputFiles(ExportRequest request, IReadOnlyList<Column> all, string kind)
+    {
+        this.request = request;
+        this.kind = kind;
+
+        projection = request.Columns.Count == 0
+            ? [.. Enumerable.Range(0, all.Count)]
+            : [.. request.Columns.Select(name => all.Select((c, i) => (c, i)).First(x => x.c.Name == name).i)];
+
+        columns = [.. projection.Select(i => all[i])];
+        projected = new Cell[columns.Count];
+        format = new CellFormat(request.Zone, request.Time, request.SplitTime);
+    }
+
+    /// <summary>The metadata block DBN output opens with: the first source file's.</summary>
+    public byte[]? Metadata { get; set; }
+
+    public IReadOnlyList<string> Files => files;
+
+    public long Rows { get; private set; }
+
+    /// <summary>Which of <paramref name="all"/>'s names are missing, if <paramref name="wanted"/> names any.</summary>
+    public static IReadOnlyList<string> Unknown(IReadOnlyList<string> wanted, IReadOnlyList<Column> all) =>
+        [.. wanted.Where(w => all.All(c => c.Name != w))];
+
+    public async ValueTask WriteAsync(DateOnly tradeDate, Cell[] cells, ReadOnlyMemory<byte> raw)
+    {
+        // A name with no date is one file, or each trade date would overwrite the last.
+        var oneFile = request.NameTemplate is { } template
+            ? !template.Contains("{date}", StringComparison.Ordinal)
+            : request.Layout == FileLayout.Single || request.Format == OutputFormat.NinjaTrader;
+
+        DateOnly? key = oneFile ? null : tradeDate;
+
+        if (writer is null || key != openFor)
+        {
+            await CloseAsync().ConfigureAwait(false);
+
+            var path = Path.Combine(request.Output, Name(tradeDate));
+            var dateOnly = request.Bars?.DayOrLonger == true;
+
+            if (closed.TryGetValue(path, out var earlier))
+            {
+                writer = Writers.Reopen(request.Format, path, columns, format, request.Compression, earlier, dateOnly);
+            }
+            else
+            {
+                writer = Writers.Create(request.Format, path, columns, format, request.Compression, Metadata, dateOnly);
+                files.Add(path);
+            }
+
+            writing = path;
+            openFor = key;
+        }
+
+        for (var i = 0; i < projection.Length; i++)
+            projected[i] = cells[projection[i]];
+
+        writer.Write(projected, raw.Span);
+        Rows++;
+    }
+
+    public async ValueTask DisposeAsync() => await CloseAsync().ConfigureAwait(false);
+
+    private async ValueTask CloseAsync()
+    {
+        if (writer is not null)
+        {
+            await writer.DisposeAsync().ConfigureAwait(false);
+
+            closed[writing!] = (writer as ParquetRowWriter)?.Finished;
+        }
+
+        writer = null;
+    }
+
+    private string Name(DateOnly tradeDate)
+    {
+        var ext = Writers.Extension(request.Format, request.Compression);
+        var series = request.Symbol.Text;
+        var date = tradeDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        var from = request.TradeDates.From.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        var to = request.TradeDates.To.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+
+        if (request.NameTemplate is { } template)
+        {
+            return template.Replace("{series}", series, StringComparison.Ordinal).Replace("{kind}", kind, StringComparison.Ordinal)
+                .Replace("{date}", date, StringComparison.Ordinal).Replace("{from}", from, StringComparison.Ordinal)
+                .Replace("{to}", to, StringComparison.Ordinal).Replace("{ext}", ext, StringComparison.Ordinal);
+        }
+
+        if (request.Format == OutputFormat.NinjaTrader)
+            return $"{NinjaTraderName(request.Symbol)}.Last.{ext}";
+
+        return request.Layout switch
+        {
+            FileLayout.Single => $"{series}.{kind}.{from}-{to}.{ext}",
+            FileLayout.Partitioned => Path.Combine($"series={series}",
+                $"date={tradeDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}", $"{kind}.{ext}"),
+            _ => $"{series}.{kind}.{date}.{ext}"
+        };
+    }
+
+    /// <summary>
+    /// NinjaTrader names an instrument by root and expiry month (<c>ES 12-26</c>)
+    /// and imports a file into the instrument its name gives.
+    /// </summary>
+    private static string NinjaTraderName(SymbolSpec symbol)
+    {
+        if (symbol.Kind != SymbolKind.Contract || symbol.Text.Contains('-', StringComparison.Ordinal))
+            return symbol.Text;
+
+        var text = symbol.Text;
+        var digits = text.Length - text.TrimEnd("0123456789".ToCharArray()).Length;
+        var month = ContractSymbol.Month(text[^(digits + 1)]);
+        var year = text[^digits..];
+
+        return month == 0
+            ? text
+            : string.Create(CultureInfo.InvariantCulture, $"{symbol.Root} {month:D2}-{(year.Length == 1 ? "2" + year : year)}");
+    }
+}

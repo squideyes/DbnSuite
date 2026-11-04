@@ -1,0 +1,17 @@
+@* A block of code or commands with a copy button. Title says where it runs or what it is. *@
+
+<figure class="code">
+    <figcaption>
+        <span>@Title</span>
+        <button type="button" class="copy" onclick="copyCode(this)">Copy</button>
+    </figcaption>
+    <pre><code>@Text</code></pre>
+</figure>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Text { get; set; } = "";
+
+    [Parameter]
+    public string? Title { get; set; }
+}

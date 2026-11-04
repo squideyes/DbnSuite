@@ -1,0 +1,18 @@
+# HTTPS for the internet profile. Caddy gets and renews a Let's Encrypt
+# certificate for each name by itself; both names point at your home's public
+# IP, and the router forwards its port 443 to HTTPS_PORT on the NAS.
+
+# The S3 API. It checks every request's signature itself, so nothing more here.
+{$S3_DOMAIN} {
+	reverse_proxy s3:9000
+}
+
+# The dashboard has no sign-in of its own, so it is behind a password here.
+# The hash is base64-encoded in .env, since a bare bcrypt hash's $ signs are
+# read as variables there. See .env.example for the command that makes it.
+{$DASHBOARD_DOMAIN} {
+	basic_auth {
+		{$DASHBOARD_USER} {$DASHBOARD_PASSWORD_HASH}
+	}
+	reverse_proxy dbnsync:8080
+}

@@ -1,0 +1,119 @@
+@page "/docs/archive"
+
+<PageTitle>The archive: DbnSuite</PageTitle>
+
+<h1>The archive</h1>
+<p class="lead">
+    A DbnSync archive is plain S3: any S3 client lists and downloads it, and any DBN reader opens its files. Nothing
+    needs DbnSync to be running.
+</p>
+
+<nav class="toc" aria-label="On this page">
+    <p>On this page</p>
+    <ul>
+        <li><a href="docs/archive#connecting">Connecting</a></li>
+        <li><a href="docs/archive#layout">Layout</a></li>
+        <li><a href="docs/archive#files">What is in a file</a></li>
+        <li><a href="docs/archive#aws">AWS CLI</a></li>
+        <li><a href="docs/archive#python">Python</a></li>
+        <li><a href="docs/archive#dbn">Databento's dbn tool</a></li>
+        <li><a href="docs/archive#rclone">rclone</a></li>
+    </ul>
+</nav>
+
+<h2 id="connecting">Connecting</h2>
+<div class="table">
+    <table>
+        <tbody>
+            <tr><td><strong>Endpoint</strong></td><td><code>http://&lt;server&gt;:9000</code> on your network, or your HTTPS name from outside (<a href="docs/dbnsync#internet">how</a>)</td></tr>
+            <tr><td><strong>Bucket</strong></td><td><code>dbn</code></td></tr>
+            <tr><td><strong>Region</strong></td><td><code>us-east-1</code>; RustFS ignores it, but clients want one</td></tr>
+            <tr><td><strong>Addressing</strong></td><td>Path-style</td></tr>
+            <tr><td><strong>Key</strong></td><td>A read-only key for the bucket (<a href="docs/dbnsync#keys">how to make one</a>)</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h2 id="layout">Layout</h2>
+<CodeBlock Title="The bucket" Text="@Layout" />
+<ul>
+    <li>Keys follow <code>GLBX.MDP3/{schema}/{root}/{yyyy}/{root}.{schema}.{yyyyMMdd}.dbn.zst</code>, one per UTC day.</li>
+    <li><code>.empty</code> objects mark days that were asked for and had no data. Skip them when downloading.</li>
+    <li><code>_dbnsync/</code> holds the worker's own records of jobs and passes. Readers can ignore it.</li>
+</ul>
+
+<h2 id="files">What is in a file</h2>
+<p>
+    Each <code>.dbn.zst</code> is one UTC day of one schema for one root, exactly as Databento® delivered it:
+    zstd-compressed <a href="@Links.DbnFormat">DBN</a>, version 3.
+</p>
+<ul>
+    <li><strong>The metadata block</strong> says what was requested (<code>MNQ.n.0</code> and <code>MNQ.n.1</code> for <code>mbo</code>; <code>MNQ.FUT</code> for the rest) and maps each instrument id in the file back to it. Records name instruments only by id.</li>
+    <li><strong><code>mbo</code></strong> holds only the two leading outrights. Which contract <code>MNQ.n.0</code> is changes at each roll; the mapping in each day's file says which it was that day, and that day's <code>definition</code> file names it.</li>
+    <li><strong>Prices</strong> are integers in units of 1e-9, and <strong>times</strong> nanoseconds since the UNIX epoch, UTC. DBN readers convert both.</li>
+</ul>
+
+<h2 id="aws">AWS CLI</h2>
+<CodeBlock Title="Once: use path-style addressing" Text="aws configure set default.s3.addressing_style path" />
+<CodeBlock Title="List a month, and sync a series to a folder" Text="@Aws" />
+
+<h2 id="python">Python</h2>
+<p>With <code>boto3</code> and Databento's own <code>databento</code> package, which reads DBN into a pandas DataFrame:</p>
+<CodeBlock Title="Python" Text="@Python" />
+
+<h2 id="dbn">Databento's dbn tool</h2>
+<p>The <code>dbn</code> command (<code>cargo install dbn-cli</code>) turns a downloaded file into CSV or JSON:</p>
+<CodeBlock Title="Any terminal" Text="dbn MNQ.mbo.20261028.dbn.zst --csv --output MNQ.mbo.20261028.csv" />
+
+<h2 id="rclone">rclone</h2>
+<p>rclone mounts or syncs the bucket. Configure an S3 remote with provider <code>Other</code>:</p>
+<CodeBlock Title="~/.config/rclone/rclone.conf" Text="@Rclone" />
+<CodeBlock Title="Any terminal" Text="@RcloneSync" />
+
+<div class="next"><a href="docs/dbnclient">← DbnClient</a><a href="docs/layout">Data layout →</a></div>
+
+@code {
+    private const string Layout = """
+        dbn/
+          GLBX.MDP3/mbo/MNQ/2026/MNQ.mbo.20261028.dbn.zst   one UTC day, Databento's bytes unchanged
+          GLBX.MDP3/mbo/MNQ/2026/MNQ.mbo.20261031.empty     asked for, no data (a Saturday)
+          _dbnsync/jobs/GLBX-20261102-WT7SQW3ED5.json       submitted, not yet stored
+          _dbnsync/passes/2026-11-02/051433120.json         a pass that changed something or met a problem
+        """;
+
+    private const string Aws = """
+        aws s3 ls s3://dbn/GLBX.MDP3/mbo/MNQ/2026/ --endpoint-url http://nas:9000
+        aws s3 sync s3://dbn/GLBX.MDP3/ohlcv-1s/ES/ ./ES-ohlcv-1s --exclude "*.empty" --endpoint-url http://nas:9000
+        """;
+
+    private const string Python = """
+        import boto3, databento as db
+        from botocore.config import Config
+
+        s3 = boto3.client(
+            "s3",
+            endpoint_url="http://nas:9000",
+            aws_access_key_id="<read-only key>",
+            aws_secret_access_key="<its secret>",
+            config=Config(s3={"addressing_style": "path"}),
+        )
+
+        key = "GLBX.MDP3/mbo/MNQ/2026/MNQ.mbo.20261028.dbn.zst"
+        store = db.DBNStore.from_bytes(s3.get_object(Bucket="dbn", Key=key)["Body"].read())
+        df = store.to_df()   # one row per event, prices in dollars, symbols mapped
+        """;
+
+    private const string RcloneSync = """
+        rclone sync dbn:dbn/GLBX.MDP3/ohlcv-1s/ES ./ES-ohlcv-1s --exclude "*.empty"
+        """;
+
+    private const string Rclone = """
+        [dbn]
+        type = s3
+        provider = Other
+        endpoint = http://nas:9000
+        access_key_id = <read-only key>
+        secret_access_key = <its secret>
+        force_path_style = true
+        """;
+}

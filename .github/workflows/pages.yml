@@ -1,0 +1,50 @@
+name: pages
+
+# dbnsuite.com: the Blazor WebAssembly site, published to GitHub Pages.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Core/DbnSuite.Site/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - run: dotnet publish Core/DbnSuite.Site -c Release -o site
+
+      # Pages has no server-side routing: a deep link such as /docs gets the
+      # app's own page back, and the app's router shows the right page.
+      - run: cp site/wwwroot/index.html site/wwwroot/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/wwwroot
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

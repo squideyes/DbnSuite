@@ -1,0 +1,41 @@
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
+
+code {
+    font-size: 0.8rem;
+}
+
+.issue-row {
+    cursor: pointer;
+}
+
+.issue-row:hover td,
+.issue-row.open td,
+.detail-row td {
+    background: var(--surface-2);
+}
+
+.issue-row.open td {
+    border-bottom: 0;
+}
+
+.toggle {
+    padding: 0 0.35rem;
+    line-height: 1.4;
+    color: var(--ink-2);
+}
+
+.title {
+    display: block;
+}
+
+.message {
+    min-width: 24ch;
+}

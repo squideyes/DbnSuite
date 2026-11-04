@@ -1,0 +1,57 @@
+@* One issue in full: what its code means, what DbnSync does next, what needs a person, and where to look. *@
+@using Microsoft.Extensions.Options
+@inject IOptions<DashboardOptions> Dashboard
+
+<div class="issue-detail">
+    <dl>
+        <dt>What happened</dt>
+        <dd>@Guide.Meaning</dd>
+        <dt>What DbnSync does</dt>
+        <dd>@Guide.Next</dd>
+        <dt>What to do</dt>
+        <dd>
+            @if (Guide.NeedsYou)
+            {
+                <span class="chip warning">▲ May need you</span>
+            }
+            else
+            {
+                <span class="chip good">✓ Fixes itself</span>
+            }
+            @Guide.Action
+        </dd>
+        <dt>Message</dt>
+        <dd><pre>@Issue.Message</pre></dd>
+    </dl>
+    <div class="links">
+        @if (Issue.Schema is { } schema && Issue.Root is { } root)
+        {
+            <a href="@($"series/{schema}/{root}")">@root @schema days</a>
+        }
+        @if (Issue.JobId is { } job && ShowJobLink)
+        {
+            <a href="@($"job/{job}")">Job @job</a>
+        }
+        @if (LogsUrl is { } logs)
+        {
+            <a href="@logs" target="_blank" rel="noopener">Logs ↗</a>
+        }
+        else
+        {
+            <span class="muted">Logs: set Dashboard__LogsUrl to link Seq here</span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Issue Issue { get; set; } = null!;
+
+    /// <summary>False on the job's own page, where the link would lead back to itself.</summary>
+    [Parameter] public bool ShowJobLink { get; set; } = true;
+
+    private IssueGuide Guide => IssueGuide.For(Issue.Code);
+
+    private string? LogsUrl => Issue.JobId is { } job
+        ? Dashboard.Value.LogsForJob(job)
+        : Dashboard.Value.LogsAround(Issue.At);
+}

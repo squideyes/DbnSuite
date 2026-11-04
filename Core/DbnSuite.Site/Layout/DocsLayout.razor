@@ -1,0 +1,23 @@
+@inherits LayoutComponentBase
+@layout MainLayout
+
+<div class="wrap docs">
+    <nav class="docs-nav" aria-label="Documentation">
+        <p class="docs-nav-head">Docs</p>
+        <NavLink href="docs" Match="NavLinkMatch.All">Overview</NavLink>
+        <NavLink href="docs/dbnsync">DbnSync</NavLink>
+        <NavLink href="docs/dbnfetch">DbnFetch</NavLink>
+        <NavLink href="docs/dbnclient">DbnClient</NavLink>
+        <NavLink href="docs/archive">The archive</NavLink>
+        <NavLink href="docs/layout">Data layout</NavLink>
+        <NavLink href="docs/datasets">Datasets</NavLink>
+        <p class="docs-nav-head">Project</p>
+        <a href="@Links.GitHub">Source</a>
+        <a href="@Links.Releases">Releases</a>
+        <a href="@Links.Issues">Issues</a>
+        <a href="@Links.Contributing">Contributing</a>
+    </nav>
+    <article class="doc">
+        @Body
+    </article>
+</div>

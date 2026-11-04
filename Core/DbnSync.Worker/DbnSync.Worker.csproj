@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DbnSync.Core\DbnSync.Core.csproj" />
+    <ProjectReference Include="..\DbnSync.Data\DbnSync.Data.csproj" />
+    <ProjectReference Include="..\..\Aspire\ServiceDefaults\DbnSync.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Sinks.Seq" />
+  </ItemGroup>
+
+</Project>

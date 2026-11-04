@@ -1,0 +1,19 @@
+# Normalise line endings on the way in; check out native on the way out.
+* text=auto
+
+*.cs      text diff=csharp
+*.csproj  text
+*.slnx    text
+*.md      text
+*.yml     text
+*.json    text
+
+# Shell scripts run on Linux servers and NAS systems, even from a Windows checkout.
+*.sh      text eol=lf
+
+# Market data artifacts are binary. They are gitignored as well, but if one
+# ever slips through, do not let it be line-ending mangled.
+*.barset   binary
+*.mboset   binary
+*.quoteset binary
+*.tradeset binary

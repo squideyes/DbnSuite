@@ -1,0 +1,23 @@
+.state-bar {
+    display: flex;
+    gap: 2px;
+    height: 8px;
+    min-width: 96px;
+}
+
+.segment {
+    min-width: 3px;
+    border-radius: 2px;
+}
+
+.segment:first-child {
+    border-radius: 4px 2px 2px 4px;
+}
+
+.segment:last-child {
+    border-radius: 2px 4px 4px 2px;
+}
+
+.segment:only-child {
+    border-radius: 4px;
+}

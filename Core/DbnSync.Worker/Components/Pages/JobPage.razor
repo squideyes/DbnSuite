@@ -1,0 +1,115 @@
+@page "/job/{Id}"
+
+<PageTitle>Job @Id · DbnSync</PageTitle>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h1>Job <code>@Id</code></h1>
+            <span class="sub"><a href="activity">Activity</a></span>
+        </div>
+        @if (LogsUrl is { } logs)
+        {
+            <a class="button" href="@logs" target="_blank" rel="noopener">Logs ↗</a>
+        }
+    </div>
+
+    @if (LoadError is not null)
+    {
+        <div class="panel error-text" role="alert">Job history unavailable: @LoadError</div>
+    }
+
+    @if (Loading)
+    {
+        <p class="muted">Loading…</p>
+    }
+    else
+    {
+        var days = Days;
+
+        <section class="panel">
+            <p class="verdict">@Verdict(days)</p>
+            @if (Schema is not null && Root is not null)
+            {
+                <div class="tiles">
+                    <StatTile Label="Series" Value="@($"{Root} {Schema}")" />
+                    @if (Range is { } range)
+                    {
+                        <StatTile Label="Days" Value="@Format.Count(range.Days)" Note="@range.ToString()" />
+                    }
+                    @if (Pending is { } job)
+                    {
+                        <StatTile Label="Submitted" Value="@Format.Relative(job.SubmittedAt, Clock.GetUtcNow())"
+                                  Note="@Format.Time(job.SubmittedAt)" />
+                    }
+                    <StatTile Label="Issues" Value="@Format.Count(Issues.Count)"
+                              Note="@($"last {HistoryDays} days")" />
+                </div>
+            }
+        </section>
+
+        @if (days is not null)
+        {
+            <section class="panel">
+                <div class="page-head">
+                    <h2>Its days now</h2>
+                    <StateLegend />
+                </div>
+                <DayGrid Series="days" />
+                <a href="@($"series/{Schema}/{Root}")">All of @Root @Schema</a>
+            </section>
+        }
+
+        @if (Problems.Count > 0)
+        {
+            <section class="panel">
+                <h2>What went wrong</h2>
+                @foreach (var (latest, count, first) in Problems)
+                {
+                    <article class="problem">
+                        <h3>
+                            @if (latest.Level == IssueLevel.Error)
+                            {
+                                <span class="chip critical">✕ Error</span>
+                            }
+                            else
+                            {
+                                <span class="chip warning">▲ Warning</span>
+                            }
+                            @IssueGuide.For(latest.Code).Title
+                            <code>@latest.Code</code>
+                        </h3>
+                        <p class="muted">
+                            @(count == 1
+                                ? $"Once, {Format.Time(latest.At)}"
+                                : $"{Format.Count(count)} times, from {Format.Time(first)} to {Format.Time(latest.At)}")
+                        </p>
+                        <IssueDetail Issue="latest" ShowJobLink="false" />
+                    </article>
+                }
+            </section>
+
+            <section class="panel">
+                <h2>Every occurrence</h2>
+                <div class="scroll">
+                    <table>
+                        <thead>
+                            <tr><th>When</th><th>Level</th><th>Issue</th><th>Message</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var issue in Issues)
+                            {
+                                <tr>
+                                    <td class="nowrap">@Format.Time(issue.At)</td>
+                                    <td class="nowrap">@(issue.Level == IssueLevel.Error ? "✕ Error" : "▲ Warning")</td>
+                                    <td class="nowrap"><code>@issue.Code</code></td>
+                                    <td>@issue.Message</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+    }
+</div>

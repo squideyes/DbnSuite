@@ -1,0 +1,347 @@
+@page "/docs/dbnfetch"
+
+<PageTitle>DbnFetch docs: DbnSuite</PageTitle>
+
+<h1>DbnFetch</h1>
+<p class="lead">
+    The <code>dbnf</code> command lists a DbnSync archive, downloads its raw files, and exports bars, rebuilt order
+    books and, for futures, back-adjusted continuous series, as CSV, Parquet, JSON Lines, DBN or NinjaTrader 8.
+</p>
+
+<nav class="toc" aria-label="On this page">
+    <p>On this page</p>
+    <ul>
+        <li><a href="docs/dbnfetch#install">Install</a></li>
+        <li><a href="docs/dbnfetch#login">Log in to an archive</a></li>
+        <li><a href="docs/dbnfetch#explore">See what the archive holds</a></li>
+        <li><a href="docs/dbnfetch#pull">Download raw files</a></li>
+        <li><a href="docs/dbnfetch#export">Export processed data</a></li>
+        <li><a href="docs/dbnfetch#recipes">Export recipes</a></li>
+        <li><a href="docs/dbnfetch#platforms">Into trading platforms</a></li>
+        <li><a href="docs/dbnfetch#rolls">Rolls</a></li>
+        <li><a href="docs/dbnfetch#cache">The cache</a></li>
+        <li><a href="docs/dbnfetch#exit">Exit codes</a></li>
+        <li><a href="docs/dbnfetch#reference">Option reference</a></li>
+    </ul>
+</nav>
+
+<h2 id="install">Install</h2>
+<p>
+    There are two ways. The .NET tool is easiest to keep up to date; the standalone binary needs nothing else
+    installed. Both are the same native program.
+</p>
+
+<h3 id="install-tool">As a .NET tool</h3>
+<ol class="steps-list">
+    <li>
+        <strong>Install the .NET 10 SDK</strong>, if <code>dotnet --version</code> doesn't already print 10 or later.
+        <CodeBlock Title="Windows (PowerShell)" Text="winget install Microsoft.DotNet.SDK.10" />
+        <CodeBlock Title="macOS (Homebrew)" Text="brew install --cask dotnet-sdk" />
+        <CodeBlock Title="Ubuntu" Text="sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0" />
+        Other systems: <a href="@Links.DotNet">dotnet.microsoft.com</a>.
+    </li>
+    <li>
+        <strong>Install DbnFetch.</strong> NuGet picks the native build for your system.
+        <CodeBlock Title="Any terminal" Text="dotnet tool install -g DbnFetch" />
+    </li>
+    <li>
+        <strong>On macOS and Linux, put .NET tools on your PATH</strong> if this is your first one. Add this line to
+        <code>~/.zshrc</code> (macOS) or <code>~/.bashrc</code> (Linux), then open a new terminal. Windows does this
+        for you.
+        <CodeBlock Title="~/.zshrc or ~/.bashrc" Text="@ToolsPath" />
+    </li>
+    <li>
+        <strong>Check it runs.</strong>
+        <CodeBlock Title="Any terminal" Text="dbnf --version" />
+    </li>
+</ol>
+<p>Update with <code>dotnet tool update -g DbnFetch</code>; remove with <code>dotnet tool uninstall -g DbnFetch</code>.</p>
+
+<h3 id="install-binary">As a standalone binary</h3>
+<p>
+    Each <a href="@Links.Releases">release</a> has a zip of the <code>dbnf</code> binary for
+    <code>win-x64</code>, <code>win-arm64</code>, <code>osx-arm64</code> (Apple silicon) and <code>linux-x64</code>.
+    Unzip it into a folder on your PATH.
+</p>
+<CodeBlock Title="Windows (PowerShell)" Text="@BinaryWindows" />
+<CodeBlock Title="macOS" Text="@BinaryMac" />
+<CodeBlock Title="Linux" Text="@BinaryLinux" />
+<p>On Windows, open a new terminal after changing PATH. On macOS, <code>xattr</code> clears the download quarantine that would otherwise block an unsigned binary.</p>
+
+<h2 id="login">Log in to an archive</h2>
+<p>
+    You need the archive's S3 address and a read-only key, from whoever runs DbnSync
+    (<a href="docs/dbnsync#keys">how they make one</a>). Log in once; <code>dbnf</code> checks the key reaches the
+    archive before saving it, and asks for the secret so it never lands in your shell history.
+</p>
+<CodeBlock Title="Any terminal" Text="@Login" />
+<ul>
+    <li><strong>Where it is kept:</strong> in <code>%APPDATA%\DbnFetch</code> on Windows, with the secret encrypted for your Windows user, and in <code>~/.config/DbnFetch</code> elsewhere, readable only by you.</li>
+    <li><strong>Check everything:</strong> <code>dbnf doctor</code> tests the login, the archive, your clock (S3 refuses requests from a clock more than 15 minutes out) and the cache.</li>
+    <li><strong>More than one archive:</strong> add <code>--profile work</code> to <code>login</code> and to every later command.</li>
+    <li><strong>Scripts and CI:</strong> set <code>DBNF_LOCATION</code>, <code>DBNF_ACCESS_KEY</code> and <code>DBNF_SECRET_KEY</code> (and <code>DBNF_BUCKET</code> if it isn't <code>dbn</code>) instead of logging in, or pipe the secret with <code>--secret-stdin</code>.</li>
+    <li><strong>A folder instead of S3:</strong> <code>--archive D:\dbn</code> on any command reads a folder in the archive's layout, such as one <code>dbnf pull --out</code> filled. No login needed.</li>
+    <li><strong>Forget it:</strong> <code>dbnf logout</code>.</li>
+</ul>
+
+<h2 id="explore">See what the archive holds</h2>
+<p><code>dbnf ls</code> lists every series; <code>--root</code> and <code>--schema</code> narrow it.</p>
+<CodeBlock Title="dbnf ls --root ES" Text="@LsOutput" />
+<ul>
+    <li><code>dbnf coverage ES</code> draws a root day by day, a month to a line: stored, no data, or missing. <code>--schema</code>, <code>--months 24</code> or <code>--all</code> change what it draws.</li>
+    <li><code>dbnf contracts ES</code> lists the root's contracts with expiry and tick size; <code>--active</code> keeps the unexpired, and <code>--spreads</code> adds spreads. Contracts show with two-digit years (<code>ESZ26</code>); CME's own <code>ESZ6</code> is accepted too.</li>
+    <li><code>dbnf show</code> prints a day's records, in Chicago time unless <code>--tz</code> says otherwise. The symbol can be a root, a contract or, for <code>mbo</code>, <code>MES.n.0</code> or <code>MES.n.1</code>.</li>
+</ul>
+<CodeBlock Title="dbnf show mbo MESZ26 2026-10-30 --limit 3" Text="@ShowOutput" />
+<p>Each day's <code>mbo</code> opens with a snapshot of the book: a clear, then every resting order.</p>
+
+<h2 id="pull">Download raw files</h2>
+<p><code>dbnf pull</code> downloads <code>.dbn.zst</code> files exactly as stored, one UTC day each, for one or more schemas and roots.</p>
+<CodeBlock Title="Any terminal" Text="@Pull" />
+<ul>
+    <li>Without <code>--out</code>, files go to the <a href="docs/dbnfetch#cache">cache</a>. With it, they land in the archive's own layout under that folder; <code>--flat</code> puts them all in the folder itself, and <code>--markers</code> also writes the <code>.empty</code> files for days with no data.</li>
+    <li>Files already there are skipped, unless <code>--force</code>. An interrupted download carries on where it stopped.</li>
+    <li><code>--dry-run</code> shows what would come down and how many GB. <code>--parallel</code> sets how many files download at once (4).</li>
+    <li>Days: <code>--from</code> and <code>--to</code>, <code>--last 30d</code> (or <code>8w</code>, <code>6m</code>, <code>1y</code>), or <code>--since</code>.</li>
+</ul>
+
+<h2 id="export">Export processed data</h2>
+<p>
+    <code>dbnf export &lt;schema&gt; &lt;symbol&gt;</code> reads the files it needs (through the cache), and writes
+    records or bars for CME trade dates. Tuesday's trade date runs from Monday 17:00 to Tuesday 16:00 Chicago time,
+    and it reads the UTC days that covers. Trading stops at 16:00, but settlement and status messages land in the
+    hour after it, so records stamped 16:00 to 17:00 count to the trade date that just closed.
+</p>
+<h3 id="symbols">Symbols</h3>
+<div class="table">
+    <table>
+        <thead><tr><th>Symbol</th><th>Means</th></tr></thead>
+        <tbody>
+            <tr><td><code>ES</code></td><td>Every contract of the root, each row naming its contract. <code>--no-spreads</code> leaves spreads out.</td></tr>
+            <tr><td><code>ESZ26</code></td><td>One contract.</td></tr>
+            <tr><td><code>ES.c.0</code></td><td>Continuous, rolling by the calendar: <code>--roll-days</code> (8) before expiry.</td></tr>
+            <tr><td><code>ES.v.0</code></td><td>Continuous, rolling to the contract with the most volume in the previous session.</td></tr>
+            <tr><td><code>ES.n.0</code>, <code>ES.n.1</code></td><td>Continuous by open interest; <code>.1</code> is the second contract. The only continuous names <code>mbo</code> holds.</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    A roll is decided from the last complete session and takes effect at the next open. <code>--adjust difference</code>
+    adds each roll's settlement gap to every earlier price (back-adjustment); <code>--adjust ratio</code> scales them,
+    keeping percentage moves. Adjustment applies to bars: order book events keep raw prices, so <code>--adjust</code>
+    on an <code>mbo</code> series is refused. A roll with no settlement for either contract has no gap, so an adjusted
+    export that crosses it is refused, naming the roll and the contracts; export it unadjusted, or add that session's
+    <code>statistics</code> to the archive.
+</p>
+<h3 id="hours">Hours</h3>
+<p>
+    <code>--session eth</code> (the default) is the whole Globex session, with the hour after the close where settlement
+    and status messages land; <code>--session rth</code> is the root's
+    regular hours; or give your own with <code>--hours 09:30-16:00 --hours-tz America/New_York</code>. Times are written
+    in Chicago unless <code>--tz</code> names another zone, such as <code>UTC</code> or <code>America/New_York</code>.
+</p>
+<h3 id="bars">Bars</h3>
+<p>
+    <code>--bars</code> makes bars instead of records: <code>5s</code>, <code>1m</code>, <code>15m</code>,
+    <code>1h</code>, <code>1d</code>, <code>1w</code> or <code>1mo</code> from <code>ohlcv-1s</code>, or
+    <code>500t</code> (every 500 trades) and <code>1000v</code> (every 1,000 contracts) from <code>mbo</code>. Bars count
+    from the session's open, so a 15-minute RTH bar starts at 08:30, 08:45 and so on. A bar belongs to one contract, so
+    a <code>1w</code> or <code>1mo</code> bar of a continuous series splits at a roll: one bar per contract.
+</p>
+<h3 id="from-mbo">Order books from mbo</h3>
+<p>
+    <code>--as</code> rebuilds the order book from <code>mbo</code> and writes a schema Databento® sells separately:
+    <code>trades</code>, <code>tbbo</code>, <code>mbp-1</code>, <code>mbp-10</code>, <code>bbo-1s</code> or
+    <code>bbo-1m</code>. The trades of a day add up to the archive's own <code>ohlcv-1s</code> volume, and the rebuilt
+    book is never crossed. Use a contract or <code>.n.0</code>/<code>.n.1</code>.
+</p>
+<h3 id="formats">Formats and files</h3>
+<ul>
+    <li><code>--format</code>: <code>csv</code> (default), <code>parquet</code>, <code>jsonl</code>, <code>dbn</code> (a filtered copy of the records, for Databento's own tools) or <code>nt8</code>. <code>--compress gzip</code> or <code>zstd</code> for the text formats.</li>
+    <li><strong>Columns</strong> use Databento's field names; <code>symbol</code> names the contract and <code>series</code> the continuous name. <code>--columns ts_event,close</code> keeps some, in that order.</li>
+    <li><strong>Units:</strong> <code>--price ticks</code> or <code>raw</code> (Databento's integers, 1e-9) instead of decimals; <code>--time unix-ns</code>, <code>unix-ms</code> or <code>excel</code> instead of ISO 8601. <code>--split-time</code> writes an ISO time as a date and a time, <code>ts_event_date</code> and <code>ts_event_time</code>, as columns in CSV and fields in JSON Lines.</li>
+    <li><strong>Files:</strong> one per trade date by default; <code>--single</code> for one file; <code>--partition</code> for <code>series=</code>/<code>date=</code> folders that DuckDB, Polars and Spark read as one table; <code>--name</code> with <code>{series}</code>, <code>{kind}</code>, <code>{date}</code>, <code>{from}</code>, <code>{to}</code> and <code>{ext}</code> for names of your own. A name without <code>{date}</code> writes one file for the whole export. <code>--out</code> picks the folder.</li>
+</ul>
+
+<h2 id="recipes">Export recipes</h2>
+<CodeBlock Title="5-minute RTH bars of back-adjusted ES since January, as one Parquet file" Text="@RecipeBars" />
+<CodeBlock Title="Daily bars of every NQ contract, as CSV, with the session's date and time in separate columns" Text="@RecipeDaily" />
+<CodeBlock Title="A month of MES trades rebuilt from mbo, one gzipped CSV per day" Text="@RecipeTrades" />
+<CodeBlock Title="Ten levels of book for the front MNQ contract, partitioned for DuckDB" Text="@RecipeBook" />
+<CodeBlock Title="Then, in DuckDB" Text="@RecipeDuck" />
+<CodeBlock Title="1,000-contract volume bars of the front CL contract, in New York time" Text="@RecipeVolume" />
+
+<h2 id="platforms">Into trading platforms</h2>
+<p>
+    Trading platforms such as NinjaTrader, MetaTrader and TradeStation each import history in their own way. DbnFetch
+    writes one platform's format natively, NinjaTrader 8's, and plain CSV for the rest. It does not write
+    MetaTrader's or TradeStation's formats, and their import steps are not covered here.
+</p>
+<h3 id="ninjatrader">NinjaTrader 8</h3>
+<p>
+    <code>--format nt8</code> writes NinjaTrader's import text: bars from <code>--bars</code>, or ticks from
+    <code>--as trades</code>. Bars are stamped with their end; a bar of a day or longer has the date alone, whatever the
+    session. A contract's file is named for NinjaTrader's instrument, such as <code>ES 12-26.Last.txt</code>, which is
+    how NinjaTrader knows where to put it. NinjaTrader's layout is fixed, so <code>--columns</code> is refused.
+</p>
+<CodeBlock Title="Any terminal" Text="@Nt8" />
+<ol class="steps-list">
+    <li>In NinjaTrader 8: <strong>Control Center → Tools → Import → Historical Data</strong>.</li>
+    <li>Choose the format with <strong>end of bar</strong> timestamps, and set the time zone to the one you exported in (Chicago unless you passed <code>--tz</code>).</li>
+    <li>Add the file and import. For a continuous series, rename the file to the instrument you want it in first.</li>
+</ol>
+<h3 id="other-platforms">Other platforms</h3>
+<p>
+    Export bars as CSV, keep only the columns your platform's importer asks for, in its order, and write times in the
+    zone it expects. Then follow the platform's own import instructions.
+</p>
+<CodeBlock Title="Any terminal" Text="@PlatformCsv" />
+
+<h2 id="rolls">Rolls</h2>
+<p>
+    <code>dbnf rolls</code> lists a continuous series' rolls: the first trade date the new contract is used, the
+    contracts, and the settlement gap that <code>--adjust</code> uses. A roll decided by Friday's volume shows Monday,
+    since Sunday's open belongs to Monday's trade date. Exchange holidays are not known, so one is not skipped. A roll
+    with no settlement shows dashes.
+</p>
+<CodeBlock Title="Any terminal" Text="dbnf rolls ES.v.0 --since 2025-01-01" />
+
+<h2 id="cache">The cache</h2>
+<p>
+    Raw files are cached in <code>%LOCALAPPDATA%\DbnFetch\cache</code> on Windows and
+    <code>~/.cache/DbnFetch</code> elsewhere, so a second export of the same days downloads nothing. A file that
+    changes in the archive is downloaded again. <code>--cache</code> on any command uses another folder.
+</p>
+<ul>
+    <li><code>dbnf cache</code> shows what it holds.</li>
+    <li><code>dbnf cache clear</code> deletes all of it; <code>dbnf cache clear mbo</code> one schema; <code>dbnf cache clear mbo MNQ</code> one schema of one root.</li>
+</ul>
+<p>
+    A cached file that is damaged stops the command with an error naming it and the command that mends it, such as
+    <code>dbnf pull mbo MNQ --from 2026-10-29 --force</code>, which downloads it again. In a folder archive, copy a good
+    file over it. If <code>profiles.json</code> or <code>secrets.json</code> is damaged, the error names it; run
+    <code>dbnf login</code> again, which replaces it and keeps the old file beside it, ending <code>.damaged</code>.
+</p>
+
+<h2 id="exit">Exit codes</h2>
+<div class="table">
+    <table>
+        <thead><tr><th>Code</th><th>Means</th></tr></thead>
+        <tbody>
+            <tr><td><code>0</code></td><td>It worked.</td></tr>
+            <tr><td><code>1</code></td><td>The work failed: the archive refused or couldn't be reached, a file is damaged, a roll has no settlement. <code>dbnf doctor</code> also exits 1 if a check fails.</td></tr>
+            <tr><td><code>2</code></td><td>A usage mistake: an option or argument dbnf can't parse, a value it can't use, a request it refuses, or no login.</td></tr>
+            <tr><td><code>130</code></td><td>Stopped with Ctrl+C.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h2 id="reference">Option reference</h2>
+<p><code>dbnf --help</code> and <code>dbnf &lt;command&gt; --help</code> print every option. These work on every command:</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Option</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+            <tr><td><code>--profile</code></td><td><code>default</code></td><td>Which saved login to use.</td></tr>
+            <tr><td><code>--archive</code></td><td>the login's</td><td>Read a folder instead.</td></tr>
+            <tr><td><code>--cache</code></td><td>see above</td><td>Where raw files are kept once downloaded.</td></tr>
+        </tbody>
+    </table>
+</div>
+<div class="table">
+    <table>
+        <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+        <tbody>
+            <tr><td><code>login</code>, <code>logout</code></td><td>Save or forget the archive's address and your key.</td></tr>
+            <tr><td><code>doctor</code></td><td>Check the login, the archive, the clock and the cache.</td></tr>
+            <tr><td><code>ls</code></td><td>List series: schema, root, days, size, first and last day.</td></tr>
+            <tr><td><code>coverage &lt;root&gt;</code></td><td>One root day by day.</td></tr>
+            <tr><td><code>contracts &lt;root&gt;</code></td><td>Contracts with expiry and tick size.</td></tr>
+            <tr><td><code>show &lt;schema&gt; &lt;symbol&gt; &lt;day&gt;</code></td><td>Print one UTC day's records.</td></tr>
+            <tr><td><code>pull &lt;schemas&gt; &lt;roots&gt;</code></td><td>Download raw files.</td></tr>
+            <tr><td><code>export &lt;schema&gt; &lt;symbol&gt;</code></td><td>Write records or bars for trade dates.</td></tr>
+            <tr><td><code>rolls &lt;series&gt;</code></td><td>List a continuous series' rolls.</td></tr>
+            <tr><td><code>cache</code>, <code>cache clear</code></td><td>Show or clear the local cache.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="next"><a href="docs/dbnsync">← DbnSync</a><a href="docs/dbnclient">DbnClient →</a></div>
+
+@code {
+    private const string ToolsPath = """
+        export PATH="$PATH:$HOME/.dotnet/tools"
+        """;
+
+    private const string BinaryWindows = """
+        $dir = "$env:LOCALAPPDATA\Programs\dbnf"
+        Expand-Archive dbnf-win-x64.zip -DestinationPath $dir -Force
+        [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";$dir", "User")
+        """;
+
+    private const string BinaryMac = """
+        unzip dbnf-osx-arm64.zip -d ~/.local/bin
+        chmod +x ~/.local/bin/dbnf
+        xattr -d com.apple.quarantine ~/.local/bin/dbnf
+        """;
+
+    private const string BinaryLinux = """
+        unzip dbnf-linux-x64.zip -d ~/.local/bin
+        chmod +x ~/.local/bin/dbnf
+        """;
+
+    private const string Login = """
+        dbnf login --location http://nas:9000 --access-key alice
+        dbnf doctor
+        """;
+
+    private const string LsOutput = """
+        Root  Schema       Days  No data      Size  First       Last
+        ES    definition  2,141      357    4.1 MB  2020-01-01  2026-11-02
+        ES    mbo            26        5    5.2 GB  2026-10-02  2026-11-01
+        ES    ohlcv-1s    2,130      368  871.1 MB  2020-01-01  2026-11-02
+        """;
+
+    private const string ShowOutput = """
+        2026-10-25T07:00:06.845623025-05:00  MESZ26   clear  -      0 @ -     order 0
+        2026-10-25T07:00:06.845623025-05:00  MESZ26   add    ask    1 @ 7820  order 6883391723797
+        2026-10-25T07:00:06.845623025-05:00  MESZ26   add    ask    2 @ 7820  order 6883401784619
+        """;
+
+    private const string Pull = """
+        dbnf pull mbo,definition MNQ --from 2026-10-01 --to 2026-10-31 --out D:\dbn --dry-run
+        dbnf pull mbo,definition MNQ --from 2026-10-01 --to 2026-10-31 --out D:\dbn
+        """;
+
+    private const string RecipeBars = """
+        dbnf export ohlcv-1s ES.v.0 --bars 5m --session rth --adjust difference --since 2026-01-01 --format parquet --single
+        """;
+
+    private const string RecipeDaily = """
+        dbnf export ohlcv-1s NQ --bars 1d --no-spreads --last 1y --split-time --single
+        """;
+
+    private const string RecipeTrades = """
+        dbnf export mbo MES.n.0 --as trades --last 30d --compress gzip --out trades
+        """;
+
+    private const string RecipeBook = """
+        dbnf export mbo MNQ.n.0 --as mbp-10 --last 5d --format parquet --partition --out book
+        """;
+
+    private const string RecipeDuck = """
+        SELECT * FROM read_parquet('book/**/*.parquet', hive_partitioning = true) LIMIT 10;
+        """;
+
+    private const string RecipeVolume = """
+        dbnf export mbo CL.n.0 --bars 1000v --tz America/New_York --last 30d --format parquet --single
+        """;
+
+    private const string PlatformCsv = """
+        dbnf export ohlcv-1s ES.v.0 --bars 1m --adjust difference --since 2026-01-01 --split-time --columns ts_event,open,high,low,close,volume --single
+        """;
+
+    private const string Nt8 = """
+        dbnf export ohlcv-1s ESZ26 --bars 1m --since 2026-09-01 --format nt8
+        """;
+}

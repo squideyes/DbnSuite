@@ -1,0 +1,51 @@
+.issue-detail {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0.5rem 0.25rem 0.75rem;
+}
+
+dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.4rem 1rem;
+    margin: 0;
+}
+
+dt {
+    color: var(--ink-2);
+    font-size: 0.8rem;
+    padding-top: 0.1rem;
+}
+
+dd {
+    margin: 0;
+    max-width: 72ch;
+}
+
+dd .chip {
+    margin-right: 0.4rem;
+}
+
+pre {
+    margin: 0;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.25rem;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 600px) {
+    dl {
+        grid-template-columns: 1fr;
+    }
+
+    dd {
+        margin-bottom: 0.4rem;
+    }
+}

@@ -1,0 +1,18 @@
+<div class="legend" aria-label="Day states">
+    @foreach (var state in Enum.GetValues<DayState>())
+    {
+        <span title="@Explain(state)"><i class="swatch @Format.Css(state)"></i>@Format.Name(state)</span>
+    }
+</div>
+
+@code {
+    public static string Explain(DayState state) => state switch
+    {
+        DayState.Held => "A data file is stored",
+        DayState.Empty => "Asked for; Databento had no data (weekend or holiday)",
+        DayState.Pending => "In a submitted job, not yet stored",
+        DayState.Owed => "Still free and not yet asked for; coming in a later pass",
+        DayState.Lost => "Aged out of the free window without being stored",
+        _ => ""
+    };
+}

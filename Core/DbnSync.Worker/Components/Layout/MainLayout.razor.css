@@ -1,0 +1,64 @@
+.bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--ring);
+}
+
+.bar-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0.6rem 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1.5rem;
+}
+
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+nav {
+    display: flex;
+    gap: 1rem;
+}
+
+nav ::deep a {
+    color: var(--ink-2);
+}
+
+nav ::deep a.active {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.pass {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--ink-2);
+    font-size: 0.85rem;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--baseline);
+}
+
+.dot.running {
+    background: var(--accent);
+}
+
+.notice {
+    max-width: 1200px;
+    margin: 32px auto 24px;
+    padding: 0 24px;
+    color: var(--muted);
+    font-size: 0.8rem;
+}

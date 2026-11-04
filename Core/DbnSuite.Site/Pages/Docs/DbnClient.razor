@@ -1,0 +1,249 @@
+@page "/docs/dbnclient"
+
+<PageTitle>DbnClient docs: DbnSuite</PageTitle>
+
+<h1>DbnClient</h1>
+<p class="lead">
+    The engine under <code>dbnf</code>, as a NuGet package: open an archive, stream DBN records, build continuous
+    series and order books, and export, from your own C#.
+</p>
+
+<nav class="toc" aria-label="On this page">
+    <p>On this page</p>
+    <ul>
+        <li><a href="docs/dbnclient#install">Install</a></li>
+        <li><a href="docs/dbnclient#open">Open an archive</a></li>
+        <li><a href="docs/dbnclient#list">List what it holds</a></li>
+        <li><a href="docs/dbnclient#read">Read records</a></li>
+        <li><a href="docs/dbnclient#export">Export</a></li>
+        <li><a href="docs/dbnclient#rolls">Rolls and contracts</a></li>
+        <li><a href="docs/dbnclient#errors">Errors</a></li>
+        <li><a href="docs/dbnclient#namespaces">Namespaces</a></li>
+    </ul>
+</nav>
+
+<h2 id="install">Install</h2>
+<p>DbnClient targets .NET 10 and is Native AOT compatible. Its only dependencies are the AWS S3 SDK and ZstdSharp.</p>
+<CodeBlock Title="In your project's folder" Text="dotnet add package DbnClient" />
+
+<h2 id="open">Open an archive</h2>
+<p>
+    <code>DbnArchive.Open</code> takes the archive's S3 address and a read-only key, or a folder. Files from S3 are
+    kept in the cache folder you give, so reading a day twice downloads it once. A folder archive needs no cache.
+</p>
+<CodeBlock Title="C#" Text="@Open" />
+<p>
+    <code>ArchiveOptions</code> also takes <code>Bucket</code> (<code>dbn</code>), <code>Prefix</code>,
+    <code>Region</code> and <code>Dataset</code> (<code>GLBX.MDP3</code>). Never put a secret in source: read it from
+    configuration, user secrets or the environment.
+</p>
+
+<h2 id="list">List what it holds</h2>
+<CodeBlock Title="C#" Text="@List" />
+<p><code>ListDaysAsync(schema, root, cancel)</code> lists one series' days, each with its stored object; <code>Empty</code> marks a day with no data.</p>
+
+<h2 id="read">Read records</h2>
+<p>
+    <code>OpenAsync</code> fetches one UTC day (through the cache) and returns a <code>DbnReader</code>, which streams
+    the day's records as typed C# records. Prices are <code>decimal?</code>, null when Databento® has none; times are
+    nanoseconds since the UNIX epoch, UTC.
+</p>
+<CodeBlock Title="C#: every trade of a day" Text="@Read" />
+<div class="table">
+    <table>
+        <thead><tr><th>Record</th><th>Schemas</th></tr></thead>
+        <tbody>
+            <tr><td><code>MboRecord</code></td><td><code>mbo</code>: an order added, modified, cancelled, filled or traded. <code>Action</code> is <code>A</code>, <code>M</code>, <code>C</code>, <code>F</code>, <code>T</code> or <code>R</code> (clear).</td></tr>
+            <tr><td><code>OhlcvRecord</code></td><td><code>ohlcv-1s</code>, <code>-1m</code>, <code>-1h</code>, <code>-1d</code></td></tr>
+            <tr><td><code>DefinitionRecord</code></td><td><code>definition</code>: symbol, expiry, tick size and the rest.</td></tr>
+            <tr><td><code>StatRecord</code></td><td><code>statistics</code>: settlement, open interest, session high and low, and more.</td></tr>
+            <tr><td><code>StatusRecord</code></td><td><code>status</code>: trading halts, pre-open, open and close.</td></tr>
+            <tr><td><code>OtherRecord</code></td><td>Anything else, by type and length.</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    <code>reader.Metadata</code> holds the file's DBN metadata, including the symbol mappings. To name instruments,
+    <code>archive.InstrumentsAsync(root, day, cancel)</code> maps each instrument id to its <code>Contract</code>.
+    <code>DbnTime.ToTime</code> converts a time to <code>DateTimeOffset</code>, and <code>Zones.Format</code> writes
+    one in any zone.
+</p>
+<p>
+    <code>DbnReader.OpenAsync(stream, cancel)</code> reads any zstd-compressed DBN version 3 stream, so it works on
+    files from Databento itself too.
+</p>
+
+<h2 id="export">Export</h2>
+<p>
+    <code>Exporter</code> does everything <a href="docs/dbnfetch#export"><code>dbnf export</code></a> does. Build an
+    <code>ExportRequest</code>; the parsers return results, so check each or, as here for brevity, take
+    <code>.Value</code> of inputs you know are good.
+</p>
+<CodeBlock Title="C#: 5-minute RTH bars of back-adjusted ES, as one Parquet file" Text="@Export" />
+<div class="table">
+    <table>
+        <thead><tr><th>ExportRequest</th><th>Default</th><th>dbnf option</th></tr></thead>
+        <tbody>
+            <tr><td><code>Format</code></td><td><code>Csv</code></td><td><code>--format</code></td></tr>
+            <tr><td><code>Compression</code></td><td><code>None</code></td><td><code>--compress</code></td></tr>
+            <tr><td><code>Layout</code></td><td><code>PerDay</code></td><td><code>--single</code>, <code>--partition</code></td></tr>
+            <tr><td><code>NameTemplate</code></td><td>none</td><td><code>--name</code></td></tr>
+            <tr><td><code>Zone</code></td><td>UTC</td><td><code>--tz</code></td></tr>
+            <tr><td><code>Time</code>, <code>SplitTime</code></td><td><code>Iso</code>, false</td><td><code>--time</code>, <code>--split-time</code></td></tr>
+            <tr><td><code>Prices</code></td><td><code>Decimal</code></td><td><code>--price</code></td></tr>
+            <tr><td><code>Columns</code></td><td>all</td><td><code>--columns</code></td></tr>
+            <tr><td><code>Bars</code></td><td>none</td><td><code>--bars</code></td></tr>
+            <tr><td><code>As</code></td><td>none</td><td><code>--as</code></td></tr>
+            <tr><td><code>Adjustment</code>, <code>RollDays</code></td><td><code>None</code>, 8</td><td><code>--adjust</code>, <code>--roll-days</code></td></tr>
+            <tr><td><code>Spreads</code></td><td>true</td><td><code>--no-spreads</code></td></tr>
+        </tbody>
+    </table>
+</div>
+<p>Note that <code>Zone</code> defaults to UTC in the library, where <code>dbnf</code> defaults to Chicago.</p>
+
+<h2 id="rolls">Rolls and contracts</h2>
+<CodeBlock Title="C#" Text="@Rolls" />
+<p>
+    <code>roll.TradeDate</code> is the first trade date the new contract is used, so a roll decided over a weekend is
+    dated Monday. <code>schedule.On(tradeDate)</code> says which contract the series holds on a trade date.
+    <code>schedule.Adjuster(tradeDate, adjustment)</code> gives what a price of that date becomes, as a result: it is
+    <code>Errors.NoSettlement</code> if a later roll has no gap or ratio to adjust by.
+    <code>archive.ContractsAsync(root, progress, cancel)</code> lists every contract of a root from its definitions.
+    <code>Sessions.TradeDate(nanos)</code> gives the CME trade date of a time, and <code>Sessions.RegularHours(root)</code>
+    a root's regular hours.
+</p>
+
+<h2 id="errors">Errors</h2>
+<p>
+    Expected failures come back as a <code>Result&lt;T&gt;</code> carrying an <code>Error</code> with a stable code,
+    rather than as exceptions. Check <code>IsSuccess</code> before reading <code>Value</code>. A damaged file is a result
+    from <code>OpenAsync</code>, <code>InstrumentsAsync</code>, <code>ContractsAsync</code>, <code>RollSchedule.BuildAsync</code>
+    and <code>Exporter.RunAsync</code>. Only the reader itself throws: if the damage is further in than
+    <code>OpenAsync</code> looked, <code>reader.ReadAsync</code> throws <code>ArchiveException</code>, whose
+    <code>Error</code> is the same one. A <code>DbnReader</code> you open on a stream of your own throws
+    <code>InvalidDataException</code>.
+</p>
+<CodeBlock Title="C#" Text="@Errors" />
+<div class="table">
+    <table>
+        <thead><tr><th>Errors.</th><th>Code</th><th>Means</th></tr></thead>
+        <tbody>
+            <tr><td><code>NotStored</code></td><td><code>archive.not_stored</code></td><td>The archive has no file for that day.</td></tr>
+            <tr><td><code>NoData</code></td><td><code>archive.no_data</code></td><td>The day was fetched and had no data.</td></tr>
+            <tr><td><code>Denied</code></td><td><code>archive.denied</code></td><td>The key was refused, or doesn't reach the bucket.</td></tr>
+            <tr><td><code>Unreachable</code></td><td><code>archive.unreachable</code></td><td>The archive couldn't be reached.</td></tr>
+            <tr><td><code>UnknownLayout</code></td><td><code>archive.unknown_layout</code></td><td>The files are in a layout this version doesn't know.</td></tr>
+            <tr><td><code>Corrupt</code></td><td><code>archive.corrupt</code></td><td>A day's file is damaged. The message names it and says what to do.</td></tr>
+            <tr><td><code>NoSettlement</code></td><td><code>export.no_settlement</code></td><td>An adjusted export crosses a roll with no gap or ratio. The message names the roll and its contracts.</td></tr>
+            <tr><td><code>BadSymbol</code></td><td><code>input.bad_symbol</code></td><td>Not a root, a contract or a continuous name.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h2 id="namespaces">Namespaces</h2>
+<div class="table">
+    <table>
+        <tbody>
+            <tr><td><code>DbnClient</code></td><td><code>Result&lt;T&gt;</code>, <code>Error</code>, <code>Errors</code></td></tr>
+            <tr><td><code>DbnClient.Archive</code></td><td><code>DbnArchive</code>, <code>ArchiveOptions</code>, the S3 and folder stores, <code>LocalCache</code></td></tr>
+            <tr><td><code>DbnClient.Dbn</code></td><td><code>DbnReader</code>, the records, <code>DbnPrice</code>, <code>DbnTime</code></td></tr>
+            <tr><td><code>DbnClient.Contracts</code></td><td><code>Contract</code>, <code>SymbolSpec</code>, <code>RollSchedule</code>, <code>Adjustment</code></td></tr>
+            <tr><td><code>DbnClient.Time</code></td><td><code>DateSpan</code>, <code>Sessions</code>, <code>SessionFilter</code>, <code>Zones</code></td></tr>
+            <tr><td><code>DbnClient.Export</code></td><td><code>Exporter</code>, <code>ExportRequest</code>, <code>BarSpec</code>, <code>BarBuilder</code>, <code>OrderBook</code>, <code>MboTransform</code></td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="next"><a href="docs/dbnfetch">← DbnFetch</a><a href="docs/archive">The archive →</a></div>
+
+@code {
+    private const string Open = """
+        using DbnClient.Archive;
+
+        using var archive = DbnArchive.Open(new ArchiveOptions
+        {
+            Location = "https://s3.example.com",
+            AccessKey = "dbn-reader",
+            SecretKey = Environment.GetEnvironmentVariable("DBN_SECRET")!
+        }, cacheRoot: Path.Combine(Path.GetTempPath(), "dbn-cache"));
+
+        // Or a folder in the archive's layout, such as one dbnf pull --out filled
+        using var local = DbnArchive.Open(new ArchiveOptions { Location = @"D:\dbn" }, cacheRoot: null);
+        """;
+
+    private const string List = """
+        var series = await archive.ListSeriesAsync(cancel);
+
+        if (!series.IsSuccess)
+        {
+            Console.Error.WriteLine(series.Error);
+            return;
+        }
+
+        foreach (var s in series.Value)
+            Console.WriteLine($"{s.Root,-4} {s.Schema,-10} {s.Files,6} days  {s.First} to {s.Last}");
+        """;
+
+    private const string Read = """
+        using DbnClient.Dbn;
+
+        var opened = await archive.OpenAsync("mbo", "MES", new DateOnly(2026, 10, 30), cancel);
+
+        if (opened.IsSuccess)
+        {
+            await using var reader = opened.Value;
+
+            await foreach (var record in reader.ReadAsync(cancel))
+            {
+                if (record is MboRecord { Action: 'T' } trade)
+                    Console.WriteLine($"{DbnTime.Format(trade.TsEvent)} {trade.Quantity} @ {trade.Price}");
+            }
+        }
+        """;
+
+    private const string Export = """
+        using DbnClient.Contracts;
+        using DbnClient.Export;
+        using DbnClient.Time;
+
+        var symbol = SymbolSpec.Parse("ES.v.0").Value;
+        var dates = new DateSpan(new DateOnly(2026, 1, 2), new DateOnly(2026, 10, 30));
+
+        var request = new ExportRequest
+        {
+            Schema = "ohlcv-1s",
+            Symbol = symbol,
+            TradeDates = dates,
+            Sessions = SessionFilter.Create(dates, SessionKind.Rth, symbol.Root).Value,
+            Output = "out",
+            Bars = BarSpec.Parse("5m").Value,
+            Adjustment = Adjustment.Difference,
+            Format = OutputFormat.Parquet,
+            Layout = FileLayout.Single
+        };
+
+        var result = await new Exporter(archive).RunAsync(request, progress: null, cancel);
+
+        if (result.IsSuccess)
+            Console.WriteLine($"{result.Value.Rows:N0} bars in {result.Value.Files.Count} file(s), {result.Value.Rolls.Count} rolls");
+        else
+            Console.Error.WriteLine(result.Error);
+        """;
+
+    private const string Rolls = """
+        var schedule = await RollSchedule.BuildAsync(archive, symbol, dates, RollSchedule.DefaultRollDays, progress: null, cancel);
+
+        if (schedule.IsSuccess)
+        {
+            foreach (var roll in schedule.Value.Rolls)
+                Console.WriteLine($"{roll.TradeDate}: {roll.From.Symbol} to {roll.To.Symbol}, gap {roll.ToSettle - roll.FromSettle}");
+        }
+        """;
+
+    private const string Errors = """
+        var day = await archive.OpenAsync("mbo", "MES", new DateOnly(2026, 11, 1), cancel);
+
+        if (day.Error?.Code == DbnClient.Errors.NoData)
+            Console.WriteLine("A day with no trading.");
+        """;
+}

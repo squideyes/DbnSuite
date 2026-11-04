@@ -1,0 +1,22 @@
+@* The one thing to know about a series, as an icon and words, never color alone. *@
+
+@if (Series.Count(DayState.Lost) is > 0 and var lost)
+{
+    <span class="chip critical">✕ @Format.Count(lost) lost</span>
+}
+else if (Series.Count(DayState.Owed) is > 0 and var owed)
+{
+    <span class="chip warning">● @Format.Count(owed) owed</span>
+}
+else if (Series.Count(DayState.Pending) is > 0 and var pending)
+{
+    <span class="chip warning">◌ @Format.Count(pending) pending</span>
+}
+else
+{
+    <span class="chip good">✓ complete</span>
+}
+
+@code {
+    [Parameter, EditorRequired] public Series Series { get; set; } = null!;
+}

@@ -1,0 +1,71 @@
+@* Every day of a series: one row per month, newest first, one cell per day of the month. *@
+
+@if (Series.Span is { } span)
+{
+    <div class="scroll">
+        <table class="day-grid">
+            <thead>
+                <tr>
+                    <th scope="col">Month</th>
+                    @for (var d = 1; d <= 31; d++)
+                    {
+                        <th scope="col" class="dom">@(d % 5 == 0 || d == 1 ? d.ToString(System.Globalization.CultureInfo.InvariantCulture) : "")</th>
+                    }
+                    <th scope="col" class="num">Stored</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var month in Months(span))
+                {
+                    <tr>
+                        <th scope="row">@month.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)</th>
+                        @for (var d = 1; d <= 31; d++)
+                        {
+                            if (d > DateTime.DaysInMonth(month.Year, month.Month))
+                            {
+                                <td></td>
+                                continue;
+                            }
+
+                            var day = new DateOnly(month.Year, month.Month, d);
+
+                            if (Series.States.TryGetValue(day, out var state))
+                            {
+                                <td><span class="cell @Format.Css(state)" title="@Tip(day, state)"></span></td>
+                            }
+                            else
+                            {
+                                <td></td>
+                            }
+                        }
+                        <td class="num">@Format.Bytes(MonthBytes(month))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <p class="muted">No days yet: the window opens after the history start.</p>
+}
+
+@code {
+    [Parameter, EditorRequired] public Series Series { get; set; } = null!;
+
+    private static IEnumerable<DateOnly> Months(DayRange span)
+    {
+        var first = new DateOnly(span.From.Year, span.From.Month, 1);
+
+        for (var month = new DateOnly(span.Upto.Year, span.Upto.Month, 1); month >= first; month = month.AddMonths(-1))
+            yield return month;
+    }
+
+    private long MonthBytes(DateOnly month) =>
+        Series.Bytes.Where(b => b.Key.Year == month.Year && b.Key.Month == month.Month).Sum(b => b.Value);
+
+    private string Tip(DateOnly day, DayState state) =>
+        Series.Bytes.TryGetValue(day, out var bytes)
+            ? $"{Format.Day(day)} · {Format.Name(state)} · {Format.Bytes(bytes)}"
+            : $"{Format.Day(day)} · {Format.Name(state)}";
+}

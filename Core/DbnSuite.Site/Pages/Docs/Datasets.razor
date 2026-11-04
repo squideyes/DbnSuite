@@ -1,0 +1,119 @@
+@page "/docs/datasets"
+
+<PageTitle>Datasets: DbnSuite</PageTitle>
+
+<h1>Datasets</h1>
+<p class="lead">
+    DbnSuite archives and reads every Databento® dataset the same way. What differs from one dataset to the next is
+    written down in a dataset profile, and a dataset without a profile is not supported.
+</p>
+
+<nav class="toc" aria-label="On this page">
+    <p>On this page</p>
+    <ul>
+        <li><a href="docs/datasets#supported">Supported datasets</a></li>
+        <li><a href="docs/datasets#status">Verified and contributed</a></li>
+        <li><a href="docs/datasets#profile">What a profile says</a></li>
+        <li><a href="docs/datasets#adding">Adding a dataset</a></li>
+        <li><a href="docs/datasets#corpus">Databento's datasets</a></li>
+    </ul>
+</nav>
+
+<h2 id="supported">Supported datasets</h2>
+<div class="table">
+    <table>
+        <thead><tr><th>Dataset</th><th>What it is</th><th>Profile</th><th>DbnSync</th><th>DbnFetch and DbnClient</th></tr></thead>
+        <tbody>
+            <tr><td><code>GLBX.MDP3</code></td><td>CME Globex: CME, CBOT, NYMEX and COMEX futures</td><td>Verified, SquidEyes</td><td>Archives</td><td>List, pull and export</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    No other dataset has a profile yet. DbnSync refuses to start on one, naming the datasets it supports.
+</p>
+
+<h2 id="status">Verified and contributed</h2>
+<p>
+    A profile can only be tested properly by someone who subscribes to its dataset, because the files it fetches are
+    Databento's and cost money outside a plan. DbnSuite never buys data to test with, so every profile carries one of
+    two statuses:
+</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Status</th><th>Means</th><th>To use it</th></tr></thead>
+        <tbody>
+            <tr><td><strong>Verified</strong></td><td>The maintainer runs it against a real subscription, every day.</td><td>Nothing extra.</td></tr>
+            <tr><td><strong>Contributed</strong></td><td>Written and run by someone else, against their own subscription. The maintainer has never run it.</td><td>Set <code>DbnSync__AllowContributedProfile</code> to <code>true</code>. DbnSync logs a warning at every start.</td></tr>
+        </tbody>
+    </table>
+</div>
+<div class="note warn"><p>
+    A contributed profile is used entirely at your own risk, like the rest of DbnSuite. Its contributor answers for
+    it, not SquidEyes. The spend policy still applies, and still spends nothing unless you set it to.
+</p></div>
+
+<h2 id="profile">What a profile says</h2>
+<p>
+    A profile is a class in <code>Core/DbnSync.Core/Datasets</code> that implements <code>IDatasetProfile</code>.
+    Planning, the spend policy, the ledger, the archive and the dashboard are the same for every dataset; only these
+    things come from the profile:
+</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Part</th><th>What it decides</th><th>For GLBX.MDP3</th></tr></thead>
+        <tbody>
+            <tr><td><code>Dataset</code>, <code>Start</code></td><td>Databento's code, and the first day it has.</td><td><code>GLBX.MDP3</code>, 6 June 2010</td></tr>
+            <tr><td><code>Status</code>, <code>Maintainer</code></td><td>How far it was tested, and who answers for it.</td><td>Verified, SquidEyes</td></tr>
+            <tr><td><code>GroupNoun</code>, <code>IsGroup</code></td><td>What a group of instruments is called, and which names are valid. A group is what <code>DbnSync__Roots</code> lists and the <code>{root}</code> part of every archive key.</td><td>root: 1 to 6 capital letters or digits, such as <code>ES</code> or <code>6E</code></td></tr>
+            <tr><td><code>Schemas</code></td><td>Which schemas DbnSync keeps, each with its licensing level, how its instruments are chosen, and how many days one job covers.</td><td>14 schemas, from <code>mbo</code> to <code>status</code></td></tr>
+            <tr><td><code>Request</code></td><td>How one group and schema is asked for: the symbols and their symbology type.</td><td><code>ES.FUT</code> by parent, or <code>ES.n.0</code>, <code>ES.n.1</code> by open interest for the book schemas</td></tr>
+            <tr><td><code>Included</code></td><td>How far back the Standard plan includes L1, and L2 and L3.</td><td>364 and 31 days</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    Readers need one more thing: the dataset's trading day, which cuts exports into trade dates, bars and rolls. In
+    this version only <code>GLBX.MDP3</code> has one. DbnFetch and DbnClient list and pull raw files from any
+    dataset, and refuse to export any other with <code>input.unsupported_dataset</code>, rather than cut it on the
+    wrong day.
+</p>
+
+<h2 id="adding">Adding a dataset</h2>
+<p>
+    Contributions are welcome from anyone who subscribes to the dataset. A pull request that adds one must do all of
+    the following; one that skips a step is not merged.
+</p>
+<ol class="steps-list">
+    <li><strong>Write the profile.</strong> Add a class to <code>Core/DbnSync.Core/Datasets</code> that implements <code>IDatasetProfile</code>, with <code>Status</code> set to <code>Contributed</code> and your name or GitHub handle as <code>Maintainer</code>. Only SquidEyes marks a profile verified.</li>
+    <li><strong>Register it</strong> in <code>DatasetProfiles.All</code>.</li>
+    <li><strong>Pass the conformance tests.</strong> Add a test class under <code>Tests/DbnSync.UnitTests/Core/Datasets</code> that derives from <code>DatasetProfileConformance</code> and names a few real groups of the dataset. The tests hold the profile to Databento's schemas and levels, the archive's key grammar and the batch API's limits. Every registered profile must have one, or the suite fails.</li>
+    <li><strong>Run it against your own subscription</strong> for at least 14 days, with the spend policy left at $0, and put the pass summaries from the dashboard in the pull request: jobs, files, bytes and any issues.</li>
+    <li><strong>Write its layout rules.</strong> Add what <code>{root}</code> means for the dataset to <a href="docs/layout">Data layout</a>. Layout version 1 covers a dataset only once its rules are there.</li>
+    <li><strong>Commit no data.</strong> Databento's licence does not allow its files to be redistributed, so the pull request must not include any, not even a sample. Tests use generated records.</li>
+</ol>
+<p>
+    Contributing a profile means answering issues about it. A contributed profile whose maintainer stops answering
+    for six months is removed in the next release.
+</p>
+
+<h2 id="corpus">Databento's datasets</h2>
+<p>
+    Every dataset Databento's historical API listed on 3 November 2026, grouped by the work a profile would take. Each
+    group needs a different idea of what a group of instruments is.
+</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Kind</th><th>Datasets</th><th>What a profile needs</th></tr></thead>
+        <tbody>
+            <tr><td>Futures, CME</td><td><code>GLBX.MDP3</code></td><td>Done.</td></tr>
+            <tr><td>Futures, other exchanges</td><td><code>XEUR.EOBI</code> (Eurex), <code>XEEE.EOBI</code> (EEX), <code>XCBF.PITCH</code> (Cboe Futures), <code>IFUS.IMPACT</code>, <code>IFEU.IMPACT</code>, <code>IFLL.IMPACT</code>, <code>NDEX.IMPACT</code> (ICE)</td><td>Closest to CME: roots and parent symbology. Each needs its own trading day.</td></tr>
+            <tr><td>US equities, full depth per venue</td><td><code>XNAS.ITCH</code>, <code>XBOS.ITCH</code>, <code>XPSX.ITCH</code>, <code>XNYS.PILLAR</code>, <code>ARCX.PILLAR</code>, <code>XASE.PILLAR</code>, <code>XCHI.PILLAR</code>, <code>BATS.PITCH</code>, <code>BATY.PITCH</code>, <code>EDGA.PITCH</code>, <code>EDGX.PITCH</code>, <code>EPRL.DOM</code>, <code>MEMX.MEMOIR</code>, <code>OCEA.MEMOIR</code></td><td>No roots: a group is a ticker or a list of them. Thousands of symbols, splits and dividends.</td></tr>
+            <tr><td>US equities, top of book and trades</td><td><code>IEXG.TOPS</code>, <code>XCIS.TRADESBBO</code>, <code>XNYS.TRADES</code>, <code>XNAS.BASIC</code>, <code>DBEQ.BASIC</code></td><td>As above, with fewer schemas.</td></tr>
+            <tr><td>US equities, Databento's combined datasets</td><td><code>EQUS.MINI</code>, <code>EQUS.SUMMARY</code></td><td>As above; the simplest place to start with equities.</td></tr>
+            <tr><td>Options</td><td><code>OPRA.PILLAR</code></td><td>A group is an underlying's options. Millions of contracts, very large files.</td></tr>
+            <tr><td>Indices</td><td><code>DBIX.CORE</code></td><td>A group is an index family. History starts October 2026.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="next"><a href="docs/layout">← Data layout</a><span></span></div>

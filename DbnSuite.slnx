@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/Aspire/" />
+  <Folder Name="/Aspire/AppHost/">
+    <Project Path="Aspire/AppHost/DbnSync.AppHost.csproj" />
+  </Folder>
+  <Folder Name="/Aspire/ServiceDefaults/">
+    <Project Path="Aspire/ServiceDefaults/DbnSync.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/Core/">
+    <Project Path="Core/DbnFetch/DbnFetch.csproj" />
+    <Project Path="Core/DbnClient/DbnClient.csproj" />
+    <Project Path="Core/DbnSuite.Site/DbnSuite.Site.csproj" />
+    <Project Path="Core/DbnSync.Core/DbnSync.Core.csproj" />
+    <Project Path="Core/DbnSync.Data/DbnSync.Data.csproj" />
+    <Project Path="Core/DbnSync.Worker/DbnSync.Worker.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/DbnSuite.IntegrationTests/DbnSuite.IntegrationTests.csproj" />
+    <Project Path="Tests/DbnSync.UnitTests/DbnSync.UnitTests.csproj" />
+  </Folder>
+</Solution>

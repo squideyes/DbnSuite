@@ -1,0 +1,20 @@
+@* One series' days as a proportional bar: what share is stored, empty, pending, owed or lost. *@
+
+<div class="state-bar" role="img" aria-label="@Label">
+    @foreach (var (state, count) in Segments)
+    {
+        <span class="segment @Format.Css(state)" style="flex-grow: @count"
+              title="@($"{Format.Name(state)}: {Format.Count(count)} days")"></span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Series Series { get; set; } = null!;
+
+    private IEnumerable<(DayState State, int Count)> Segments =>
+        Enum.GetValues<DayState>()
+            .Select(s => (s, Series.Count(s)))
+            .Where(p => p.Item2 > 0);
+
+    private string Label => string.Join(", ", Segments.Select(s => $"{Format.Name(s.State)} {s.Count}"));
+}

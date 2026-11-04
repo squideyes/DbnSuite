@@ -1,0 +1,24 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- What every package says about where it comes from. -->
+  <PropertyGroup>
+    <Authors>SquidEyes</Authors>
+    <Copyright>Copyright (c) 2026 SquidEyes</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://dbnsuite.com</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/squideyes/DbnSuite</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>databento;dbn;market-data;order-book;futures;cme;parquet;ninjatrader</PackageTags>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>
