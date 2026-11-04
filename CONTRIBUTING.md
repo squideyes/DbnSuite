@@ -67,12 +67,12 @@ would gladly take from someone who can.
 DbnClient is C# only, and SquidEyes has no plans to port it. If you want one in
 Python, Rust, C++, Go or anything else, write it and send a pull request. Anything
 that speaks S3 and reads DBN can already use an archive, so
-[The archive](https://squideyes.github.io/DbnSuite/docs/archive) is the place to start.
+[The archive](https://dbnsuite.squideyes.com/docs/archive) is the place to start.
 
 A client in another language should:
 
 - live under `Clients/<language>/`, with its own README, build and tests;
-- follow the [data layout](https://squideyes.github.io/DbnSuite/docs/layout) exactly, so that it
+- follow the [data layout](https://dbnsuite.squideyes.com/docs/layout) exactly, so that it
   reads the same archive and writes the same files as `dbnf`;
 - use Databento's own open-source DBN libraries rather than a new decoder;
 - pass its tests in CI, using generated data only;
@@ -85,7 +85,7 @@ A contributed client whose maintainer stops responding for six months is removed
 ### Dataset profiles
 
 Each Databento dataset needs a profile, and SquidEyes subscribes only to CME. If
-you subscribe to another, [Datasets](https://squideyes.github.io/DbnSuite/docs/datasets) sets out
+you subscribe to another, [Datasets](https://dbnsuite.squideyes.com/docs/datasets) sets out
 the six steps, including 14 days of real runs at $0 on your own subscription.
 
 ### Export formats for trading platforms
