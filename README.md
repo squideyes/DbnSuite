@@ -3,7 +3,7 @@
 <img src="Core/DbnSync.Worker/wwwroot/img/squidly.png" alt="Squidly" width="96" align="right" />
 
 Three open-source tools for keeping and using Databento® market data, by
-SquidEyes. Website: **[squideyes.github.io/DbnSuite](https://squideyes.github.io/DbnSuite)**. MIT licensed.
+SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**. MIT licensed.
 
 > **Independent project.** DbnSuite has no official connection with Databento;
 > it is not made, endorsed or supported by Databento. Databento® is a registered
@@ -48,7 +48,7 @@ To add a dataset: implement `IDatasetProfile` with `Status` set to
 `Contributed`, register it in `DatasetProfiles.All`, derive a test class from
 `DatasetProfileConformance`, run it against your own subscription for at least
 14 days with the spend policy at $0, and add its rules to the data layout. The
-[Datasets docs](https://squideyes.github.io/DbnSuite/docs/datasets#adding) give every step.
+[Datasets docs](https://dbnsuite.squideyes.com/docs/datasets#adding) give every step.
 
 Features named for futures (continuous series, rolls, CME trade dates) apply
 to futures datasets only. The examples below use `GLBX.MDP3`, the one dataset
@@ -62,7 +62,7 @@ jobs that Databento quotes at $0. On Standard and similar plans, whose included 
 runs in rolling windows (16+ years of L0, 12 months of L1, one month of
 L2/L3), it works through whatever leaves the plan first, so the archive keeps
 every day long after the plan stops including it. Full documentation is at
-[squideyes.github.io/DbnSuite/docs](https://squideyes.github.io/DbnSuite/docs).
+[dbnsuite.squideyes.com/docs](https://dbnsuite.squideyes.com/docs).
 
 - [Spending: $0 by default](#spending-0-by-default)
 - [What it keeps](#what-it-keeps)

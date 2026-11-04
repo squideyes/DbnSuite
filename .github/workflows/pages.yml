@@ -1,6 +1,6 @@
 name: pages
 
-# squideyes.github.io/DbnSuite: the Blazor WebAssembly site, published to GitHub Pages.
+# dbnsuite.squideyes.com: the Blazor WebAssembly site, published to GitHub Pages.
 
 on:
   push:
@@ -30,9 +30,6 @@ jobs:
           global-json-file: global.json
 
       - run: dotnet publish Core/DbnSuite.Site -c Release -o site
-
-      # Pages serves the site under /DbnSuite/, not the root. Local runs keep "/".
-      - run: sed -i 's|<base href="/" />|<base href="/DbnSuite/" />|' site/wwwroot/index.html
 
       # Pages has no server-side routing: a deep link such as /docs gets the
       # app's own page back, and the app's router shows the right page.
