@@ -233,8 +233,8 @@ version 3.
 `dbnf` lists the archive, prints a day's records, downloads raw files and
 exports processed ones. It is a .NET tool built as a native binary for Windows
 (x64 and ARM), macOS and Linux. The DbnClient library underneath it does the same in your own C#.
-Until the packages are on nuget.org, run it from the repo with
-`dotnet run --project Core/DbnFetch --`, followed by the command.
+Install it with `dotnet tool install -g DbnFetch`, or take a native binary from the
+[releases](https://github.com/squideyes/DbnSuite/releases).
 
 **Log in once** with your read-only key. It asks for the secret, which Windows
 then keeps encrypted for your user:
