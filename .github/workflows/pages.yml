@@ -31,9 +31,29 @@ jobs:
 
       - run: dotnet publish Core/DbnSuite.Site -c Release -o site
 
-      # Pages has no server-side routing: a deep link such as /docs gets the
-      # app's own page back, and the app's router shows the right page.
-      - run: cp site/wwwroot/index.html site/wwwroot/404.html
+      # Pages has no server-side routing. Each page gets a copy of the app's own
+      # page, so a deep link such as /docs answers 200 and search engines keep it,
+      # and the app's router shows the right page. 404.html catches the rest.
+      - name: Give every page its own address
+        run: |
+          cd site/wwwroot
+          cp index.html 404.html
+          site=https://dbnsuite.squideyes.com
+          pages=$(grep -rh '@page "/' ../../Core/DbnSuite.Site/Pages | tr -d '\r' | sed -E 's/.*@page "\/([^"]*)".*/\1/' | grep -vE '^(not-found)?$' | sort)
+          for page in $pages; do
+            mkdir -p "$(dirname "$page")"
+            cp index.html "$page.html"
+          done
+          for page in $pages; do
+            if [ -d "$page" ]; then cp index.html "$page/index.html"; fi
+          done
+          {
+            echo '<?xml version="1.0" encoding="UTF-8"?>'
+            echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            echo "  <url><loc>$site/</loc></url>"
+            for page in $pages; do echo "  <url><loc>$site/$page</loc></url>"; done
+            echo '</urlset>'
+          } > sitemap.xml
 
       - uses: actions/upload-pages-artifact@v3
         with:

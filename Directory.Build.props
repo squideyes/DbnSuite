@@ -11,7 +11,7 @@
   <!-- What every package says about where it comes from. -->
   <PropertyGroup>
     <Authors>SquidEyes</Authors>
-    <Copyright>Copyright (c) 2026 SquidEyes</Copyright>
+    <Copyright>Copyright (c) 2026 SquidEyes, LLC</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://dbnsuite.squideyes.com</PackageProjectUrl>
     <RepositoryUrl>https://github.com/squideyes/DbnSuite</RepositoryUrl>

@@ -1,8 +1,9 @@
 name: release
 
 # Push a tag such as v1.0.0 to publish DbnClient and DbnFetch to nuget.org
-# and attach native dbnf binaries to a GitHub release. Needs the NUGET_API_KEY
-# secret: an API key from nuget.org scoped to push DbnClient and DbnFetch.
+# and attach native dbnf binaries to a GitHub release. It signs in to nuget.org
+# with Trusted Publishing, so no API key is stored: it needs a policy on nuget.org
+# for this repo and release.yml, and the NUGET_USER secret, the nuget.org user name.
 
 on:
   push:
@@ -58,6 +59,9 @@ jobs:
   publish:
     needs: native
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -82,10 +86,18 @@ jobs:
           merge-multiple: true
           path: native
 
+      # A key good for an hour, swapped for this run's GitHub identity.
+      - uses: NuGet/login@v1
+        id: nuget
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Push to nuget.org
+        env:
+          NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
         run: |
-          dotnet nuget push "packages/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
-          dotnet nuget push "native/packages/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+          dotnet nuget push "packages/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
+          dotnet nuget push "native/packages/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
 
       - name: Create the GitHub release
         env:

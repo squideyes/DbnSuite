@@ -3,11 +3,11 @@
 ## NAS (Synology, QNAP, UGREEN)
 
 - SSH has to be on (Synology: Control Panel → Terminal & SNMP; UGREEN UGOS: Control Panel → Terminal), and Docker installed from the app centre (Synology calls it Container Manager). The person does both; you can't reach the NAS until they have.
-- Prefix `docker` commands with `sudo`.
+- Try `docker` without `sudo` first, since the account may be in the `docker` group. If it says permission denied, prefix `sudo`.
 - Use a shared folder: `/volume1/docker/dbnsync` for the deployment and `/volume1/docker/dbnsync/s3` for the archive.
-- UGOS's SFTP service doesn't see `/volume1`, so copy with the classic protocol: `scp -O docker-compose.yml Caddyfile .env user@nas:/volume1/docker/dbnsync/`.
+- UGOS's SFTP service doesn't see `/volume1`, so copy with the classic protocol, after making the folder over SSH: `scp -O docker-compose.yml Caddyfile user@nas:/volume1/docker/dbnsync/`, then `scp -O .env.example user@nas:/volume1/docker/dbnsync/.env`, then `chmod 600 .env` there at once.
 - Ports 80 and 443 usually belong to the NAS's own page, which is why Caddy listens on 8443.
-- Some NAS systems turn SSH off after a while. If a session drops, ask them to turn it back on; DbnSync keeps running regardless.
+- Some NAS systems turn SSH off after a while, and UGOS has been seen to within hours. If `ssh` says *connection refused*, ask them to turn it back on; DbnSync keeps running regardless.
 
 ## Docker Desktop on Windows or macOS
 
