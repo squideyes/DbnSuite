@@ -13,7 +13,7 @@
     <Authors>SquidEyes</Authors>
     <Copyright>Copyright (c) 2026 SquidEyes</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://dbnsuite.com</PackageProjectUrl>
+    <PackageProjectUrl>https://squideyes.github.io/DbnSuite</PackageProjectUrl>
     <RepositoryUrl>https://github.com/squideyes/DbnSuite</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
