@@ -1,6 +1,6 @@
 # Security
 
-DbnSuite acts on real Databento accounts and on archives that can be costly to
+DbnSuite acts on real Databento® accounts and on archives that can be costly to
 replace, so reports are welcome.
 
 **To report a problem, use [Report a vulnerability](https://github.com/squideyes/DbnSuite/security/advisories/new)
@@ -19,3 +19,7 @@ The DbnSync dashboard has no sign-in by design, and its ports should never be
 opened to the internet. Reach it through Tailscale, an SSH tunnel or the Caddy
 setup with a password, as the [docs](https://dbnsuite.squideyes.com/docs/dbnsync)
 describe.
+
+DbnSuite is an independent project with no official connection with Databento, Inc.
+It is for data you are licensed to receive, and you use it at your own risk. See the
+[notice](NOTICE.md).

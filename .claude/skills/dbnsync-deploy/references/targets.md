@@ -22,7 +22,7 @@ Good for trying DbnSync, but a machine that sleeps pauses it, so say so.
 A Droplet runs the worker and Seq, and a Space replaces RustFS. Both are billed by DigitalOcean (a Space is $5 a month for 250 GB, then $0.02 per GB), so have the person create them, or get a clear yes first.
 
 1. They create a Space, such as `dbn` in `nyc3`, and under API → Spaces Keys an access key for it.
-2. They create a Droplet from the Docker image on Ubuntu; the 1 GB size is enough. Do steps 1 and 2 of the skill over SSH.
+2. They create a Droplet from the Docker image on Ubuntu; start with the 2 GB size. Do steps 1 and 2 of the skill over SSH.
 3. Skip step 3. In `.env` set the lines below. The key and its secret are secrets, so the person types those in. The `unused` values are required by the Compose file.
 
    ```

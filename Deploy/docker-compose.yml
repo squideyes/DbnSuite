@@ -2,6 +2,7 @@
 # it, Seq for its logs, and (optionally) HTTPS for reaching S3 from the internet.
 #
 #   cp .env.example .env    # then fill it in; .env is never committed
+#   docker compose pull
 #   docker compose up -d
 #
 # To update after a new image is published:
