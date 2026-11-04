@@ -75,6 +75,8 @@ public sealed class OutputFilesTests : IDisposable
         {
             foreach (var date in dates)
                 await files.WriteAsync(date, ninjaTrader ? BarRow : Row, ReadOnlyMemory<byte>.Empty);
+
+            await files.CompleteAsync();
         }
 
         return files.Files.Select(f => Path.GetRelativePath(folder, f).Replace('\\', '/'));
@@ -164,6 +166,8 @@ public sealed class OutputFilesTests : IDisposable
         {
             await files.WriteAsync(First, Row, ReadOnlyMemory<byte>.Empty);
             await files.WriteAsync(Second, Row, ReadOnlyMemory<byte>.Empty);
+
+            await files.CompleteAsync();
         }
 
         files.Files.ShouldHaveSingleItem();
@@ -209,6 +213,8 @@ public sealed class OutputFilesTests : IDisposable
             await files.WriteAsync(First, Row, ReadOnlyMemory<byte>.Empty);
             await files.WriteAsync(Second, Row, ReadOnlyMemory<byte>.Empty);
             await files.WriteAsync(Second, Row, ReadOnlyMemory<byte>.Empty);
+
+            await files.CompleteAsync();
         }
 
         files.Rows.ShouldBe(3);
@@ -221,7 +227,11 @@ public sealed class OutputFilesTests : IDisposable
         var files = new OutputFiles(request, All, Csv);
 
         await using (files)
+        {
             await files.WriteAsync(First, Row, ReadOnlyMemory<byte>.Empty);
+
+            await files.CompleteAsync();
+        }
 
         (await File.ReadAllLinesAsync(files.Files.Single())).ShouldBe(["volume,close", "7,100.25"]);
     }
@@ -234,7 +244,11 @@ public sealed class OutputFilesTests : IDisposable
         var files = new OutputFiles(Request(Contract, OutputFormat.Dbn), All, Csv) { Metadata = metadata };
 
         await using (files)
+        {
             await files.WriteAsync(First, Row, raw);
+
+            await files.CompleteAsync();
+        }
 
         (await File.ReadAllBytesAsync(files.Files.Single())).ShouldBe([.. metadata, .. raw]);
     }
@@ -261,6 +275,8 @@ public sealed class OutputFilesTests : IDisposable
             await files.WriteAsync(First, Numbered(1), Raw(1));
             await files.WriteAsync(Second, Numbered(2), Raw(2));
             await files.WriteAsync(First, Numbered(3), Raw(3));
+
+            await files.CompleteAsync();
         }
 
         return files;
@@ -349,6 +365,8 @@ public sealed class OutputFilesTests : IDisposable
             await files.WriteAsync(First, BarRow, ReadOnlyMemory<byte>.Empty);
             await files.WriteAsync(Second, BarRow, ReadOnlyMemory<byte>.Empty);
             await files.WriteAsync(First, BarRow, ReadOnlyMemory<byte>.Empty);
+
+            await files.CompleteAsync();
         }
 
         (await File.ReadAllLinesAsync(files.Files[0])).Length.ShouldBe(2);
@@ -381,5 +399,20 @@ public sealed class OutputFilesTests : IDisposable
         var files = await WrittenWithALateRow(request);
 
         (await File.ReadAllLinesAsync(files.Files[0])).Length.ShouldBe(4);
+    }
+
+    [Fact]
+    public async Task Files_keep_their_real_names_until_the_export_finishes()
+    {
+        var request = Request(Contract, template: "all.{ext}");
+        var files = new OutputFiles(request, All, Csv);
+
+        await using (files)
+        {
+            await files.WriteAsync(First, Row, ReadOnlyMemory<byte>.Empty);
+        }
+
+        File.Exists(Path.Combine(folder, "all.csv")).ShouldBeFalse();
+        Directory.GetFiles(folder).ShouldBeEmpty();
     }
 }

@@ -171,6 +171,16 @@ public sealed class BarsTests
     }
 
     [Fact]
+    public void The_last_time_bar_of_a_session_ends_when_the_session_does()
+    {
+        var rthClose = DbnBytes.Utc(2026, 10, 28, 20);
+
+        var bar = Built("1h", Rth, (Day(10, 28), rthClose - 60 * Second, 10m)).ShouldHaveSingleItem();
+
+        bar.End.ShouldBe(rthClose);
+    }
+
+    [Fact]
     public void A_daily_bar_runs_from_the_sessions_open_to_its_close()
     {
         var sessionOpen = DbnBytes.Utc(2026, 10, 27, 22);

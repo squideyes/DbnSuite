@@ -55,24 +55,18 @@ public sealed class DbnMetadataTests
         stream.Position.ShouldBe(Block().Length);
     }
 
-    [Fact]
-    public async Task Version_two_is_accepted()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(4)]
+    public async Task Versions_with_another_layout_are_refused(byte version)
     {
         var block = Block();
-        block[VersionAt] = 2;
-
-        (await Read(block)).Version.ShouldBe((byte)2);
-    }
-
-    [Fact]
-    public async Task Version_one_is_refused()
-    {
-        var block = Block();
-        block[VersionAt] = 1;
+        block[VersionAt] = version;
 
         var refused = await Should.ThrowAsync<InvalidDataException>(() => Read(block));
 
-        refused.Message.ShouldContain("version 1");
+        refused.Message.ShouldContain($"version {version}");
     }
 
     [Theory]

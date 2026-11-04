@@ -176,7 +176,11 @@ public sealed class BarBuilder(BarSpec spec, SessionFilter sessions, Action<Bar>
                 var index = ((long)ts - anchor) / spec.Nanos;
                 var start = (ulong)(anchor + index * spec.Nanos);
 
-                return (tradeDate.DayNumber * 1_000_000L + index, start, start + (ulong)spec.Nanos);
+                var close = (ulong)Nanos(sessions.Close(tradeDate));
+                var end = start + (ulong)spec.Nanos;
+
+                // The last bar of a window that doesn't divide evenly ends with the window.
+                return (tradeDate.DayNumber * 1_000_000L + index, start, close > start && close < end ? close : end);
             }
 
             case BarUnit.Day:

@@ -178,13 +178,50 @@ public sealed class DatabentoClientTests : IDisposable
     }
 
     [Fact]
-    public async Task A_job_the_account_no_longer_lists_is_gone()
+    public async Task A_job_missing_from_the_listing_is_gone_once_Databento_does_not_know_it()
     {
         handler.Answer(ListJobs, $$"""[{"id":"{{OtherJobId}}","state":"done"}]""");
+        handler.Answer(JobDetails, "{}", HttpStatusCode.NotFound);
 
         var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
 
         result.Value.ShouldBe(JobState.Gone);
+    }
+
+    [Theory]
+    [InlineData("processing", JobState.Working)]
+    [InlineData("done", JobState.Done)]
+    [InlineData("expired", JobState.Gone)]
+    public async Task A_job_missing_from_the_listing_keeps_the_state_Databento_gives_for_it(string state, JobState expected)
+    {
+        handler.Answer(ListJobs, "[]");
+        handler.Answer(JobDetails, $$"""{"id":"{{JobId}}","state":"{{state}}"}""");
+
+        var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+
+        result.Value.ShouldBe(expected);
+    }
+
+    [Fact]
+    public async Task A_job_missing_from_the_listing_is_not_given_up_on_a_failed_answer()
+    {
+        handler.Answer(ListJobs, "[]");
+        handler.Answer(JobDetails, "{}", HttpStatusCode.InternalServerError);
+
+        var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+
+        result.Error!.Code.ShouldBe(Errors.ServerError);
+    }
+
+    [Fact]
+    public async Task A_job_missing_from_the_listing_with_a_state_unknown_here_is_not_given_up()
+    {
+        handler.Answer(ListJobs, "[]");
+        handler.Answer(JobDetails, """{"state":"something new"}""");
+
+        var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+
+        result.Error!.Code.ShouldBe(Errors.Malformed);
     }
 
     [Fact]
@@ -388,6 +425,7 @@ public sealed class DatabentoClientTests : IDisposable
     public async Task Jobs_are_looked_for_from_the_day_before_they_were_submitted()
     {
         handler.Answer(ListJobs, "[]");
+        handler.Answer(JobDetails, "{}", HttpStatusCode.NotFound);
 
         await Client().GetStateAsync(JobId, Now, CancellationToken.None);
 

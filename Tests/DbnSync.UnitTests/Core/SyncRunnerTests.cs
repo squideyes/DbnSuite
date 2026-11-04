@@ -880,6 +880,22 @@ public sealed class SyncRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task A_finished_job_that_lists_nothing_marks_no_day_empty_and_stays_pending()
+    {
+        var job = Pending(new DayRange(Day(10, 30), Day(10, 30)));
+        store.ListPendingAsync(Arg.Any<CancellationToken>()).Returns([job]);
+        databento.GetStateAsync(JobId, job.SubmittedAt, Arg.Any<CancellationToken>()).Returns(JobState.Done);
+        databento.ListFilesAsync(JobId, Arg.Any<CancellationToken>())
+            .Returns((Result<IReadOnlyList<RemoteFile>>)new List<RemoteFile>());
+
+        var summary = await Runner().RunOnceAsync(CancellationToken.None);
+
+        summary.Issues.ShouldContain(i => i.Code == IssueCodes.NoFiles);
+        await store.DidNotReceive().PutEmptyAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
+        await store.DidNotReceive().DeletePendingAsync(JobId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task A_job_whose_files_are_unavailable_stays_pending_until_it_is_a_week_old()
     {
         var job = Pending(new DayRange(Day(10, 30), Day(10, 30)));

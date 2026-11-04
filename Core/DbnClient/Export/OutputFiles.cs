@@ -8,7 +8,9 @@ namespace DbnClient.Export;
 /// The files an export writes into, opened as rows arrive: one per trade date,
 /// one for the range, or one per partition folder. Only one file is open at a
 /// time. Rows nearly always come in date order; one that comes late, as a
-/// non-bar record's event time can, reopens its file and adds to it.
+/// non-bar record's event time can, reopens its file and adds to it. Files get
+/// their names only once the export has finished, so a failed one leaves nothing
+/// that looks complete.
 /// </summary>
 internal sealed class OutputFiles : IAsyncDisposable
 {
@@ -19,6 +21,7 @@ internal sealed class OutputFiles : IAsyncDisposable
     private readonly CellFormat format;
     private readonly Cell[] projected;
     private readonly List<string> files = [];
+    private bool completed;
 
     /// <summary>Every file closed so far, with what a Parquet one needs to be carried on.</summary>
     private readonly Dictionary<string, ParquetRowWriter.Closed?> closed = new(StringComparer.Ordinal);
@@ -41,7 +44,7 @@ internal sealed class OutputFiles : IAsyncDisposable
         format = new CellFormat(request.Zone, request.Time, request.SplitTime);
     }
 
-    /// <summary>The metadata block DBN output opens with: the first source file's.</summary>
+    /// <summary>The metadata block the next DBN file opens with: the current source file's.</summary>
     public byte[]? Metadata { get; set; }
 
     public IReadOnlyList<string> Files => files;
@@ -70,11 +73,11 @@ internal sealed class OutputFiles : IAsyncDisposable
 
             if (closed.TryGetValue(path, out var earlier))
             {
-                writer = Writers.Reopen(request.Format, path, columns, format, request.Compression, earlier, dateOnly);
+                writer = Writers.Reopen(request.Format, Unfinished(path), columns, format, request.Compression, earlier, dateOnly);
             }
             else
             {
-                writer = Writers.Create(request.Format, path, columns, format, request.Compression, Metadata, dateOnly);
+                writer = Writers.Create(request.Format, Unfinished(path), columns, format, request.Compression, Metadata, dateOnly);
                 files.Add(path);
             }
 
@@ -89,7 +92,29 @@ internal sealed class OutputFiles : IAsyncDisposable
         Rows++;
     }
 
-    public async ValueTask DisposeAsync() => await CloseAsync().ConfigureAwait(false);
+    /// <summary>Closes the last file and gives every file its real name.</summary>
+    public async ValueTask CompleteAsync()
+    {
+        await CloseAsync().ConfigureAwait(false);
+
+        foreach (var path in files)
+            File.Move(Unfinished(path), path, overwrite: true);
+
+        completed = true;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await CloseAsync().ConfigureAwait(false);
+
+        if (completed)
+            return;
+
+        foreach (var path in files)
+            File.Delete(Unfinished(path));
+    }
+
+    private static string Unfinished(string path) => path + ".partial";
 
     private async ValueTask CloseAsync()
     {

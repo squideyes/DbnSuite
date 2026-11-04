@@ -151,6 +151,17 @@ public sealed class SyncRunner(
             return false;
         }
 
+        // A finished job always lists its manifest, so an answer with nothing at
+        // all says nothing about the days, and a day marked empty is never asked for again.
+        if (files.Value.Count == 0)
+        {
+            logger.LogWarning("Job {Job} ({Schema} {Root} {Range}) is done but lists no files",
+                job.Id, job.Schema, job.Root, job.Range);
+            tally.Issue(IssueLevel.Warning, IssueCodes.NoFiles, "Done, but Databento listed no files; no day was marked empty.", job);
+
+            return false;
+        }
+
         var byDay = new Dictionary<DateOnly, RemoteFile>();
 
         foreach (var file in files.Value.Where(f => !BatchFileName.IsSupport(f.Name)))
