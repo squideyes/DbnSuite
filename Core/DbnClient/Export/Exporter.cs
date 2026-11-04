@@ -12,6 +12,8 @@ namespace DbnClient.Export;
 /// </summary>
 public sealed class Exporter(DbnArchive archive)
 {
+    private const long SecondsInAMinute = 60;
+
     private const string Mbo = "mbo";
 
     /// <param name="progress">Told each UTC day as it is read.</param>
@@ -154,6 +156,14 @@ public sealed class Exporter(DbnArchive archive)
 
                 var contracts = instruments.IsSuccess ? instruments.Value : new Dictionary<uint, Contract>();
 
+                // Without definitions a contract can't be told from its neighbours: say so, rather than write nothing.
+                if (symbol.Kind == SymbolKind.Contract && contracts.Count == 0)
+                {
+                    missing.Add(day);
+
+                    continue;
+                }
+
                 foreach (var c in contracts.Values)
                     contractsBySymbol[c.Symbol] = c;
 
@@ -164,7 +174,7 @@ public sealed class Exporter(DbnArchive archive)
 
                 await using var reader = opened.Value;
 
-                files.Metadata ??= reader.Metadata.Raw;
+                files.Metadata = reader.Metadata.Raw;
 
                 var wanted = Wanted(request, reader.Metadata, contracts);
 
@@ -265,6 +275,8 @@ public sealed class Exporter(DbnArchive archive)
 
             transform?.Flush(null, Keep);
             await WriteRowsAsync().ConfigureAwait(false);
+
+            await files.CompleteAsync().ConfigureAwait(false);
         }
 
         return new ExportSummary(files.Files, files.Rows, missing, schedule?.Rolls ?? []);
@@ -326,8 +338,12 @@ public sealed class Exporter(DbnArchive archive)
             if (bars.FromTrades && request.Schema != Mbo)
                 return new Error("input.bad_bars", $"{bars.Text} bars count trades, so they come from mbo.");
 
-            if (request.Schema is not (Mbo or "ohlcv-1s" or "ohlcv-1m" or "ohlcv-1h" or "ohlcv-1d"))
+            // An hour or a UTC day doesn't line up with a session, and a coarser bar can't be split.
+            if (request.Schema is not (Mbo or "ohlcv-1s" or "ohlcv-1m"))
                 return new Error("input.bad_bars", "Bars are built from ohlcv-1s, or from mbo's trades.");
+
+            if (request.Schema == "ohlcv-1m" && bars.Unit == BarUnit.Seconds && bars.Size % SecondsInAMinute != 0)
+                return new Error("input.bad_bars", $"{bars.Text} bars can't be built from ohlcv-1m; use ohlcv-1s.");
 
             if (request.Format == OutputFormat.Dbn)
                 return new Error("input.bad_format", "DBN output copies records as stored; write bars as CSV, JSON Lines, Parquet or NinjaTrader.");
@@ -342,6 +358,13 @@ public sealed class Exporter(DbnArchive archive)
 
         if (continuous && request.Adjustment != Adjustment.None && request.Format == OutputFormat.Dbn)
             return new Error("input.bad_format", "DBN output copies prices as traded, so it cannot be adjusted.");
+
+        // A DBN file has one symbol map, and a series changes instrument at each roll.
+        if (continuous && request.Format == OutputFormat.Dbn && request.Layout == FileLayout.Single
+            && request.TradeDates.From != request.TradeDates.To)
+        {
+            return new Error("input.bad_format", "A DBN file has one symbol map, so a series over several days takes one file a day.");
+        }
 
         return null;
     }

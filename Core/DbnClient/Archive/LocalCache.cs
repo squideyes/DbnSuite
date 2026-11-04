@@ -36,9 +36,19 @@ public sealed class LocalCache
 
     public string Root { get; }
 
-    public string PathOf(string key) => flat
-        ? Path.Combine(Root, key[(key.LastIndexOf('/') + 1)..])
-        : Path.Combine(Root, key.Replace('/', Path.DirectorySeparatorChar));
+    /// <summary>Where an object's key puts it, which must be inside the cache: a key comes from the bucket, not from us.</summary>
+    public string PathOf(string key)
+    {
+        var name = flat ? key[(key.LastIndexOf('/') + 1)..] : key.Replace('/', Path.DirectorySeparatorChar);
+        var root = Path.GetFullPath(Root);
+        var path = Path.GetFullPath(Path.Combine(root, name));
+        var inside = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
+
+        if (!path.StartsWith(inside, StringComparison.Ordinal))
+            throw new ArchiveException(new Error(Errors.UnknownLayout, $"The object key {key} is outside the cache."));
+
+        return path;
+    }
 
     /// <summary>True when the cache holds this exact object, so no download is needed.</summary>
     public bool Holds(StoredObject stored)

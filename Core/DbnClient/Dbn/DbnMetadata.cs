@@ -18,6 +18,8 @@ public sealed record DbnMetadata(
     IReadOnlyList<string> Requested,
     IReadOnlyDictionary<uint, string> Symbols)
 {
+    private const byte SupportedVersion = 3;
+
     /// <summary>The metadata exactly as stored, prefix included, for writing a filtered copy of the file.</summary>
     public byte[] Raw { get; init; } = [];
 
@@ -58,8 +60,9 @@ public sealed record DbnMetadata(
 
         var version = prefix[3];
 
-        if (version < 2)
-            throw new InvalidDataException($"DBN version {version} is not supported; DbnSync stores version 2 or later.");
+        // Records are decoded as version 3 lays them out; any other's would read silently wrong.
+        if (version != SupportedVersion)
+            throw new InvalidDataException($"DBN version {version} is not supported; this reads version {SupportedVersion}.");
 
         var length = BinaryPrimitives.ReadUInt32LittleEndian(prefix.AsSpan(4));
 

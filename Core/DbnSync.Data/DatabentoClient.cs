@@ -28,6 +28,9 @@ public sealed class DatabentoClient(HttpClient http, IOptions<DatabentoOptions> 
     : IDatabento
 {
     /// <summary>Databento's words, in a 422, for a request none of whose symbols existed.</summary>
+    /// <summary>How a refusal's message opens when Databento doesn't know what was asked about.</summary>
+    private const string NotFoundStatus = "404 ";
+
     internal const string NoSymbolsResolved = "None of the symbols could be resolved";
 
     /// <summary>Databento's case, in a 422, for a request whose symbols had no records.</summary>
@@ -126,17 +129,54 @@ public sealed class DatabentoClient(HttpClient http, IOptions<DatabentoOptions> 
 
         using var document = json.Value;
 
-        return Parsed<JobState>("list_jobs", () =>
+        var listed = Parsed<(bool Found, JobState State)>("list_jobs", () =>
         {
             foreach (var job in document.RootElement.EnumerateArray())
             {
                 if (job.GetProperty("id").GetString() != jobId)
                     continue;
 
-                return StateOf(job.GetProperty("state").GetString()) ?? JobState.Gone;
+                return (true, StateOf(job.GetProperty("state").GetString()) ?? JobState.Gone);
             }
 
-            return JobState.Gone;
+            return (false, JobState.Gone);
+        });
+
+        if (!listed.IsSuccess)
+            return listed.Error!;
+
+        return listed.Value.Found
+            ? listed.Value.State
+            : await StateByIdAsync(jobId, cancel).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// What a job missing from a listing really is. One listing can come back
+    /// short, and a job dropped here is planned, and maybe bought, again, so only
+    /// Databento's own word on this job ends it: a 404, or a state that says so.
+    /// </summary>
+    private async Task<Result<JobState>> StateByIdAsync(string jobId, CancellationToken cancel)
+    {
+        var json = await GetJsonAsync(Api($"batch.get_job_details?job_id={Escape(jobId)}"), cancel)
+            .ConfigureAwait(false);
+
+        if (!json.IsSuccess)
+        {
+            if (json.Error!.Code == Errors.Rejected && json.Error.Message.StartsWith(NotFoundStatus, StringComparison.Ordinal))
+                return JobState.Gone;
+
+            return json.Error;
+        }
+
+        using var document = json.Value;
+
+        return Parsed<JobState>("get_job_details", () =>
+        {
+            var state = document.RootElement.GetProperty("state").GetString();
+
+            return StateOf(state) is { } known
+                ? known
+                : new Error(Errors.Malformed, $"get_job_details gave a state unknown here: '{state}'.");
         });
     }
 

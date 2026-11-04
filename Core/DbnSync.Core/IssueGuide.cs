@@ -4,6 +4,7 @@ namespace DbnSync.Core;
 public static class IssueCodes
 {
     public const string JobGone = "job.gone";
+    public const string NoFiles = "job.no_files";
     public const string JobAbandoned = "job.abandoned";
     public const string JobAdopted = "job.adopted";
     public const string UnexpectedFile = "job.unexpected_file";
@@ -27,6 +28,11 @@ public sealed record IssueGuide(string Code, string Title, string Meaning, strin
             "Databento quoted more than $0 for this job, so it was not submitted. A book job at the edge of its one-month window sheds its oldest day and is quoted again, up to three times, before it is skipped.",
             "The next pass plans the same days again. Days that have aged out of the free window become Lost.",
             "Nothing, unless the same days are refused pass after pass. Then they are outside what the plan makes free: check HistoryStart and the plan's windows.",
+            NeedsYou: false),
+        new(IssueCodes.NoFiles, "No files listed",
+            "Databento said this job was done but listed no files at all. Even a job with no data lists its manifest, so the answer can't be trusted, and no day was marked as having no data.",
+            "The job stays pending and is asked about again on the next pass. If it never lists its files, it is abandoned and its days are planned again.",
+            "Nothing, unless it repeats for days.",
             NeedsYou: false),
         new(Errors.Unreachable, "Databento unreachable",
             "The request got no answer at all: a network failure, a DNS failure or a timeout.",

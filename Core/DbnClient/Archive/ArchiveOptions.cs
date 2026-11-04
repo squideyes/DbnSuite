@@ -19,6 +19,9 @@ public sealed record ArchiveOptions
 
     public string Dataset { get; init; } = "GLBX.MDP3";
 
+    /// <summary>Leaves the keys out: a record's own <c>ToString</c> would print them.</summary>
+    public override string ToString() => $"{Location} ({Bucket})";
+
     /// <summary>True when <see cref="Location"/> is a folder on this machine, not an S3 endpoint.</summary>
     public bool IsFolder => !Location.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
         && !Location.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
