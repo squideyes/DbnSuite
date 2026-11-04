@@ -48,7 +48,7 @@ services:
       - seq:/data
 
   dbnsync:
-    image: ${DBNSYNC_IMAGE:-ghcr.io/squideyes/dbnsync:latest}
+    image: ${DBNSYNC_IMAGE:-ghcr.io/squideyes/dbnsync-worker:latest}
     build:
       context: ..
     restart: unless-stopped

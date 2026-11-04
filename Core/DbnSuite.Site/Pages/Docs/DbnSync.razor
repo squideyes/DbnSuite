@@ -39,7 +39,7 @@
 <p>
     The Compose file runs three containers: <strong>RustFS</strong>, an S3 server that holds the archive in a folder you
     choose; <strong>Seq</strong>, which keeps the worker's logs searchable; and the <strong>DbnSync worker</strong>,
-    published as <code>ghcr.io/squideyes/dbnsync</code>. An optional fourth, <strong>Caddy</strong>, adds HTTPS.
+    published as <code>ghcr.io/squideyes/dbnsync-worker</code>. An optional fourth, <strong>Caddy</strong>, adds HTTPS.
 </p>
 
 <h2 id="claude">Install with Claude Code</h2>
@@ -374,7 +374,7 @@
             <tr><td><code>DBNSYNC_SCHEMAS</code></td><td><code>mbo,ohlcv-1s,definition,statistics,status</code></td><td>Comma-separated schemas.</td></tr>
             <tr><td><code>S3_SERVICE_URL</code></td><td><code>http://s3:9000</code></td><td>Another S3 store, such as Spaces.</td></tr>
             <tr><td><code>S3_BUCKET</code></td><td><code>dbn</code></td><td>The bucket.</td></tr>
-            <tr><td><code>DBNSYNC_IMAGE</code></td><td><code>ghcr.io/squideyes/dbnsync:latest</code></td><td>Pin a version by its tag.</td></tr>
+            <tr><td><code>DBNSYNC_IMAGE</code></td><td><code>ghcr.io/squideyes/dbnsync-worker:latest</code></td><td>Pin a version by its tag.</td></tr>
             <tr><td><code>S3_DOMAIN</code>, <code>DASHBOARD_DOMAIN</code>, <code>DASHBOARD_USER</code>, <code>DASHBOARD_PASSWORD_HASH</code></td><td>empty</td><td>HTTPS through Caddy.</td></tr>
             <tr><td><code>DBNSYNC_ALLOW_PAID_JOBS</code>, <code>DBNSYNC_MAX_PER_JOB</code>, <code>DBNSYNC_MAX_PER_DAY</code>, <code>DBNSYNC_MAX_PER_MONTH</code></td><td>off, $0</td><td>The <a href="docs/dbnsync#spend">spend policy</a>. Read its caveats first.</td></tr>
         </tbody>

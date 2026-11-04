@@ -19,7 +19,7 @@ SquidEyes. Website: **[dbnsuite.com](https://dbnsuite.com)**. MIT licensed.
 
 | Tool | What it does | Get it |
 |---|---|---|
-| **DbnSync** | Keeps a growing archive of Databento data in any S3-compatible store. By default it spends nothing at Databento | `ghcr.io/squideyes/dbnsync` (Docker) |
+| **DbnSync** | Keeps a growing archive of Databento data in any S3-compatible store. By default it spends nothing at Databento | `ghcr.io/squideyes/dbnsync-worker` (Docker) |
 | **DbnFetch** (`dbnf`) | Downloads raw files from the archive and exports bars, rebuilt order books and, for futures, sessions and back-adjusted continuous series, as Parquet, CSV or JSON Lines for research tools and trading platforms, DBN, or NinjaTrader 8's own import format | `dotnet tool install -g DbnFetch` |
 | **DbnClient** | The engine under DbnFetch, as a C# library | `dotnet add package DbnClient` |
 
@@ -464,7 +464,7 @@ guarantee: read each command before you approve it.
 
 `Deploy/docker-compose.yml` runs three containers: RustFS holding the archive
 on a NAS folder, Seq for searchable logs, and the DbnSync worker. CI publishes
-the worker image to `ghcr.io/squideyes/dbnsync` on every push to `main`. This
+the worker image to `ghcr.io/squideyes/dbnsync-worker` on every push to `main`. This
 is how it went onto a UGREEN NAS running UGOS; other NAS systems differ only in
 where SSH and Docker are switched on.
 
