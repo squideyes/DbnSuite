@@ -97,6 +97,24 @@ public sealed class ExporterTests : IDisposable
     }
 
     [Fact]
+    public async Task A_failed_export_leaves_no_file_that_looks_complete()
+    {
+        Write(DbnSyncLayout.Data(Dataset, Ohlcv, Es, Day(10, 29)), [1, 2, 3]);
+        var span = new DateSpan(Day(10, 28), Day(10, 29));
+        var request = Request(Es, SessionKind.Eth) with { TradeDates = span, Sessions = SessionFilter.Create(span, SessionKind.Eth, Es).Value };
+
+        await Should.ThrowAsync<Exception>(async () =>
+        {
+            var result = await new Exporter(archive).RunAsync(request, null, CancellationToken.None);
+
+            if (!result.IsSuccess)
+                throw new InvalidDataException(result.Error!.Message);
+        });
+
+        (Directory.Exists(output) ? Directory.GetFiles(output, "*", SearchOption.AllDirectories) : []).ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task Rth_bars_start_at_the_open_and_skip_what_came_before()
     {
         var request = Request("ESZ26", SessionKind.Rth) with { Bars = BarSpec.Parse(OneMinute).Value };
@@ -198,6 +216,7 @@ public sealed class ExporterTests : IDisposable
     private const string Mbp1 = "mbp-1";
     private const string BboSeconds = "bbo-1s";
     private const string OneMinute = "1m";
+    private const string MinuteBars = "ohlcv-1m";
     private const string OneDay = "1d";
     private const string OneWeek = "1w";
     private const string ByVolume = "ES.v.0";
@@ -1058,17 +1077,62 @@ public sealed class ExporterTests : IDisposable
     }
 
     [Theory]
-    [InlineData("ohlcv-1m")]
-    [InlineData("ohlcv-1h")]
-    [InlineData("ohlcv-1d")]
-    public async Task Bars_can_be_built_from_any_time_bars(string schema)
+    [InlineData(OneMinute)]
+    [InlineData(OneDay)]
+    public async Task Bars_can_be_built_from_ohlcv_1m_in_whole_minutes(string size)
     {
         Define(Dec(9));
-        folder.Add(schema, Es, Dec(9), Bar(FrontNumber, Morning(Dec(9)), 100));
+        folder.Add(MinuteBars, Es, Dec(9), Bar(FrontNumber, Morning(Dec(9)), 100));
 
-        var summary = await Export(Ask(schema, Front, Dec(9), Dec(9)) with { Bars = BarSpec.Parse(OneDay).Value });
+        var summary = await Export(Ask(MinuteBars, Front, Dec(9), Dec(9)) with { Bars = BarSpec.Parse(size).Value });
 
         summary.Rows.ShouldBe(1);
+    }
+
+    [Theory]
+    [InlineData("ohlcv-1h", OneDay)]
+    [InlineData("ohlcv-1h", OneMinute)]
+    [InlineData("ohlcv-1d", OneDay)]
+    [InlineData(MinuteBars, "30s")]
+    public async Task Bars_that_do_not_line_up_with_their_source_are_refused(string schema, string size)
+    {
+        var result = await Try(Ask(schema, Front, Dec(9), Dec(9)) with { Bars = BarSpec.Parse(size).Value });
+
+        result.Error!.Code.ShouldBe("input.bad_bars");
+    }
+
+    [Fact]
+    public async Task A_contract_on_a_day_without_definitions_counts_as_missing()
+    {
+        folder.Add(Ohlcv, Es, Dec(9), Bar(FrontNumber, Morning(Dec(9)), 100));
+
+        var summary = await Export(Ask(Ohlcv, Front, Dec(9), Dec(9)));
+
+        summary.Rows.ShouldBe(0);
+        summary.MissingDays.ShouldContain(Dec(9));
+    }
+
+    [Fact]
+    public async Task Each_days_dbn_file_carries_that_days_symbol_map()
+    {
+        var afterRoll = new Dictionary<string, uint> { [FrontSeries] = NextNumber };
+        Define(Dec(9));
+        Define(Dec(10));
+        folder.Add(Mbo, Es, Dec(9), Series, Order(FrontNumber, Morning(Dec(9)), 100, 1, 'A', 'B', 1));
+        folder.Add(Mbo, Es, Dec(10), afterRoll, Order(NextNumber, Morning(Dec(10)), 100, 1, 'A', 'B', 2));
+
+        var summary = await Export(Ask(Mbo, FrontSeries, Dec(9), Dec(10)) with { Format = OutputFormat.Dbn, Compression = Compression.Zstd });
+
+        await using var reader = await DbnReader.OpenAsync(File.OpenRead(summary.Files[^1]), CancellationToken.None);
+        reader.Metadata.SymbolOf(NextNumber).ShouldBe(FrontSeries);
+    }
+
+    [Fact]
+    public async Task A_series_over_several_days_is_not_put_in_one_dbn_file()
+    {
+        var result = await Try(Ask(Mbo, FrontSeries, Dec(9), Dec(10)) with { Format = OutputFormat.Dbn, Layout = FileLayout.Single });
+
+        result.Error!.Code.ShouldBe("input.bad_format");
     }
 
     [Fact]
@@ -1263,7 +1327,7 @@ public sealed class ExporterTests : IDisposable
     [InlineData("1w", SessionKind.Rth, "20261028;100;101;99;100;5\r\n")]
     [InlineData("1mo", SessionKind.Eth, "20261028;100;101;99;100;5\r\n")]
     [InlineData("24h", SessionKind.Eth, "20261028;100;101;99;100;5\r\n")]
-    [InlineData("12h", SessionKind.Eth, "20261028 170000;100;101;99;100;5\r\n")]
+    [InlineData("12h", SessionKind.Eth, "20261028 160000;100;101;99;100;5\r\n")]
     [InlineData("1h", SessionKind.Rth, "20261028 093000;100;101;99;100;5\r\n")]
     public async Task Ninjatrader_stamps_by_bar_size_whatever_the_session(string size, SessionKind session, string line)
     {

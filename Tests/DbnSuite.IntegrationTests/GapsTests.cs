@@ -14,6 +14,8 @@ namespace DbnSuite.IntegrationTests;
 [Collection(ArchiveCollection.Name)]
 public sealed class GapsTests(RustFs s3)
 {
+    private const int NotFound = 404;
+
     private const string Corrupted = "download.corrupt";
     private const string BrokenLedgerEntry = "not json";
 
@@ -127,17 +129,33 @@ public sealed class GapsTests(RustFs s3)
     }
 
     [Fact]
-    public async Task A_job_the_account_no_longer_lists_is_gone_too()
+    public async Task A_job_Databento_no_longer_knows_is_gone_too()
+    {
+        await using var sync = await SyncScenario.CreateAsync(s3);
+        sync.Gateway.NewJobState = JobStates.Processing;
+        await sync.FirstPassAsync();
+        sync.Gateway.Fail(Endpoints.ListJobs, Reply.Ok("[]"));
+        sync.Gateway.Fail(Endpoints.JobDetails, Reply.Json(NotFound, "{}"));
+
+        var replanned = await sync.NextPassAsync();
+
+        replanned.Issues.ShouldHaveSingleItem().Code.ShouldBe(IssueCodes.JobGone);
+        (await sync.Archive.PendingAsync()).ShouldHaveSingleItem().Id.ShouldBe(sync.Gateway.Jobs[1].Id);
+    }
+
+    [Fact]
+    public async Task A_job_missing_from_one_listing_is_kept_when_Databento_still_knows_it()
     {
         await using var sync = await SyncScenario.CreateAsync(s3);
         sync.Gateway.NewJobState = JobStates.Processing;
         await sync.FirstPassAsync();
         sync.Gateway.Fail(Endpoints.ListJobs, Reply.Ok("[]"));
 
-        var replanned = await sync.NextPassAsync();
+        var kept = await sync.NextPassAsync();
 
-        replanned.Issues.ShouldHaveSingleItem().Code.ShouldBe(IssueCodes.JobGone);
-        (await sync.Archive.PendingAsync()).ShouldHaveSingleItem().Id.ShouldBe(sync.Gateway.Jobs[1].Id);
+        kept.JobsSubmitted.ShouldBe(0);
+        sync.Gateway.Jobs.Count.ShouldBe(1);
+        (await sync.Archive.PendingAsync()).ShouldHaveSingleItem().Id.ShouldBe(sync.Gateway.Jobs[0].Id);
     }
 
     [Fact]

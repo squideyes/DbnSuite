@@ -59,6 +59,16 @@ public sealed class LocalCacheTests : IDisposable
         store.Opens.ShouldBe(0);
     }
 
+    [Theory]
+    [InlineData("GLBX.MDP3/mbo/ES/../../../../outside.mbo.20260101.dbn.zst")]
+    [InlineData("../outside.dbn.zst")]
+    public void A_key_that_climbs_out_of_the_cache_is_refused(string key)
+    {
+        var cache = new LocalCache(cacheFolder);
+
+        Should.Throw<ArchiveException>(() => cache.PathOf(key));
+    }
+
     [Fact]
     public async Task A_changed_object_is_fetched_again()
     {
