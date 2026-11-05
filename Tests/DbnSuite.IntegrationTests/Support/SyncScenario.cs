@@ -14,6 +14,8 @@ namespace DbnSuite.IntegrationTests.Support;
 /// </summary>
 public sealed class SyncScenario : IAsyncDisposable
 {
+    private const int StartAttempts = 5;
+
     private const string OtlpEndpoint = "OTEL_EXPORTER_OTLP_ENDPOINT";
 
     private static readonly TimeSpan PassTimeout = TimeSpan.FromMinutes(1);
@@ -116,17 +118,31 @@ public sealed class SyncScenario : IAsyncDisposable
     /// <summary>Builds and starts the host, without waiting for a pass.</summary>
     public void Start()
     {
-        var sink = Logs = new LogSink();
-
-        Host = new WorkerHost(Environment, settings, s =>
+        for (var attempt = 1; ; attempt++)
         {
-            s.AddSingleton<TimeProvider>(Clock);
-            s.AddSingleton<ILoggerProvider>(sink);
-            services(s);
-        });
+            var sink = Logs = new LogSink();
 
-        // The server starts on first use, and the worker with it.
-        _ = Host.Services;
+            Host = new WorkerHost(Environment, settings, s =>
+            {
+                s.AddSingleton<TimeProvider>(Clock);
+                s.AddSingleton<ILoggerProvider>(sink);
+                services(s);
+            });
+
+            try
+            {
+                // The server starts on first use, and the worker with it.
+                _ = Host.Services;
+
+                return;
+            }
+            catch (ObjectDisposedException) when (attempt < StartAttempts)
+            {
+                // A worker refusing to start can be gone before WebApplicationFactory
+                // reads its services, and that hides the reason, so ask again.
+                Host.Dispose();
+            }
+        }
     }
 
     /// <summary>Starts the worker and waits out its first pass, which always runs at once.</summary>
