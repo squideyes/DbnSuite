@@ -72,7 +72,24 @@
             }, 50);
         }
     </script>
-    <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
+    <script src="_framework/blazor.webassembly#[.{fingerprint}].js" autostart="false"></script>
+    <script>
+        // Blazor reads its files with force-cache, so one unreadable stored copy would stop the app on every
+        // load, and a reload would not help. If the stored copy fails, download the file again. Both reads
+        // keep the integrity check. The runtime's own scripts can only be redirected, so they load as usual.
+        Blazor.start({
+            loadBootResource(type, name, defaultUri, integrity) {
+                if (type === "dotnetjs") return null;
+
+                return fetch(defaultUri, { cache: "force-cache", integrity })
+                    .catch(() => fetch(defaultUri, { cache: "reload", integrity }));
+            }
+        }).catch(error => {
+            // A file that cannot be had at all: say so, rather than stay on the loading screen.
+            console.error(error);
+            document.getElementById("blazor-error-ui").style.display = "block";
+        });
+    </script>
 </body>
 
 </html>
