@@ -6,7 +6,7 @@ Three open-source tools for keeping and using Databento® market data, by
 SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**. MIT licensed.
 
 > **Independent project.** DbnSuite has no official connection with Databento;
-> it is not made, endorsed or supported by Databento. Databento® is a registered
+> it is not made, endorsed or supported by Databento. Databento is a registered
 > trademark of Databento, Inc.
 >
 > **For licensed access only.** DbnSuite is meant to make better use of data
@@ -705,7 +705,7 @@ suggested contributions, such as a DbnClient in a language other than C#.
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE). Databento® is a registered trademark of Databento,
+MIT. See [LICENSE](LICENSE). Databento is a registered trademark of Databento,
 Inc.; other names are trademarks of their owners. DbnSuite uses Databento's open
 DBN format and its public API, and has no official connection with Databento,
 Inc. Use it only as your Databento agreements allow. Provided as is, without
