@@ -17,29 +17,17 @@ Good for trying DbnSync, but a machine that sleeps pauses it, so say so.
 - Set `S3_DATA_PATH=./s3`.
 - In PowerShell use `curl.exe -fsSLO` in place of `curl -fsSLO`, and run the scripts from Git Bash or WSL.
 
-## DigitalOcean, without a NAS
+## DigitalOcean
 
-A Droplet runs the worker and Seq, and a Space replaces RustFS. Both are billed by DigitalOcean (a Space is $5 a month for 250 GB, then $0.02 per GB), so have the person create them, or get a clear yes first.
+A Droplet runs the worker and Seq, and a Space is the S3 store. Both are billed by DigitalOcean (a Space is $5 a month for 250 GiB and 1 TiB of downloads, then $0.02 per GiB, and the archive grows about 750 GB a year with the defaults), so have the person create them, or get a clear yes first. Use the files in `Deploy/digitalocean`, not `Deploy/docker-compose.yml`.
 
-1. They create a Space, such as `dbn` in `nyc3`, and under API → Spaces Keys an access key for it.
-2. They create a Droplet from the Docker image on Ubuntu; start with the 2 GB size. Do steps 1 and 2 of the skill over SSH.
-3. Skip step 3. In `.env` set the lines below. The key and its secret are secrets, so the person types those in. The `unused` values are required by the Compose file.
+1. They create a private Space, such as `dbn` in `nyc3`, and under API → Spaces Keys an access key that can read and write it.
+2. They create a Droplet from the Docker image on Ubuntu; start with the 2 GB size.
+3. Over SSH, make a folder and download `docker-compose.yml` and `.env.example` (as `.env`) from `Deploy/digitalocean`, then `chmod 600 .env`.
+4. The person fills in `.env`: the Databento key, `SPACES_URL`, `SPACES_BUCKET`, `DBNSYNC_ACCESS_KEY`, `DBNSYNC_SECRET_KEY` and `SEQ_ADMIN_PASSWORD`. The keys are secrets, so the person types those in.
+5. `docker compose pull`, then `docker compose up -d`.
+6. Every port is bound to the Droplet. They reach the dashboard through a tunnel, `ssh -L 8080:localhost:8080 -L 5341:localhost:5341 root@droplet` then `http://localhost:8080`, or Tailscale.
 
-   ```
-   S3_SERVICE_URL=https://nyc3.digitaloceanspaces.com
-   S3_BUCKET=dbn
-   DBNSYNC_ACCESS_KEY=
-   DBNSYNC_SECRET_KEY=
-   S3_ROOT_ACCESS_KEY=unused
-   S3_ROOT_SECRET_KEY=unused
-   S3_DATA_PATH=/tmp/unused
-   ```
+To move an existing archive, stop the old worker first, then copy the bucket through the S3 API with a tool such as rclone. Never copy an S3 server's data folder.
 
-4. Start only the worker and Seq:
-
-   ```sh
-   docker compose pull dbnsync seq
-   docker compose up -d --no-deps dbnsync seq
-   ```
-
-5. Don't open port 8080. They reach the dashboard through a tunnel, `ssh -L 8080:localhost:8080 root@droplet` then `http://localhost:8080`, or Tailscale.
+DbnSpool, the optional tape worker, is off unless the person asks for it. It needs a second private Space, two more keys and the `DBNSPOOL_` lines of `.env`, and it starts with `--profile spool`.

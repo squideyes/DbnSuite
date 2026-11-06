@@ -8,6 +8,7 @@
   </Folder>
   <Folder Name="/Core/">
     <Project Path="Core/DbnFetch/DbnFetch.csproj" />
+    <Project Path="Core/DbnSpool/DbnSpool.csproj" />
     <Project Path="Core/DbnClient/DbnClient.csproj" />
     <Project Path="Core/DbnSuite.Site/DbnSuite.Site.csproj" />
     <Project Path="Core/DbnSync.Core/DbnSync.Core.csproj" />

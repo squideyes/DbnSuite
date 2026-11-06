@@ -58,6 +58,7 @@
             <tr><td><code>tape catalog &lt;root&gt;</code></td><td>Build a root's catalog: its contracts, and each trade date's sessions, settlements, open interest and cleared volume.</td></tr>
             <tr><td><code>tape build &lt;root&gt;</code></td><td>Build tapes for <code>--from</code> to <code>--to</code>. <code>--symbol ESZ6</code> limits it to some contracts, and <code>--zstd</code> compresses the bodies.</td></tr>
             <tr><td><code>tape verify &lt;root&gt;</code></td><td>Prove built tapes against the archive. See <a href="docs/tapes#proof">Prove them</a>.</td></tr>
+            <tr><td><code>tape pull &lt;root&gt;</code></td><td>Copy a root's tapes and catalog down from a tape store. See <a href="docs/dbnspool#read">DbnSpool</a>.</td></tr>
             <tr><td><code>tape info &lt;file&gt;</code></td><td>Show a tape's header.</td></tr>
             <tr><td><code>tape schema &lt;kind&gt;</code></td><td>Show a kind's fields.</td></tr>
             <tr><td><code>tape bench &lt;file&gt;</code></td><td>Time a replay on one thread, and count what it allocates.</td></tr>
@@ -142,8 +143,7 @@
 <h2 id="proof">Prove them</h2>
 <p>
     <code>dbnf tape verify</code> proves tapes against the archive through independent paths, reports a pass or a
-    difference for each check, and writes nothing. Run it on your own machine: it needs your archive. Treat a tape as
-    trusted only once it has passed.
+    difference for each check, and writes nothing. Treat a tape as trusted only once it has passed.
 </p>
 <CodeBlock Title="Any terminal" Text="dbnf tape verify ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30" />
 <div class="table">
@@ -177,13 +177,16 @@
 <CodeBlock Title="Paths under --tapes" Text="@Paths" />
 <div class="note warn"><p>
     <strong>Tapes are derived from data licensed to you.</strong> The same limits apply to them as to the files they
-    came from: keep them on your own machines, and use them only as your Databento agreements allow. Never commit one
-    to a repository or share one with anyone your licence doesn't cover. DbnSuite's own tests use generated data only.
+    came from: keep them in private storage you control, and use them only as your Databento agreements allow. Never
+    commit one to a repository or share one with anyone your licence doesn't cover. DbnSuite's own tests use generated data only.
 </p></div>
 <p>
     Leave tapes uncompressed on a fast local drive, for the fastest replay. Use <code>--zstd</code> for a NAS or a
     network copy: it saves 15 to 37%, and the tape must be unpacked to memory at load. The choice lives in the header,
     so a compressed tape keeps the same name.
+</p>
+<p>
+    To have new dates built and uploaded for you every day, see <a href="docs/dbnspool">DbnSpool</a>, an optional worker.
 </p>
 
 <h2 id="format">File format</h2>
@@ -314,7 +317,7 @@
     7 for trading or 8 for a halt.
 </p>
 
-<div class="next"><a href="docs/layout">← Data layout</a><a href="docs/datasets">Datasets →</a></div>
+<div class="next"><a href="docs/layout">← Data layout</a><a href="docs/dbnspool">DbnSpool →</a></div>
 
 @code {
     private const string BuildCommands = """
