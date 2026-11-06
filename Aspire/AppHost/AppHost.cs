@@ -31,4 +31,19 @@ builder.AddProject<Projects.DbnSync_Worker>("dbnsync")
     .WaitFor(s3)
     .WaitFor(seq);
 
+// Optional, like its install: it starts only when started from the dashboard.
+builder.AddProject<Projects.DbnSpool>("dbnspool")
+    .WithEnvironment("Archive__Location", s3.GetEndpoint("s3"))
+    .WithEnvironment("Archive__AccessKey", s3User)
+    .WithEnvironment("Archive__SecretKey", s3Secret)
+    .WithEnvironment("Tapes__Location", s3.GetEndpoint("s3"))
+    .WithEnvironment("Tapes__Bucket", "dbn-tapes")
+    .WithEnvironment("Tapes__AccessKey", s3User)
+    .WithEnvironment("Tapes__SecretKey", s3Secret)
+    .WithEnvironment("DbnSpool__WorkPath", Path.Combine(Path.GetTempPath(), "dbnspool"))
+    .WithReference(seq)
+    .WaitFor(s3)
+    .WaitFor(seq)
+    .WithExplicitStart();
+
 builder.Build().Run();

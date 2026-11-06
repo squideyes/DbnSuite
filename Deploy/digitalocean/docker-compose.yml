@@ -1,0 +1,91 @@
+# DbnSync on a DigitalOcean Droplet: the worker that fills a Space, Seq for its
+# logs and, if you want it, DbnSpool, which keeps tapes up to date in a second Space.
+#
+#   cp .env.example .env    # then fill it in; .env is never committed
+#   docker compose pull
+#   docker compose up -d
+#
+# With DbnSpool as well:
+#
+#   docker compose --profile spool pull
+#   docker compose --profile spool up -d
+#
+# Every port is bound to the Droplet itself, so nothing here is open to the
+# internet. Reach the pages through an SSH tunnel:
+#
+#   ssh -L 8080:localhost:8080 -L 5341:localhost:5341 root@<droplet>
+
+name: dbnsync
+
+services:
+  # Searchable logs, linked from the dashboard's issues and job pages. Seq is
+  # free for individual use; it keeps everything until a retention policy
+  # is set in its Settings.
+  seq:
+    image: datalust/seq:2025.2
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_ADMINPASSWORD: ${SEQ_ADMIN_PASSWORD:?set SEQ_ADMIN_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:5341:80"
+    volumes:
+      - seq:/data
+
+  dbnsync:
+    image: ${DBNSYNC_IMAGE:-ghcr.io/squideyes/dbnsync-worker:latest}
+    restart: unless-stopped
+    depends_on:
+      seq:
+        condition: service_started
+    environment:
+      ConnectionStrings__seq: http://seq
+      Dashboard__LogsUrl: http://localhost:5341
+      DATABENTO_API_KEY: ${DATABENTO_API_KEY:?set DATABENTO_API_KEY in .env}
+      Store__ServiceUrl: ${SPACES_URL:?set SPACES_URL in .env}
+      Store__Bucket: ${SPACES_BUCKET:-dbn}
+      Store__AccessKey: ${DBNSYNC_ACCESS_KEY:?set DBNSYNC_ACCESS_KEY in .env}
+      Store__SecretKey: ${DBNSYNC_SECRET_KEY:?set DBNSYNC_SECRET_KEY in .env}
+      DbnSync__Roots: ${DBNSYNC_ROOTS:-ES,MES,NQ,MNQ,YM,MYM,RTY,M2K,CL,MCL,GC,MGC}
+      DbnSync__Schemas: ${DBNSYNC_SCHEMAS:-mbo,ohlcv-1s,definition,statistics,status}
+      # Spending at Databento. Off by default: a job goes only when quoted at exactly $0.
+      # Paid jobs are billed to your Databento account, at your own risk. See .env.example.
+      DbnSync__Spend__AllowPaidJobs: ${DBNSYNC_ALLOW_PAID_JOBS:-false}
+      DbnSync__Spend__MaxPerJob: ${DBNSYNC_MAX_PER_JOB:-0}
+      DbnSync__Spend__MaxPerDay: ${DBNSYNC_MAX_PER_DAY:-0}
+      DbnSync__Spend__MaxPerMonth: ${DBNSYNC_MAX_PER_MONTH:-0}
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - scratch:/scratch
+
+  # Optional. Off unless started with --profile spool. It only reads the archive,
+  # and it is held to one CPU, so it can't get in DbnSync's way.
+  dbnspool:
+    image: ${DBNSPOOL_IMAGE:-ghcr.io/squideyes/dbnspool-worker:latest}
+    profiles: [spool]
+    restart: unless-stopped
+    cpus: 1
+    depends_on:
+      seq:
+        condition: service_started
+    environment:
+      ConnectionStrings__seq: http://seq
+      Archive__Location: ${SPACES_URL:-}
+      Archive__Bucket: ${SPACES_BUCKET:-dbn}
+      Archive__AccessKey: ${DBNSPOOL_ARCHIVE_ACCESS_KEY:-}
+      Archive__SecretKey: ${DBNSPOOL_ARCHIVE_SECRET_KEY:-}
+      Tapes__Location: ${SPACES_URL:-}
+      Tapes__Bucket: ${SPACES_TAPES_BUCKET:-dbn-tapes}
+      Tapes__AccessKey: ${DBNSPOOL_TAPES_ACCESS_KEY:-}
+      Tapes__SecretKey: ${DBNSPOOL_TAPES_SECRET_KEY:-}
+      DbnSpool__Roots: ${DBNSPOOL_ROOTS:-ES,MES,NQ,MNQ,YM,MYM,RTY,M2K,CL,MCL,GC,MGC}
+    ports:
+      - "127.0.0.1:8081:8080"
+    volumes:
+      - work:/work
+
+volumes:
+  scratch:
+  seq:
+  work:

@@ -69,11 +69,11 @@ every day long after the plan stops including it. Full documentation is at
 - [Working with the data](#working-with-the-data)
 - [Dashboard](#dashboard)
 - [Run locally](#run-locally)
+- [Deploy on DigitalOcean](#deploy-on-digitalocean)
 - [Deploy on a NAS](#deploy-on-a-nas)
 - [Keys](#keys)
 - [Reaching it from the internet](#reaching-it-from-the-internet)
 - [Configuration](#configuration)
-- [Running DbnSync on DigitalOcean](#running-dbnsync-on-digitalocean)
 - [Layout of the code](#layout-of-the-code)
 - [Contributing](#contributing)
 - [Licence](#licence)
@@ -348,8 +348,8 @@ dbnf tape verify ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30
 ```
 
 DbnClient replays them in `DbnClient.Tape`, with nothing allocated per event.
-Tapes are derived from data licensed to you, so keep them on your own machines
-and never commit one. See the [Tapes docs](https://dbnsuite.squideyes.com/docs/tapes)
+Tapes are derived from data licensed to you, so keep them in private storage you
+control and never commit one. See the [Tapes docs](https://dbnsuite.squideyes.com/docs/tapes)
 for the format.
 
 ### Other clients
@@ -478,6 +478,55 @@ the service. Clone this repository, run `claude` in it, and type
 `/dbnsync-deploy`. You type your Databento key into `.env` yourself, and the
 skill never turns on spending. It is instructions for an AI model, not a
 guarantee: read each command before you approve it.
+
+## Deploy on DigitalOcean
+
+A Droplet runs the worker and Seq, and a DigitalOcean Space is the S3 store.
+`Deploy/digitalocean` has the Compose file and settings for it.
+
+1. Create a Space (for example `dbn` in `nyc3`) and a Spaces access key that
+   can read and write it. Keep the Space private.
+2. Create a Droplet (Docker on Ubuntu, starting with 2 GB), and SSH in.
+3. Download the files and lock the settings to your own user:
+
+   ```text
+   mkdir dbnsync && cd dbnsync
+   curl -fsSLO https://raw.githubusercontent.com/squideyes/DbnSuite/main/Deploy/digitalocean/docker-compose.yml
+   curl -fsSL -o .env https://raw.githubusercontent.com/squideyes/DbnSuite/main/Deploy/digitalocean/.env.example
+   chmod 600 .env
+   ```
+
+4. Fill in `.env`: the Databento key, the Space's endpoint and name, the Spaces
+   key, and a Seq admin password.
+5. Start it:
+
+   ```text
+   docker compose pull
+   docker compose up -d
+   ```
+
+6. Every port is bound to the Droplet itself, so open the dashboard through an
+   SSH tunnel: `ssh -L 8080:localhost:8080 -L 5341:localhost:5341 root@<droplet>`,
+   then `http://localhost:8080`.
+
+**Moving an existing archive:** stop the old worker first, so only one writes,
+and copy the bucket through the S3 API with any S3 tool, such as rclone. Never
+copy an S3 server's data folder. DbnSync plans from what the store holds, so it
+carries on from wherever the copy ends.
+
+**What it costs:** Spaces is $5 a month for 250 GiB and 1 TiB of downloads, then
+$0.02 per GiB. With the default roots and schemas the archive grows about 750 GB
+a year, nearly all of it `mbo`. Droplets are billed on top of that.
+
+### DbnSpool (optional)
+
+DbnSpool is a second worker that keeps tapes up to date. It exists for running
+simulation and testing from a cloud store, and most people won't need it:
+`dbnf tape build` makes tapes by hand. Every hour it builds each new trade date,
+proves it against the archive, and uploads it to a second Space, and it only ever
+reads the archive. Add it by creating a tapes Space and two keys, filling in the
+`DBNSPOOL_` lines of `.env`, and starting the Compose file with `--profile spool`.
+See the [DbnSpool docs](https://dbnsuite.squideyes.com/docs/dbnspool).
 
 ## Deploy on a NAS
 
@@ -679,24 +728,6 @@ The Databento key is `Databento__ApiKey` or `DATABENTO_API_KEY`.
 `Dashboard__LogsUrl`: Seq's address as a browser reaches it, for the log links.
 Logs go to Seq when `ConnectionStrings__seq` is set.
 
-## Running DbnSync on DigitalOcean
-
-Without a NAS, a Droplet does the same job, with DigitalOcean Spaces as the S3
-store instead of RustFS:
-
-1. Create a Space (for example `dbn` in `nyc3`) and a Spaces access key for it.
-2. Create a Droplet (Docker on Ubuntu, starting with 2 GB) and copy
-   `docker-compose.yml` and `.env.example` to it, as for a NAS.
-3. In `.env`, point the worker at the Space instead of the local S3 server:
-   `S3_SERVICE_URL=https://nyc3.digitaloceanspaces.com`, the Space's name as
-   `S3_BUCKET`, and the Spaces key as `DBNSYNC_ACCESS_KEY` and
-   `DBNSYNC_SECRET_KEY`. The `S3_ROOT_*` and `S3_DATA_PATH` settings are
-   unused, but compose still wants a value in each.
-4. Start the worker and Seq without the local S3 server:
-   `docker compose up -d --no-deps dbnsync seq`.
-
-Spaces costs $5 a month for 250 GB, then $0.02 per GB.
-
 ## Layout of the code
 
 ```
@@ -705,10 +736,12 @@ Core/DbnSync.Data       Databento HTTP client, S3 store
 Core/DbnSync.Worker     host: background loop, Blazor dashboard, /status, /health
 Core/DbnClient          library: the archive, DBN files, contracts, rolls, sessions, bars, export, Parquet, tapes
 Core/DbnFetch         the dbnf tool, a Native AOT .NET tool
+Core/DbnSpool           optional worker: keeps tapes up to date in a second store
 Core/DbnSuite.Site      The website: Blazor WebAssembly, published to GitHub Pages
 Tests/DbnSync.UnitTests xUnit, Shouldly, NSubstitute, bUnit; RustFS through Testcontainers
-Aspire/AppHost          local orchestration: worker, RustFS, Seq
+Aspire/AppHost          local orchestration: workers, RustFS, Seq
 Aspire/ServiceDefaults
+Deploy/digitalocean     Droplet compose file and .env.example
 Deploy/                 NAS compose file, Caddyfile and .env.example
 ```
 

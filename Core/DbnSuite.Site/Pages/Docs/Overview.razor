@@ -14,7 +14,7 @@
 <ol class="steps-list">
     <li>
         <strong>DbnSync fills an S3 bucket.</strong>
-        It runs in Docker beside an S3 server, on a NAS, a home server or a cloud server. Each pass works out which
+        It runs in Docker: on a DigitalOcean Droplet with a Space as its store, or beside an S3 server on a NAS or home server. Each pass works out which
         days the store is missing, asks Databento for the ones your plan includes at no charge, and stores each file
         exactly as delivered.
     </li>
@@ -39,6 +39,7 @@
             <tr><td>Get bars, continuous futures or order books from an archive</td><td><a href="docs/dbnfetch">DbnFetch</a>: installing dbnf, logging in, every command</td></tr>
             <tr><td>Read the archive from your own .NET code</td><td><a href="docs/dbnclient">DbnClient</a>: the library, with examples</td></tr>
             <tr><td>Backtest CME futures from compact files</td><td><a href="docs/tapes">Tapes</a>: build, replay and prove them</td></tr>
+            <tr><td>Keep tapes up to date in a cloud store</td><td><a href="docs/dbnspool">DbnSpool</a>: an optional worker most people won't need</td></tr>
             <tr><td>Read the archive from Python, the AWS CLI or anything else</td><td><a href="docs/archive">The archive</a>: layout, file format and other clients. DbnClient itself is C# only; a client in another language is a <a href="@Links.Contributing">welcome contribution</a>.</td></tr>
         </tbody>
     </table>

@@ -30,6 +30,7 @@
     <ProjectReference Include="..\..\Core\DbnSync.Core\DbnSync.Core.csproj" />
     <ProjectReference Include="..\..\Core\DbnSync.Data\DbnSync.Data.csproj" />
     <ProjectReference Include="..\..\Core\DbnSync.Worker\DbnSync.Worker.csproj" />
+    <ProjectReference Include="..\..\Core\DbnSpool\DbnSpool.csproj" />
   </ItemGroup>
 
   <!-- One definition of the DBN byte layout, shared with the unit tests. -->

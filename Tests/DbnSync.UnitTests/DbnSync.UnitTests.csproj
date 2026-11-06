@@ -32,6 +32,7 @@
     <ProjectReference Include="..\..\Core\DbnSync.Worker\DbnSync.Worker.csproj" />
     <ProjectReference Include="..\..\Core\DbnClient\DbnClient.csproj" />
     <ProjectReference Include="..\..\Core\DbnFetch\DbnFetch.csproj" />
+    <ProjectReference Include="..\..\Core\DbnSpool\DbnSpool.csproj" />
   </ItemGroup>
 
 </Project>

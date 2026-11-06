@@ -19,6 +19,7 @@ public static class TapeCommand
         Verify(session),
         Info(session),
         Schema(session),
+        TapePullCommand.Create(session),
         TapeBenchCommand.Create(session)
     };
 

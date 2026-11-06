@@ -43,3 +43,13 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/dbnsync-worker:latest
             ghcr.io/${{ github.repository_owner }}/dbnsync-worker:${{ github.sha }}
+
+      # The optional DbnSpool worker.
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.spool
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/dbnspool-worker:latest
+            ghcr.io/${{ github.repository_owner }}/dbnspool-worker:${{ github.sha }}

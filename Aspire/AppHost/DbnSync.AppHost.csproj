@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\DbnSync.Worker\DbnSync.Worker.csproj" />
+    <ProjectReference Include="..\..\Core\DbnSpool\DbnSpool.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,123 @@
+@page "/docs/dbnspool"
+
+<PageTitle>DbnSpool docs: DbnSuite</PageTitle>
+
+<h1>DbnSpool</h1>
+<p class="lead">
+    An optional worker that keeps <a href="docs/tapes">tapes</a> up to date. It reads your archive of Databento® files,
+    builds each new trade date, proves it, and uploads it to a second store, such as a DigitalOcean Space.
+</p>
+
+<div class="note"><p>
+    <strong>Most people don't need this.</strong> DbnSpool exists for running simulation and testing from a cloud store
+    day after day. DbnSync, DbnFetch and DbnClient all work without it, and <code>dbnf tape build</code> makes tapes by
+    hand whenever you want some.
+</p></div>
+
+<nav class="toc" aria-label="On this page">
+    <p>On this page</p>
+    <ul>
+        <li><a href="docs/dbnspool#how">How it works</a></li>
+        <li><a href="docs/dbnspool#install">Install on DigitalOcean</a></li>
+        <li><a href="docs/dbnspool#read">Read the tapes</a></li>
+        <li><a href="docs/dbnspool#watch">Watch it run</a></li>
+        <li><a href="docs/dbnspool#settings">Settings</a></li>
+    </ul>
+</nav>
+
+<h2 id="how">How it works</h2>
+<p>Every hour it compares the archive with the tape store, a root at a time. When the archive has moved on, it takes each trade date the store lacks and:</p>
+<ol class="steps-list">
+    <li><strong>Waits for the whole date.</strong> Only days every schema has reached are used, so a half-collected day never becomes a tape.</li>
+    <li><strong>Builds</strong> the date's S1, Trade and L1 tapes, compressed with zstd.</li>
+    <li><strong>Proves</strong> them against the archive with the checks in <a href="docs/tapes#proof">Prove them</a>.</li>
+    <li><strong>Uploads</strong> them, then records the date in the store, so a restart or a new machine carries on from there.</li>
+</ol>
+<p>
+    A date that fails any step uploads nothing, is logged, and is tried again when the archive next changes. When
+    <code>mbo</code> arrives for a date that was spooled without it, that date is built again with its tick tapes.
+    Each root's catalog goes up at the end of its pass.
+</p>
+<p>
+    On a first run it spools everything the archive holds, oldest first, which takes many hours. It runs at low priority
+    on one thread, and only ever reads the archive, so it can't get in DbnSync's way.
+</p>
+
+<h2 id="install">Install on DigitalOcean</h2>
+<p>These steps add DbnSpool to a <a href="docs/dbnsync#digitalocean">DbnSync Droplet</a>. Allow 4 GB of memory, and disk for the bars, definitions and statistics it caches: about 12 GB for 12 roots from 2020.</p>
+<ol class="steps-list">
+    <li><strong>Create a second Space</strong> for tapes, such as <code>dbn-tapes</code>, in the same region. Keep it private, with no CDN.</li>
+    <li><strong>Create two Spaces keys:</strong> one that can only read the archive's Space, and one that can read and write the tapes' Space.</li>
+    <li>
+        <strong>Add them to <code>.env</code></strong> on the Droplet.
+        <CodeBlock Title=".env on the Droplet" Text="@SpoolEnv" />
+    </li>
+    <li>
+        <strong>Start it.</strong>
+        <CodeBlock Title="Shell on the Droplet" Text="@SpoolStart" />
+    </li>
+</ol>
+<p>
+    Tapes come to about 5 GB a month for 12 roots with <code>mbo</code>, on top of the archive, and both Spaces share
+    your Spaces allowance. Spaces is billed by DigitalOcean, not by anything in DbnSuite.
+</p>
+<div class="note warn"><p>
+    <strong>Tapes are derived from data licensed to you.</strong> The tape store must stay private, and the same limits
+    apply to it as to the archive. See <a href="docs/tapes#storage">Storage and licensing</a>.
+</p></div>
+<p>
+    DbnSpool isn't tied to DigitalOcean: <code>Archive__Location</code> and <code>Tapes__Location</code> each take any
+    S3 address or a folder.
+</p>
+
+<h2 id="read">Read the tapes</h2>
+<p>
+    Copy tapes down to a fast local drive and replay them from there. Give <code>dbnf</code> a login for the tapes'
+    Space with a read-only key, then pull. Files already here are skipped, so running it again fetches only what's new.
+</p>
+<CodeBlock Title="Any terminal" Text="@Pull" />
+
+<h2 id="watch">Watch it run</h2>
+<p>
+    Its log goes to Seq, and <code>/status</code> shows the last pass, root by root. Reach it through the tunnel with
+    <code>-L 8081:localhost:8081</code>, at <code>http://localhost:8081/status</code>. <code>/health</code> says whether
+    it is up.
+</p>
+
+<h2 id="settings">Settings</h2>
+<div class="table">
+    <table>
+        <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+            <tr><td><code>Archive__Location</code>, <code>Archive__Bucket</code>, <code>Archive__AccessKey</code>, <code>Archive__SecretKey</code></td><td>none, <code>dbn</code></td><td>The archive to read.</td></tr>
+            <tr><td><code>Tapes__Location</code>, <code>Tapes__Bucket</code>, <code>Tapes__AccessKey</code>, <code>Tapes__SecretKey</code></td><td>none, <code>dbn</code></td><td>Where tapes go.</td></tr>
+            <tr><td><code>DbnSpool__Roots</code></td><td>the 12 default roots</td><td>The roots to spool.</td></tr>
+            <tr><td><code>DbnSpool__Interval</code></td><td><code>01:00:00</code></td><td>How long to wait between looks at the archive.</td></tr>
+            <tr><td><code>DbnSpool__Compress</code></td><td><code>true</code></td><td>Compress tapes with zstd.</td></tr>
+            <tr><td><code>DbnSpool__Prove</code></td><td><code>true</code></td><td>Prove each date before uploading it.</td></tr>
+            <tr><td><code>DbnSpool__WorkPath</code></td><td><code>/work</code></td><td>The folder for tapes being built and cached archive files.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="next"><a href="docs/tapes">← Tapes</a><a href="docs/datasets">Datasets →</a></div>
+
+@code {
+    private const string SpoolEnv = """
+        SPACES_TAPES_BUCKET=dbn-tapes
+        DBNSPOOL_ARCHIVE_ACCESS_KEY=<the read-only key for the archive>
+        DBNSPOOL_ARCHIVE_SECRET_KEY=<its secret>
+        DBNSPOOL_TAPES_ACCESS_KEY=<the read-write key for tapes>
+        DBNSPOOL_TAPES_SECRET_KEY=<its secret>
+        """;
+
+    private const string SpoolStart = """
+        docker compose --profile spool pull
+        docker compose --profile spool up -d
+        """;
+
+    private const string Pull = """
+        dbnf login --profile tapes --location https://nyc3.digitaloceanspaces.com --bucket dbn-tapes
+        dbnf tape pull ES --profile tapes --tapes D:\Tapes --from 2026-10-01 --kind l1
+        """;
+}

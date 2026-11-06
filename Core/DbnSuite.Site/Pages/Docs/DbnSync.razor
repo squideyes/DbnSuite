@@ -14,9 +14,9 @@
         <li><a href="docs/dbnsync#requirements">Requirements</a></li>
         <li><a href="docs/dbnsync#claude">Install with Claude Code</a></li>
         <li><a href="docs/dbnsync#install">Install with Docker Compose</a></li>
+        <li><a href="docs/dbnsync#digitalocean">DigitalOcean</a></li>
         <li><a href="docs/dbnsync#nas">Notes for NAS systems</a></li>
         <li><a href="docs/dbnsync#desktop">Docker Desktop on Windows or macOS</a></li>
-        <li><a href="docs/dbnsync#digitalocean">DigitalOcean, without a NAS</a></li>
         <li><a href="docs/dbnsync#keys">Keys for the worker and readers</a></li>
         <li><a href="docs/dbnsync#internet">Reaching it from the internet</a></li>
         <li><a href="docs/dbnsync#what">What it keeps</a></li>
@@ -137,6 +137,35 @@
     </table>
 </div>
 
+<h2 id="digitalocean">DigitalOcean</h2>
+<p>A Droplet runs the worker and Seq, and a DigitalOcean Space is the S3 store. These steps replace the ones above.</p>
+<ol class="steps-list">
+    <li><strong>Create a Space</strong> (for example <code>dbn</code> in <code>nyc3</code>) and, under API → Spaces Keys, an access key that can read and write it. Keep the Space private. Spaces costs $5 a month for 250 GiB and 1 TiB of downloads, then $0.02 per GiB, and the archive grows about 750 GB a year with the defaults.</li>
+    <li><strong>Create a Droplet</strong> from the Docker image on Ubuntu; start with the 2 GB size. SSH in.</li>
+    <li>
+        <strong>Download the Compose file and settings.</strong>
+        <CodeBlock Title="Shell on the Droplet" Text="@SpacesDownload" />
+    </li>
+    <li>
+        <strong>Fill in <code>.env</code>.</strong>
+        <CodeBlock Title=".env on the Droplet" Text="@SpacesEnv" />
+    </li>
+    <li>
+        <strong>Start it.</strong>
+        <CodeBlock Title="Shell on the Droplet" Text="@SpacesStart" />
+    </li>
+    <li><strong>Reach the dashboard privately.</strong> Every port is bound to the Droplet itself. Use an SSH tunnel (<code>ssh -L 8080:localhost:8080 -L 5341:localhost:5341 root@@droplet</code>, then <code>http://localhost:8080</code>) or Tailscale.</li>
+</ol>
+<p>
+    <strong>Moving an existing archive:</strong> stop the old worker first, so only one writes, and copy the bucket
+    through the S3 API with any S3 tool, such as rclone. Never copy an S3 server's data folder. DbnSync plans from what
+    the store holds, so it carries on from wherever the copy ends.
+</p>
+<p>
+    <a href="docs/dbnspool">DbnSpool</a> is an optional second worker for the same Droplet, which keeps tapes up to date
+    in a second Space.
+</p>
+
 <h2 id="nas">Notes for NAS systems</h2>
 <p>Synology, QNAP, UGREEN and similar systems run DbnSync the same way. The differences are where things are switched on:</p>
 <ul>
@@ -153,23 +182,6 @@
     handles ownership itself. Set <code>S3_DATA_PATH=./s3</code> to keep the archive beside the Compose file, and
     download the files in PowerShell with <code>curl.exe -fsSLO</code> in place of <code>curl -fsSLO</code>.
 </p>
-
-<h2 id="digitalocean">DigitalOcean, without a NAS</h2>
-<p>A Droplet runs the worker and Seq, and a DigitalOcean Space replaces RustFS as the S3 store.</p>
-<ol class="steps-list">
-    <li><strong>Create a Space</strong> (for example <code>dbn</code> in <code>nyc3</code>) and, under API → Spaces Keys, an access key for it. Spaces costs $5 a month for 250 GB, then $0.02 per GB.</li>
-    <li><strong>Create a Droplet</strong> from the Docker image on Ubuntu; start with the 2 GB size. SSH in and do steps 1 and 2 above.</li>
-    <li>
-        <strong>Point <code>.env</code> at the Space.</strong>
-        The <code>S3_ROOT_*</code>, <code>S3_DATA_PATH</code> settings are unused but need a value.
-        <CodeBlock Title=".env on the Droplet" Text="@SpacesEnv" />
-    </li>
-    <li>
-        <strong>Start the worker and Seq</strong> without the local S3 server:
-        <CodeBlock Title="Shell on the Droplet" Text="@SpacesStart" />
-    </li>
-    <li><strong>Reach the dashboard privately.</strong> Don't open port 8080 to the internet; use an SSH tunnel (<code>ssh -L 8080:localhost:8080 root@@droplet</code>, then <code>http://localhost:8080</code>) or Tailscale.</li>
-</ol>
 
 <h2 id="keys">Keys for the worker and readers</h2>
 <p>
@@ -469,19 +481,25 @@
         curl http://localhost:8080/health
         """;
 
+    private const string SpacesDownload = """
+        mkdir dbnsync && cd dbnsync
+        curl -fsSLO https://raw.githubusercontent.com/squideyes/DbnSuite/main/Deploy/digitalocean/docker-compose.yml
+        curl -fsSL -o .env https://raw.githubusercontent.com/squideyes/DbnSuite/main/Deploy/digitalocean/.env.example
+        chmod 600 .env
+        """;
+
     private const string SpacesEnv = """
-        S3_SERVICE_URL=https://nyc3.digitaloceanspaces.com
-        S3_BUCKET=dbn
+        DATABENTO_API_KEY=<your Databento key>
+        SPACES_URL=https://nyc3.digitaloceanspaces.com
+        SPACES_BUCKET=dbn
         DBNSYNC_ACCESS_KEY=<your Spaces access key>
         DBNSYNC_SECRET_KEY=<its secret>
-        S3_ROOT_ACCESS_KEY=unused
-        S3_ROOT_SECRET_KEY=unused
-        S3_DATA_PATH=/tmp/unused
+        SEQ_ADMIN_PASSWORD=<a password for Seq>
         """;
 
     private const string SpacesStart = """
-        docker compose pull dbnsync seq
-        docker compose up -d --no-deps dbnsync seq
+        docker compose pull
+        docker compose up -d
         """;
 
     private const string ReadOnlyPolicy = """
