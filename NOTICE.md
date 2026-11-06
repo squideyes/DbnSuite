@@ -1,9 +1,9 @@
 # Notice
 
 **DbnSuite is an independent project with no official connection with
-Databento, Inc.** It is not made, endorsed, reviewed or supported by Databento.
+Databento, Inc.** It is not made, endorsed, reviewed or supported by Databento®.
 
-**Trademarks.** Databento® is a registered trademark of Databento, Inc. (US
+**Trademarks.** Databento is a registered trademark of Databento, Inc. (US
 Reg. No. 6,791,283). Databento's logo and product names are its trademarks too.
 DbnSuite uses those names only to say what it works with, and uses no Databento
 logo. All other names are trademarks of their owners.
