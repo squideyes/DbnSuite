@@ -333,6 +333,25 @@ dbnf export ohlcv-1s ES.v.0 --bars 5m --session rth --since 2026-01-01 --adjust 
 - **Files:** one per trade date; `--single` for one file, `--partition` for
   `series=`/`date=` folders, `--name` for names of your own.
 
+### Tapes
+
+Tapes are compact, stream-only files for backtesting CME futures, built from
+the archive: one contract, one trade date and one kind each. S1 holds
+one-second bars at about 2.8 bytes a bar, Trade holds every trade at about 3.3
+bytes, and L1 holds best bid and offer, trades and state changes at about 3.3
+bytes an event.
+
+```bash
+dbnf tape catalog ES --tapes D:\Tapes
+dbnf tape build ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30
+dbnf tape verify ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30
+```
+
+DbnClient replays them in `DbnClient.Tape`, with nothing allocated per event.
+Tapes are derived from data licensed to you, so keep them on your own machines
+and never commit one. See the [Tapes docs](https://dbnsuite.squideyes.com/docs/tapes)
+for the format.
+
 ### Other clients
 
 **AWS CLI:**
@@ -684,7 +703,7 @@ Spaces costs $5 a month for 250 GB, then $0.02 per GB.
 Core/DbnSync.Core       planning, windows, keys, the sync pass, issue explanations; no I/O
 Core/DbnSync.Data       Databento HTTP client, S3 store
 Core/DbnSync.Worker     host: background loop, Blazor dashboard, /status, /health
-Core/DbnClient          library: the archive, DBN files, contracts, rolls, sessions, bars, export, Parquet
+Core/DbnClient          library: the archive, DBN files, contracts, rolls, sessions, bars, export, Parquet, tapes
 Core/DbnFetch         the dbnf tool, a Native AOT .NET tool
 Core/DbnSuite.Site      The website: Blazor WebAssembly, published to GitHub Pages
 Tests/DbnSync.UnitTests xUnit, Shouldly, NSubstitute, bUnit; RustFS through Testcontainers

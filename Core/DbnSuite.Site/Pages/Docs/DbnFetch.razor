@@ -19,6 +19,7 @@
         <li><a href="docs/dbnfetch#recipes">Export recipes</a></li>
         <li><a href="docs/dbnfetch#platforms">Into trading platforms</a></li>
         <li><a href="docs/dbnfetch#rolls">Rolls</a></li>
+        <li><a href="docs/dbnfetch#tapes">Tapes</a></li>
         <li><a href="docs/dbnfetch#cache">The cache</a></li>
         <li><a href="docs/dbnfetch#exit">Exit codes</a></li>
         <li><a href="docs/dbnfetch#reference">Option reference</a></li>
@@ -206,6 +207,13 @@
 </p>
 <CodeBlock Title="Any terminal" Text="dbnf rolls ES.v.0 --since 2025-01-01" />
 
+<h2 id="tapes">Tapes</h2>
+<p>
+    <code>dbnf tape</code> builds compact files for backtesting from the archive, and proves them against it. See
+    <a href="docs/tapes">Tapes</a>.
+</p>
+<CodeBlock Title="Any terminal" Text="dbnf tape build ES --tapes D:\Tapes --from 2026-10-29" />
+
 <h2 id="cache">The cache</h2>
 <p>
     Raw files are cached in <code>%LOCALAPPDATA%\DbnFetch\cache</code> on Windows and
@@ -261,6 +269,7 @@
             <tr><td><code>pull &lt;schemas&gt; &lt;roots&gt;</code></td><td>Download raw files.</td></tr>
             <tr><td><code>export &lt;schema&gt; &lt;symbol&gt;</code></td><td>Write records or bars for trade dates.</td></tr>
             <tr><td><code>rolls &lt;series&gt;</code></td><td>List a continuous series' rolls.</td></tr>
+            <tr><td><code>tape</code></td><td>Build, inspect and prove tapes: <code>catalog</code>, <code>build</code>, <code>verify</code>, <code>info</code>, <code>schema</code>, <code>bench</code>.</td></tr>
             <tr><td><code>cache</code>, <code>cache clear</code></td><td>Show or clear the local cache.</td></tr>
         </tbody>
     </table>

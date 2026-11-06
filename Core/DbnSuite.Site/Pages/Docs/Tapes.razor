@@ -1,0 +1,386 @@
+@page "/docs/tapes"
+
+<PageTitle>Tapes: DbnSuite</PageTitle>
+
+<h1>Tapes</h1>
+<p class="lead">
+    Three compact, stream-only file formats for backtesting CME futures, built from your archive of Databento® files.
+    They trade universality for size and speed: a tape replays a contract's trade date from start to finish, and does
+    nothing else.
+</p>
+
+<DatabentoNotice />
+
+<nav class="toc" aria-label="On this page">
+    <p>On this page</p>
+    <ul>
+        <li><a href="docs/tapes#kinds">The three kinds</a></li>
+        <li><a href="docs/tapes#build">Build tapes</a></li>
+        <li><a href="docs/tapes#replay">Replay in C#</a></li>
+        <li><a href="docs/tapes#sessions">Sessions, ETH and RTH</a></li>
+        <li><a href="docs/tapes#bars">Bars</a></li>
+        <li><a href="docs/tapes#rolls">Continuous series</a></li>
+        <li><a href="docs/tapes#proof">Prove them</a></li>
+        <li><a href="docs/tapes#storage">Storage and licensing</a></li>
+        <li><a href="docs/tapes#format">File format</a></li>
+    </ul>
+</nav>
+
+<h2 id="kinds">The three kinds</h2>
+<div class="table">
+    <table>
+        <thead><tr><th>Kind</th><th>What it holds</th><th>Source</th><th>Size</th><th>Contracts</th></tr></thead>
+        <tbody>
+            <tr><td><strong>S1</strong></td><td>One-second OHLCV bars</td><td><code>ohlcv-1s</code></td><td>About 2.8 bytes a bar, against 56</td><td>Every contract</td></tr>
+            <tr><td><strong>Trade</strong></td><td>Every trade with its aggressor</td><td><code>mbo</code></td><td>About 3.3 bytes a trade, against 48</td><td>Those <code>mbo</code> holds</td></tr>
+            <tr><td><strong>L1</strong></td><td>Best bid and offer, every trade and every change of trading state, in order</td><td><code>mbo</code>, <code>status</code></td><td>About 3.3 bytes an event, against 80</td><td>Those <code>mbo</code> holds</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    A tape is one contract, one trade date and one kind, and it stands alone: one file replays without any other.
+    Prices and sizes are exact, and times are kept to the microsecond on <code>ts_event</code>. Tapes are never merged
+    or appended to, and a tape can't be sought: the only ways in are its start and its RTH mark. Spreads, options and
+    equities are out of scope, and version 1 covers <code>GLBX.MDP3</code> outright futures only.
+</p>
+
+<h2 id="build">Build tapes</h2>
+<p>
+    <code>dbnf tape</code> reads the archive from your login or <code>--archive</code>, and writes to the folder
+    <code>--tapes</code> names. Build a root's catalog first, and rebuild it whenever new days arrive. These commands
+    run at low priority, so the machine stays usable.
+</p>
+<CodeBlock Title="Any terminal" Text="@BuildCommands" />
+<div class="table">
+    <table>
+        <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+        <tbody>
+            <tr><td><code>tape catalog &lt;root&gt;</code></td><td>Build a root's catalog: its contracts, and each trade date's sessions, settlements, open interest and cleared volume.</td></tr>
+            <tr><td><code>tape build &lt;root&gt;</code></td><td>Build tapes for <code>--from</code> to <code>--to</code>. <code>--symbol ESZ6</code> limits it to some contracts, and <code>--zstd</code> compresses the bodies.</td></tr>
+            <tr><td><code>tape verify &lt;root&gt;</code></td><td>Prove built tapes against the archive. See <a href="docs/tapes#proof">Prove them</a>.</td></tr>
+            <tr><td><code>tape info &lt;file&gt;</code></td><td>Show a tape's header.</td></tr>
+            <tr><td><code>tape schema &lt;kind&gt;</code></td><td>Show a kind's fields.</td></tr>
+            <tr><td><code>tape bench &lt;file&gt;</code></td><td>Time a replay on one thread, and count what it allocates.</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    A tape's contract is named as the exchange writes it, with a one-digit year: <code>ESZ6</code>. Trade and L1 tapes
+    exist only for a contract <code>mbo</code> holds for the whole trade date, and the build reports any other as not
+    held. A date with no trading writes no tape.
+</p>
+<p>
+    The builder writes a whole, checked file or nothing. It refuses a tape, with a clear error and no file left behind,
+    when a source day is missing or damaged, a price is not on a whole tick, time runs backward, the book crosses during
+    trading, or the new tape doesn't decode to the same checksum. Building again gives identical bytes.
+</p>
+
+<h2 id="replay">Replay in C#</h2>
+<p>
+    Tapes are part of <a href="docs/dbnclient">DbnClient</a>, in <code>DbnClient.Tape</code>. A tape loads once as a
+    byte array, and a cursor walks it. Loading is async and returns a <code>Result</code>; replay is synchronous and
+    creates no objects per event. Prices are <code>int</code> ticks, sizes are <code>uint</code>, and times are
+    microseconds since the UNIX epoch. The header's <code>TickRaw</code> turns ticks back into prices.
+</p>
+<CodeBlock Title="C#" Text="@Replay" />
+<p>
+    <code>S1Cursor</code> and <code>TradeCursor</code> work the same way. A cursor is a <code>ref struct</code>, so it
+    lives in the replay loop and can't be stored. A compressed tape is unpacked once at load, and a damaged body fails
+    the load, because its hash is checked.
+</p>
+
+<h2 id="sessions">Sessions, ETH and RTH</h2>
+<p>
+    ETH is each contract's real session on each trade date, read from the archive's <code>status</code> files, so no
+    hours are built into the format. A tape runs from the first moment that status says the contract traded for the
+    date to its last close, and a break inside the session shows as state events and a gap in time.
+</p>
+<p>
+    RTH is a marked stretch of the same file, because <code>status</code> has no RTH event. The hours come from
+    <code>Sessions.RegularHours</code> for each root, and RTH ends at the session's close on an early close. A date with
+    no regular session has no marks, and asking for RTH replays nothing.
+</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Window</th><th>What it does</th></tr></thead>
+        <tbody>
+            <tr><td><code>Window.Eth</code></td><td>The whole session, which is the default. <code>cursor.InRth</code> says whether an event is inside RTH, for a strategy that warms up overnight.</td></tr>
+            <tr><td><code>Window.Rth</code></td><td>Starts at the mark, skipping the earlier bytes.</td></tr>
+            <tr><td><code>Window.Hours(from, to)</code></td><td>Your own hours, Chicago time. Hours that end before they start run past midnight.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h2 id="bars">Bars</h2>
+<p>
+    Any time-based bar rolls up from an S1 tape as it streams, so no aggregate is ever stored. <code>Bars</code> takes
+    the same sizes as <code>dbnf export --bars</code>. Volume and tick bars need <code>TradeBars</code> on a Trade tape,
+    because a second can't be split and S1 has no trade count.
+</p>
+<CodeBlock Title="C#" Text="@BarStream" />
+<ul>
+    <li><strong>Time bars</strong> count from the window's open, so the first 5-minute RTH ES bar opens at 08:30.</li>
+    <li><strong>No look-ahead:</strong> a bar is delivered at its end time. <code>Forming</code> shows the bar so far, and <code>Step</code> moves one second at a time.</li>
+    <li><strong>No bar spans two trade dates,</strong> except weekly and monthly bars, and none spans two contracts.</li>
+    <li><strong>The last bar can be short,</strong> when a session ends part way through it. <code>IsShort</code> says so.</li>
+    <li><strong>Empty periods</strong> give no bar, unless you pass <code>fillGaps: true</code>.</li>
+</ul>
+
+<h2 id="rolls">Continuous series</h2>
+<p>
+    A tape always holds one real contract as it traded, and a continuous series is a list of tapes. Nothing about a
+    roll is written into a file, so changing your roll rule never means a rebuild. <code>TapeSeries</code> asks the
+    catalog which contract is held each day, then opens its tape.
+</p>
+<CodeBlock Title="C#" Text="@Series" />
+<p>
+    Fills stay on real prices. A cursor reports as-traded ticks, and <code>SeriesDay.Offset</code> is the back-adjustment
+    for that day, in DBN's 10<sup>-9</sup> units, for indicators that span a roll. <code>TapeSeries</code> has been
+    tested on generated tapes only, not on real history.
+</p>
+
+<h2 id="proof">Prove them</h2>
+<p>
+    <code>dbnf tape verify</code> proves tapes against the archive through independent paths, reports a pass or a
+    difference for each check, and writes nothing. Run it on your own machine: it needs your archive. Treat a tape as
+    trusted only once it has passed.
+</p>
+<CodeBlock Title="Any terminal" Text="dbnf tape verify ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30" />
+<div class="table">
+    <table>
+        <thead><tr><th>Check</th><th>Passes when</th></tr></thead>
+        <tbody>
+            <tr><td>S1 against source</td><td>Every bar equals the <code>ohlcv-1s</code> record.</td></tr>
+            <tr><td>Trade against bars</td><td>Source trades bucketed on <code>ts_recv</code> equal <code>ohlcv-1s</code> in every second, and the tape's volume equals the bars'.</td></tr>
+            <tr><td>L1 against Trade</td><td>L1's trades are exactly the Trade tape's trades.</td></tr>
+            <tr><td>L1 against DbnClient</td><td>Replaying <code>MboTransform</code> gives the same quotes and trades.</td></tr>
+            <tr><td>Crossed book</td><td>No crossed or locked quote appears during trading.</td></tr>
+            <tr><td>File boundary</td><td>The top of book is unchanged across the 00:00 UTC snapshot, or the difference is reported.</td></tr>
+            <tr><td>Sessions</td><td>Every tape's events fall inside its session, and no trade falls in a stated break.</td></tr>
+            <tr><td>RTH marks</td><td>Starting at the mark gives exactly the events of decoding from the start and filtering by time.</td></tr>
+            <tr><td>Bar streams</td><td>Every spec equals what <code>BarBuilder</code> makes from the same bars.</td></tr>
+            <tr><td>Tape exists</td><td>Every contract <code>mbo</code> holds all day has its L1 tape.</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    S1 bars are cut on receive time, as in the source, while Trade and L1 tapes use event time. The two agree on total
+    volume and differ only at a second's edge. The maintainer's run covered 12 roots: S1 tapes from January 2020 and
+    tick tapes for one month, with no check failing.
+</p>
+
+<h2 id="storage">Storage and licensing</h2>
+<p>
+    Tapes are a rebuildable cache. The <code>.dbn.zst</code> files stay the source of truth, so tapes need no backup of
+    their own, and if the RTH hours ever change, the marks need a rebuild.
+</p>
+<CodeBlock Title="Paths under --tapes" Text="@Paths" />
+<div class="note warn"><p>
+    <strong>Tapes are derived from data licensed to you.</strong> The same limits apply to them as to the files they
+    came from: keep them on your own machines, and use them only as your Databento agreements allow. Never commit one
+    to a repository or share one with anyone your licence doesn't cover. DbnSuite's own tests use generated data only.
+</p></div>
+<p>
+    Leave tapes uncompressed on a fast local drive, for the fastest replay. Use <code>--zstd</code> for a NAS or a
+    network copy: it saves 15 to 37%, and the tape must be unpacked to memory at load. The choice lives in the header,
+    so a compressed tape keeps the same name.
+</p>
+
+<h2 id="format">File format</h2>
+<p>
+    This is format version 1. Every tape is a 192-byte header followed by one unbroken body of variable-length events,
+    with no blocks, no index and no trailer. All numbers are little-endian.
+</p>
+
+<h3 id="header">Header</h3>
+<div class="table">
+    <table>
+        <thead><tr><th>Offset</th><th>Bytes</th><th>Field</th><th>Meaning</th></tr></thead>
+        <tbody>
+            <tr><td>0</td><td>4</td><td>Magic</td><td>ASCII <code>TAPE</code></td></tr>
+            <tr><td>4</td><td>1</td><td>Version</td><td>1</td></tr>
+            <tr><td>5</td><td>1</td><td>Kind</td><td>1 S1, 2 Trade, 3 L1, 4 reserved</td></tr>
+            <tr><td>6</td><td>1</td><td>Flags</td><td>Bit 0: the body is zstd. Bit 1: RTH marks are present. Other bits zero.</td></tr>
+            <tr><td>7</td><td>1</td><td>Clock</td><td>1 <code>ts_event</code>. 0 is reserved.</td></tr>
+            <tr><td>8</td><td>4</td><td>TimeUnit</td><td>Nanoseconds per time unit: 1,000 on tick tapes, 1,000,000,000 on S1</td></tr>
+            <tr><td>12</td><td>4</td><td>TradeDate</td><td>As the number yyyymmdd</td></tr>
+            <tr><td>16</td><td>8</td><td>TickRaw</td><td>One tick in DBN's 10<sup>-9</sup> units: 250,000,000 for ES</td></tr>
+            <tr><td>24</td><td>8</td><td>OpenTime</td><td>The session's open, in nanoseconds since the UNIX epoch</td></tr>
+            <tr><td>32</td><td>8</td><td>CloseTime</td><td>The session's close</td></tr>
+            <tr><td>40</td><td>4</td><td>BasePrice</td><td>Starting price in ticks, signed</td></tr>
+            <tr><td>44</td><td>4</td><td>InstrumentId</td><td>The contract's instrument id</td></tr>
+            <tr><td>48</td><td>8</td><td>EventCount</td><td>Events in the body</td></tr>
+            <tr><td>56</td><td>8</td><td>BodyLength</td><td>Body bytes once unpacked</td></tr>
+            <tr><td>64</td><td>8</td><td>StoredLength</td><td>Body bytes as stored after the header</td></tr>
+            <tr><td>72</td><td>8</td><td>BodyHash</td><td>XxHash3 of the stored body</td></tr>
+            <tr><td>80</td><td>16</td><td>Dataset</td><td>ASCII, zero-padded: <code>GLBX.MDP3</code></td></tr>
+            <tr><td>96</td><td>16</td><td>Symbol</td><td>ASCII, zero-padded: <code>ESZ6</code></td></tr>
+            <tr><td>112</td><td>8</td><td>Root</td><td>ASCII, zero-padded: <code>ES</code></td></tr>
+            <tr><td>120</td><td>48</td><td>RthStart</td><td>The mark where RTH begins, laid out below</td></tr>
+            <tr><td>168</td><td>8</td><td>RthEndOffset</td><td>Body offset where RTH ends</td></tr>
+            <tr><td>176</td><td>8</td><td>RthEndIndex</td><td>Event number where RTH ends</td></tr>
+            <tr><td>184</td><td>4</td><td>Reserved</td><td>Zero</td></tr>
+            <tr><td>188</td><td>4</td><td>HeaderCrc</td><td>CRC-32 of bytes 0 to 187</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    The RthStart mark holds everything a cursor needs to begin there, because every event is a change from the one
+    before: body offset (8 bytes), event number (8), time (8), bid price, ask price, bid size, ask size and last price
+    (4 each), market state (1) and 3 reserved bytes. The last price is the last trade, or the last close on S1.
+</p>
+
+<h3 id="encoding">Encoding rules</h3>
+<ul>
+    <li><strong>Control byte first.</strong> Each event opens with one byte saying which fields follow. A field that did not change takes no space.</li>
+    <li><strong>Prices are whole ticks,</strong> as signed 32-bit numbers. The real price is ticks × TickRaw.</li>
+    <li><strong>Varints are LEB128:</strong> seven bits a byte, low bits first, with the top bit set on every byte but the last.</li>
+    <li><strong>Signed values use zigzag:</strong> a value <code>v</code> is stored as <code>(v &lt;&lt; 1) ^ (v &gt;&gt; 63)</code>.</li>
+    <li><strong>Time is an unsigned gap</strong> from the event before. The writer refuses time that runs backward.</li>
+    <li><strong>State starts from the header.</strong> The first event is relative to OpenTime and BasePrice, and nothing carries over from another file.</li>
+    <li><strong>No padding.</strong> Events follow one another with no alignment.</li>
+    <li><strong>zstd wraps the whole body</strong> at level 3, and the header stays readable.</li>
+</ul>
+
+<h3 id="format-s1">S1 events</h3>
+<p>A bar's time is the start of its second, and a second with no trades has no bar. Fields follow the control byte in the order below, each only if its bit is set.</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Bit</th><th>Field</th><th>When set</th><th>Stored as</th></tr></thead>
+        <tbody>
+            <tr><td>0</td><td>Gap</td><td>More than one second since the last bar</td><td>Varint: seconds since the last bar, minus 2</td></tr>
+            <tr><td>1</td><td>Open</td><td>Open differs from the last close</td><td>Zigzag: open minus the last close</td></tr>
+            <tr><td>2</td><td>Close</td><td>Close differs from the open</td><td>Zigzag: close minus open</td></tr>
+            <tr><td>3</td><td>High</td><td>High is above both open and close</td><td>Varint: high minus the larger of open and close, minus 1</td></tr>
+            <tr><td>4</td><td>Low</td><td>Low is below both open and close</td><td>Varint: the smaller of open and close, minus low, minus 1</td></tr>
+            <tr><td>5 to 7</td><td>Volume</td><td>1 to 7 is the volume itself</td><td>0 means a varint follows</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>Before the first bar, the last close is BasePrice and the last time is one second before OpenTime.</p>
+
+<h3 id="format-trade">Trade events</h3>
+<p>Trades come from <code>mbo</code> records with action <code>T</code>, skipping snapshot records. The side is the aggressor's.</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Bit</th><th>Field</th><th>When set</th><th>Stored as</th></tr></thead>
+        <tbody>
+            <tr><td>0 to 1</td><td>Side</td><td>0 none, 1 buyer, 2 seller, 3 reserved</td><td>In the control byte</td></tr>
+            <tr><td>2</td><td>Gap</td><td>Time differs from the last trade</td><td>Varint: time units since the last trade</td></tr>
+            <tr><td>3</td><td>Price</td><td>Price differs from the last trade</td><td>Zigzag: price minus the last trade's price</td></tr>
+            <tr><td>4 to 7</td><td>Size</td><td>1 to 15 is the size itself</td><td>0 means a varint follows</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>Before the first trade, the last price is BasePrice and the last time is OpenTime.</p>
+
+<h3 id="format-l1">L1 events</h3>
+<p>
+    One ordered stream with three event types. A quote is only written where the source marks the last record of an
+    event, so a backtest never sees a book half-way through an exchange message. A trade is written before the quote
+    change it causes, so each trade meets the quote that was standing when it hit. A tape opens with its state, then its
+    first uncrossed quote. Control byte bit 0 is 0 for a quote and 1 for a trade.
+</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Quote bit</th><th>Field</th><th>When set</th><th>Stored as</th></tr></thead>
+        <tbody>
+            <tr><td>0</td><td>Kind</td><td>Always 0</td><td>In the control byte</td></tr>
+            <tr><td>1</td><td>Gap</td><td>Time differs from the last event</td><td>Varint: time units since the last event</td></tr>
+            <tr><td>2</td><td>Bid price</td><td>Best bid changed</td><td>Zigzag: change in ticks</td></tr>
+            <tr><td>3</td><td>Ask price</td><td>Best offer changed</td><td>Zigzag: change in ticks</td></tr>
+            <tr><td>4</td><td>Bid size</td><td>Size at the best bid changed</td><td>The new size as a varint if the price moved, else the change as zigzag</td></tr>
+            <tr><td>5</td><td>Ask size</td><td>Size at the best offer changed</td><td>The new size as a varint if the price moved, else the change as zigzag</td></tr>
+            <tr><td>6 to 7</td><td>Reserved</td><td>Zero</td><td></td></tr>
+        </tbody>
+    </table>
+</div>
+<p>A side with no orders has size 0, and its price is left as it was. Test the size, not the price, because a price of 0 ticks is legal.</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Trade bit</th><th>Field</th><th>When set</th><th>Stored as</th></tr></thead>
+        <tbody>
+            <tr><td>0</td><td>Kind</td><td>Always 1</td><td>In the control byte</td></tr>
+            <tr><td>1</td><td>Gap</td><td>Time differs from the last event</td><td>Varint: time units since the last event</td></tr>
+            <tr><td>2 to 3</td><td>Side</td><td>0 none, 1 buyer, 2 seller, 3 reserved</td><td>In the control byte</td></tr>
+            <tr><td>4</td><td>Implied</td><td>The price is the opposite best, so no price follows</td><td>Otherwise zigzag: price minus the last trade's price</td></tr>
+            <tr><td>5 to 7</td><td>Size</td><td>1 to 7 is the size itself</td><td>0 means a varint follows</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    A quote with no change bits set can never happen, so that pattern marks a state event. Its control byte is
+    <code>00</code> or <code>02</code>, then the gap if bit 1 is set, then one byte: the source's status action, such as
+    7 for trading or 8 for a halt.
+</p>
+
+<div class="next"><a href="docs/layout">← Data layout</a><a href="docs/datasets">Datasets →</a></div>
+
+@code {
+    private const string BuildCommands = """
+        dbnf tape catalog ES --tapes D:\Tapes
+        dbnf tape build ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30
+        dbnf tape info D:\Tapes\GLBX.MDP3\l1\ES\2026\ESZ6.l1.20261029.tape
+        """;
+
+    private const string Replay = """
+        using DbnClient.Tape;
+
+        var loaded = await Tape.LoadAsync(@"D:\Tapes\GLBX.MDP3\l1\ES\2026\ESZ6.l1.20261029.tape", cancel);
+
+        if (!loaded.IsSuccess)
+            return;
+
+        var cursor = loaded.Value.L1Cursor(Window.Rth);
+
+        while (cursor.MoveNext())
+        {
+            switch (cursor.Kind)
+            {
+                case L1Kind.Quote:
+                    strategy.OnQuote(cursor.Time, cursor.BidPrice, cursor.BidSize, cursor.AskPrice, cursor.AskSize);
+                    break;
+
+                case L1Kind.Trade:
+                    strategy.OnTrade(cursor.Time, cursor.TradePrice, cursor.TradeSize, cursor.Side);
+                    break;
+
+                case L1Kind.State:
+                    strategy.OnState(cursor.Time, cursor.State);
+                    break;
+            }
+        }
+        """;
+
+    private const string BarStream = """
+        using DbnClient.Export;
+        using DbnClient.Tape;
+
+        var bars = tape.Bars(BarSpec.Parse("5m").Value, Window.Rth);
+
+        while (bars.MoveNext())
+            strategy.OnBar(bars.End, bars.Open, bars.High, bars.Low, bars.Close, bars.Volume);
+        """;
+
+    private const string Series = """
+        using DbnClient.Tape;
+        using DbnClient.Time;
+
+        var catalog = await Catalog.LoadAsync(Catalog.PathOf(folder, "GLBX.MDP3", "ES"), cancel);
+        var span = new DateSpan(new DateOnly(2026, 1, 2), new DateOnly(2026, 10, 30));
+        var series = new TapeSeries(catalog.Value, folder, TapeKind.S1, span);
+
+        await foreach (var day in series.DaysAsync(cancel))
+        {
+            if (!day.IsSuccess)
+                return;
+
+            Replay(day.Value.Tape, day.Value.Offset);
+        }
+        """;
+
+    private const string Paths = """
+        {dataset}/{kind}/{root}/{year}/{symbol}.{kind}.{yyyymmdd}.tape
+        {dataset}/catalog/{root}.catalog.json
+        """;
+}

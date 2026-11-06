@@ -17,13 +17,14 @@
         <li><a href="docs/dbnclient#read">Read records</a></li>
         <li><a href="docs/dbnclient#export">Export</a></li>
         <li><a href="docs/dbnclient#rolls">Rolls and contracts</a></li>
+        <li><a href="docs/dbnclient#tapes">Tapes</a></li>
         <li><a href="docs/dbnclient#errors">Errors</a></li>
         <li><a href="docs/dbnclient#namespaces">Namespaces</a></li>
     </ul>
 </nav>
 
 <h2 id="install">Install</h2>
-<p>DbnClient targets .NET 10 and is Native AOT compatible. Its only dependencies are the AWS S3 SDK and ZstdSharp.</p>
+<p>DbnClient targets .NET 10 and is Native AOT compatible. Its only dependencies are the AWS S3 SDK, ZstdSharp and System.IO.Hashing.</p>
 <CodeBlock Title="In your project's folder" Text="dotnet add package DbnClient" />
 
 <h2 id="open">Open an archive</h2>
@@ -113,6 +114,13 @@
     a root's regular hours.
 </p>
 
+<h2 id="tapes">Tapes</h2>
+<p>
+    <code>DbnClient.Tape</code> builds and replays compact files for backtesting: <code>Catalog</code> and
+    <code>TapeBuilder</code> make them from an archive, and <code>Tape.LoadAsync</code> with a cursor replays them with
+    nothing allocated per event. See <a href="docs/tapes">Tapes</a>.
+</p>
+
 <h2 id="errors">Errors</h2>
 <p>
     Expected failures come back as a <code>Result&lt;T&gt;</code> carrying an <code>Error</code> with a stable code,
@@ -150,6 +158,7 @@
             <tr><td><code>DbnClient.Contracts</code></td><td><code>Contract</code>, <code>SymbolSpec</code>, <code>RollSchedule</code>, <code>Adjustment</code></td></tr>
             <tr><td><code>DbnClient.Time</code></td><td><code>DateSpan</code>, <code>Sessions</code>, <code>SessionFilter</code>, <code>Zones</code></td></tr>
             <tr><td><code>DbnClient.Export</code></td><td><code>Exporter</code>, <code>ExportRequest</code>, <code>BarSpec</code>, <code>BarBuilder</code>, <code>OrderBook</code>, <code>MboTransform</code></td></tr>
+            <tr><td><code>DbnClient.Tape</code></td><td><code>Tape</code>, the cursors, <code>Window</code>, <code>Catalog</code>, <code>TapeBuilder</code>, <code>TapeSeries</code>, <code>TapeProof</code></td></tr>
         </tbody>
     </table>
 </div>

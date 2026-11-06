@@ -4,7 +4,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <PackageId>DbnClient</PackageId>
-    <Description>DbnClient: reads a DbnSync archive of Databento® files: raw days, continuous series, sessions, bars and conversions. An independent project with no official connection with Databento, Inc., owner of the registered Databento trademark; for use only as your Databento agreements allow. Provided as is, at your own risk: see NOTICE.md.</Description>
+    <Description>DbnClient: reads a DbnSync archive of Databento® files: raw days, continuous series, sessions, bars, conversions and compact tapes for backtesting. An independent project with no official connection with Databento, Inc., owner of the registered Databento trademark; for use only as your Databento agreements allow. Provided as is, at your own risk: see NOTICE.md.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
   </PropertyGroup>
@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <PackageReference Include="AWSSDK.S3" />
+    <PackageReference Include="System.IO.Hashing" />
     <PackageReference Include="ZstdSharp.Port" />
   </ItemGroup>
 
