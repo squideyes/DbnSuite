@@ -480,3 +480,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Tapes are derived from licensed data: they never go in a repository.
+*.tape

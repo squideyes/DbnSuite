@@ -25,6 +25,7 @@ public static class App
         ShowCommand.Create(session),
         PullCommand.Create(session),
         ExportCommand.Create(session),
+        TapeCommand.Create(session),
         RollsCommand.Create(session),
         CacheCommand.Create(session)
     };
