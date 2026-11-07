@@ -10,6 +10,9 @@ public static class Links
     public const string Contributing = GitHub + "/blob/main/CONTRIBUTING.md";
     public const string Releases = GitHub + "/releases";
 
+    public const string NuGetClient = "https://www.nuget.org/packages/DbnClient";
+    public const string NuGetFetch = "https://www.nuget.org/packages/DbnFetch";
+
     /// <summary>The raw files in Deploy/, for downloading with curl.</summary>
     public const string Deploy = "https://raw.githubusercontent.com/squideyes/DbnSuite/main/Deploy";
 

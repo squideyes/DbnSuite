@@ -49,7 +49,8 @@
 <p>
     <code>dbnf tape</code> reads the archive from your login or <code>--archive</code>, and writes to the folder
     <code>--tapes</code> names. Build a root's catalog first, and rebuild it whenever new days arrive. These commands
-    run at low priority, so the machine stays usable.
+    run at low priority, so the machine stays usable. They need <a href="@Links.NuGetFetch">DbnFetch</a> 0.2.0 or
+    later, and replaying from C# needs <a href="@Links.NuGetClient">DbnClient</a> 0.2.0 or later, both from NuGet.
 </p>
 <CodeBlock Title="Any terminal" Text="@BuildCommands" />
 <div class="table">
