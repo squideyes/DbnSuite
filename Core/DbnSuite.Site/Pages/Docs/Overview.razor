@@ -4,8 +4,9 @@
 
 <h1>Documentation</h1>
 <p class="lead">
-    DbnSuite is three tools around one archive. DbnSync fills it; DbnFetch and DbnClient read it. You can run all
-    three, or only the readers against an archive your team keeps under the same Databento® licence.
+    DbnSuite is five tools around one archive. DbnSync fills it; DbnFetch and DbnClient read it; DbnTape turns it into
+    compact tapes for backtesting; and the optional DbnSpool keeps those tapes up to date in a second store. You can
+    run all of them, or only the readers against an archive your team keeps under the same Databento® licence.
 </p>
 
 <DatabentoNotice />
@@ -28,6 +29,12 @@
         Each person gets a read-only key. <code>dbnf</code> lists the archive, downloads raw files and exports
         processed data; DbnClient does the same from your own C#.
     </li>
+    <li>
+        <strong>DbnTape makes backtest tapes, and DbnSpool keeps them current.</strong>
+        <code>dbnf tape</code> and DbnClient build each contract's trade date into small S1, Trade and L1 tapes, and
+        prove them against the archive. DbnSpool, an optional Docker worker, does the same every hour and uploads each
+        new date to a private store of its own.
+    </li>
 </ol>
 
 <h2 id="start">Where to start</h2>
@@ -38,7 +45,7 @@
             <tr><td>Keep an archive of your Databento data</td><td><a href="docs/dbnsync">DbnSync</a>: requirements, installation, keys and configuration</td></tr>
             <tr><td>Get bars, continuous futures or order books from an archive</td><td><a href="docs/dbnfetch">DbnFetch</a>: installing dbnf, logging in, every command</td></tr>
             <tr><td>Read the archive from your own .NET code</td><td><a href="docs/dbnclient">DbnClient</a>: the library, with examples</td></tr>
-            <tr><td>Backtest CME futures from compact files</td><td><a href="docs/tapes">Tapes</a>: build, replay and prove them</td></tr>
+            <tr><td>Backtest CME futures from compact files</td><td><a href="docs/dbntape">DbnTape</a>: build, replay and prove tapes</td></tr>
             <tr><td>Keep tapes up to date in a cloud store</td><td><a href="docs/dbnspool">DbnSpool</a>: an optional worker most people won't need</td></tr>
             <tr><td>Read the archive from Python, the AWS CLI or anything else</td><td><a href="docs/archive">The archive</a>: layout, file format and other clients. DbnClient itself is C# only; a client in another language is a <a href="@Links.Contributing">welcome contribution</a>.</td></tr>
         </tbody>

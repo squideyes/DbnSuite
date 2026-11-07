@@ -2,7 +2,7 @@
 
 <img src="Core/DbnSync.Worker/wwwroot/img/squidly.png" alt="Squidly" width="96" align="right" />
 
-Three open-source tools for keeping and using Databento® market data, by
+Five open-source tools for keeping and using Databento® market data, by
 SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**. MIT licensed.
 
 > **Independent project.** DbnSuite has no official connection with Databento;
@@ -22,6 +22,8 @@ SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**
 | **DbnSync** | Keeps a growing archive of Databento data in any S3-compatible store. By default it spends nothing at Databento | `ghcr.io/squideyes/dbnsync-worker` (Docker) |
 | **DbnFetch** (`dbnf`) | Downloads raw files from the archive and exports bars, rebuilt order books and, for futures, sessions and back-adjusted continuous series, as Parquet, CSV or JSON Lines for research tools and trading platforms, DBN, or NinjaTrader 8's own import format | `dotnet tool install -g DbnFetch` |
 | **DbnClient** | The engine under DbnFetch, as a C# library | `dotnet add package DbnClient` |
+| **DbnTape** | Compact tapes of each futures contract's trade date for fast, exact backtests: one-second bars, every trade, and top of book with trading state, proved against the archive | `dbnf tape` in DbnFetch, `DbnClient.Tape` in DbnClient |
+| **DbnSpool** | Optional. A worker that keeps tapes up to date in a second, private S3 store, building, proving and uploading each new trade date | `ghcr.io/squideyes/dbnspool-worker` (Docker) |
 
 Each runs on your own machines with your own Databento account; nothing passes
 through anyone else.
@@ -333,10 +335,10 @@ dbnf export ohlcv-1s ES.v.0 --bars 5m --session rth --since 2026-01-01 --adjust 
 - **Files:** one per trade date; `--single` for one file, `--partition` for
   `series=`/`date=` folders, `--name` for names of your own.
 
-### Tapes
+### DbnTape
 
-Tapes are compact, stream-only files for backtesting CME futures, built from
-the archive: one contract, one trade date and one kind each. S1 holds
+DbnTape's tapes are compact, stream-only files for backtesting CME futures,
+built from the archive: one contract, one trade date and one kind each. S1 holds
 one-second bars at about 2.8 bytes a bar, Trade holds every trade at about 3.3
 bytes, and L1 holds best bid and offer, trades and state changes at about 3.3
 bytes an event.
@@ -349,8 +351,9 @@ dbnf tape verify ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30
 
 DbnClient replays them in `DbnClient.Tape`, with nothing allocated per event.
 Tapes are derived from data licensed to you, so keep them in private storage you
-control and never commit one. See the [Tapes docs](https://dbnsuite.squideyes.com/docs/tapes)
-for the format.
+control and never commit one. See the [DbnTape docs](https://dbnsuite.squideyes.com/docs/dbntape)
+for the format. To keep tapes up to date in a cloud store, see
+[DbnSpool](#dbnspool-optional).
 
 ### Other clients
 

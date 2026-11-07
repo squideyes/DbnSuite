@@ -1,10 +1,11 @@
+@page "/docs/dbntape"
 @page "/docs/tapes"
 
-<PageTitle>Tapes: DbnSuite</PageTitle>
+<PageTitle>DbnTape docs: DbnSuite</PageTitle>
 
-<h1>Tapes</h1>
+<h1>DbnTape</h1>
 <p class="lead">
-    Three compact, stream-only file formats for backtesting CME futures, built from your archive of Databento® files.
+    DbnTape is three compact, stream-only file formats for backtesting CME futures, built from your archive of Databento® files.
     They trade universality for size and speed: a tape replays a contract's trade date from start to finish, and does
     nothing else.
 </p>
@@ -14,15 +15,15 @@
 <nav class="toc" aria-label="On this page">
     <p>On this page</p>
     <ul>
-        <li><a href="docs/tapes#kinds">The three kinds</a></li>
-        <li><a href="docs/tapes#build">Build tapes</a></li>
-        <li><a href="docs/tapes#replay">Replay in C#</a></li>
-        <li><a href="docs/tapes#sessions">Sessions, ETH and RTH</a></li>
-        <li><a href="docs/tapes#bars">Bars</a></li>
-        <li><a href="docs/tapes#rolls">Continuous series</a></li>
-        <li><a href="docs/tapes#proof">Prove them</a></li>
-        <li><a href="docs/tapes#storage">Storage and licensing</a></li>
-        <li><a href="docs/tapes#format">File format</a></li>
+        <li><a href="docs/dbntape#kinds">The three kinds</a></li>
+        <li><a href="docs/dbntape#build">Build tapes</a></li>
+        <li><a href="docs/dbntape#replay">Replay in C#</a></li>
+        <li><a href="docs/dbntape#sessions">Sessions, ETH and RTH</a></li>
+        <li><a href="docs/dbntape#bars">Bars</a></li>
+        <li><a href="docs/dbntape#rolls">Continuous series</a></li>
+        <li><a href="docs/dbntape#proof">Prove them</a></li>
+        <li><a href="docs/dbntape#storage">Storage and licensing</a></li>
+        <li><a href="docs/dbntape#format">File format</a></li>
     </ul>
 </nav>
 
@@ -57,7 +58,7 @@
         <tbody>
             <tr><td><code>tape catalog &lt;root&gt;</code></td><td>Build a root's catalog: its contracts, and each trade date's sessions, settlements, open interest and cleared volume.</td></tr>
             <tr><td><code>tape build &lt;root&gt;</code></td><td>Build tapes for <code>--from</code> to <code>--to</code>. <code>--symbol ESZ6</code> limits it to some contracts, and <code>--zstd</code> compresses the bodies.</td></tr>
-            <tr><td><code>tape verify &lt;root&gt;</code></td><td>Prove built tapes against the archive. See <a href="docs/tapes#proof">Prove them</a>.</td></tr>
+            <tr><td><code>tape verify &lt;root&gt;</code></td><td>Prove built tapes against the archive. See <a href="docs/dbntape#proof">Prove them</a>.</td></tr>
             <tr><td><code>tape pull &lt;root&gt;</code></td><td>Copy a root's tapes and catalog down from a tape store. See <a href="docs/dbnspool#read">DbnSpool</a>.</td></tr>
             <tr><td><code>tape info &lt;file&gt;</code></td><td>Show a tape's header.</td></tr>
             <tr><td><code>tape schema &lt;kind&gt;</code></td><td>Show a kind's fields.</td></tr>
