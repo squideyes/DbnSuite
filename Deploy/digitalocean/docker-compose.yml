@@ -60,12 +60,13 @@ services:
       - scratch:/scratch
 
   # Optional. Off unless started with --profile spool. It only reads the archive,
-  # and it is held to one CPU, so it can't get in DbnSync's way.
+  # and it is held to one CPU and 2 GB, so it can't get in DbnSync's way.
   dbnspool:
     image: ${DBNSPOOL_IMAGE:-ghcr.io/squideyes/dbnspool-worker:latest}
     profiles: [spool]
     restart: unless-stopped
     cpus: 1
+    mem_limit: 2g
     depends_on:
       seq:
         condition: service_started
