@@ -4,7 +4,7 @@
 
 <h1>DbnSpool</h1>
 <p class="lead">
-    An optional worker that keeps <a href="docs/tapes">tapes</a> up to date. It reads your archive of Databento® files,
+    An optional worker that keeps <a href="docs/dbntape">DbnTape</a> tapes up to date. It reads your archive of Databento® files,
     builds each new trade date, proves it, and uploads it to a second store, such as a DigitalOcean Space.
 </p>
 
@@ -30,7 +30,7 @@
 <ol class="steps-list">
     <li><strong>Waits for the whole date.</strong> Only days every schema has reached are used, so a half-collected day never becomes a tape.</li>
     <li><strong>Builds</strong> the date's S1, Trade and L1 tapes, compressed with zstd.</li>
-    <li><strong>Proves</strong> them against the archive with the checks in <a href="docs/tapes#proof">Prove them</a>.</li>
+    <li><strong>Proves</strong> them against the archive with the checks in <a href="docs/dbntape#proof">Prove them</a>.</li>
     <li><strong>Uploads</strong> them, then records the date in the store, so a restart or a new machine carries on from there.</li>
 </ol>
 <p>
@@ -76,7 +76,7 @@
 </p>
 <div class="note warn"><p>
     <strong>Tapes are derived from data licensed to you.</strong> The tape store must stay private, and the same limits
-    apply to it as to the archive. See <a href="docs/tapes#storage">Storage and licensing</a>.
+    apply to it as to the archive. See <a href="docs/dbntape#storage">Storage and licensing</a>.
 </p></div>
 <p>
     DbnSpool isn't tied to DigitalOcean: <code>Archive__Location</code> and <code>Tapes__Location</code> each take any
@@ -119,7 +119,7 @@
     </table>
 </div>
 
-<div class="next"><a href="docs/tapes">← Tapes</a><a href="docs/datasets">Datasets →</a></div>
+<div class="next"><a href="docs/dbntape">← DbnTape</a><a href="docs/datasets">Datasets →</a></div>
 
 @code {
     private const string SpoolEnv = """

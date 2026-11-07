@@ -11,7 +11,8 @@
                 DbnSync keeps the data your Databento subscription includes in S3 storage you control. DbnFetch and
                 DbnClient turn that archive into bars, rebuilt order books and, for futures, back-adjusted continuous
                 series, for your research, your backtests and trading platforms such as NinjaTrader, MetaTrader and
-                TradeStation.
+                TradeStation. DbnTape packs futures into compact tapes for fast, exact backtests, and the optional
+                DbnSpool keeps those tapes up to date.
             </p>
             <div class="actions">
                 <a class="button" href="docs">Read the docs</a>
@@ -148,6 +149,28 @@
                 new("The whole exporter", "One ExportRequest does whatever dbnf export does: bars, continuous series, rebuilt books, every format."),
                 new("Lean and AOT-ready", "Native AOT compatible, with only the AWS S3 SDK and a zstd library as dependencies. Parquet is written by its own code."),
                 new("Errors you can branch on", "Expected failures, such as a day never stored or a key refused, come back as results with stable codes rather than exceptions."),
+            ]),
+        new("dbntape", "Backtest tapes", "DbnTape",
+            "Compact tapes of each futures contract's trade date, for fast and exact backtests.",
+            "Small, stream-only files built from your archive by dbnf tape and DbnClient: one contract, one CME trade date and one kind each, replayed from start to finish.",
+            [
+                new("Three kinds", "S1 holds one-second bars, Trade holds every trade with its aggressor, and L1 holds the best bid and offer, every trade and every change of trading state, in order."),
+                new("A fraction of the size", "About 3 bytes an event against 48 to 80 in DBN, with exact prices and sizes and times to the microsecond. zstd compresses them further for storage."),
+                new("Sessions built in", "Each tape is a whole trade date with its RTH start marked, so a backtest replays ETH, RTH or both without looking anything up."),
+                new("Bars and continuous series", "Any time bar rolls up from an S1 tape as it streams, volume and tick bars from a Trade tape, and a continuous series is just a list of tapes, so a new roll rule never means a rebuild."),
+                new("Proved against the archive", "dbnf tape verify checks tapes through independent paths: the archive's own bars, and DbnClient's rebuilt order book, event for event."),
+                new("Private, like the archive", "Tapes are derived from data licensed to you, so they stay on your own drives or in a private store you control."),
+            ]),
+        new("dbnspool", "Optional worker", "DbnSpool",
+            "A Docker worker that keeps tapes up to date in a second store. Most people won't need it.",
+            "For simulation and testing from a cloud store day after day: every hour it builds, proves and uploads each new trade date, beside DbnSync on the same Droplet.",
+            [
+                new("Hands-off", "It waits until every schema has reached a date, then builds that date's tapes, so a half-collected day never becomes a tape."),
+                new("Proved before upload", "Each date passes the same checks as dbnf tape verify before anything reaches the store. A date that fails uploads nothing and is tried again."),
+                new("Never in DbnSync's way", "It only ever reads the archive, with a key that can't change it, and runs at low priority within one CPU and 2 GB."),
+                new("Picks up where it stopped", "What is done is recorded in the tape store itself, so a restart or a new machine carries on from there."),
+                new("Never stuck on one date", "A date that stops it twice, as running out of memory would, is set aside and reported, and the rest carry on."),
+                new("Pull to a fast drive", "dbnf tape pull copies tapes down for replay, fetching only what is new."),
             ]),
     ];
 }
