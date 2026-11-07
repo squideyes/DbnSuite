@@ -647,12 +647,9 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
 
     private sealed record TickSubject(CatalogContract Contract, SessionDay Session, Tape L1, Tape? Trade, List<SourceBar> Bars);
 
-    /// <summary>One event of the expected L1 stream, as DbnClient's own transform gives it.</summary>
-    private readonly record struct Expected(bool IsTrade, long Time, int Price, uint Size, TradeSide Side, int Bid, uint BidSize, int Ask, uint AskSize);
-
     /// <summary>
     /// Replays a contract's source records through MboTransform and DbnClient's OrderBook,
-    /// and walks the L1 tape beside them, event for event.
+    /// and walks the L1 tape beside them, event for event, as the rows arrive.
     /// </summary>
     private sealed class MboCheck
     {
@@ -667,7 +664,7 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
         private readonly TickSubject subject;
         private readonly MboTransform transform = MboTransform.Create("mbp-1", series: false).Value;
         private readonly OrderBook book = new();
-        private readonly List<Expected> expected = [];
+        private readonly L1Match match;
         private readonly Dictionary<long, (long O, long H, long L, long C, ulong V)> built = [];
         private readonly long tick;
         private readonly SnapshotWatch boundary = new();
@@ -678,6 +675,7 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
             this.subject = subject;
 
             tick = subject.Contract.TickRaw;
+            match = new L1Match(subject.L1);
         }
 
         public void Feed(MboRecord record)
@@ -712,7 +710,7 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
             var time = cells[1].Number / NanosPerMicro;
             var side = cells[4].Text switch { "B" => TradeSide.Buyer, "A" => TradeSide.Seller, _ => TradeSide.None };
 
-            expected.Add(new Expected(isTrade, time, Ticks(cells[5].Price), (uint)cells[6].Number, side,
+            match.Row(new L1Row(isTrade, time, Ticks(cells[5].Price), (uint)cells[6].Number, side,
                 Ticks(cells[BidPriceCell].Price), (uint)cells[BidSizeCell].Number, Ticks(cells[AskPriceCell].Price), (uint)cells[AskSizeCell].Number));
         }
 
@@ -774,70 +772,9 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
                 : Fail(subject.Contract, TradesCheck, $"the tape's volume is {tapeVolume:N0}, the bars' {barVolume:N0}");
         }
 
-        private ProofResult TapeAgainstTransform()
-        {
-            var cursor = subject.L1.L1Cursor();
-            var bid = 0;
-            var ask = 0;
-            var bidSize = 0u;
-            var askSize = 0u;
-            var index = 0;
-            var opening = true;
-
-            while (cursor.MoveNext())
-            {
-                if (cursor.Kind == L1Kind.State)
-                    continue;
-
-                // The tape's opening quote is the book the transform only ever kept to itself.
-                if (opening && cursor.Kind == L1Kind.Quote)
-                {
-                    opening = false;
-                    (bid, bidSize, ask, askSize) = (cursor.BidPrice, cursor.BidSize, cursor.AskPrice, cursor.AskSize);
-
-                    continue;
-                }
-
-                opening = false;
-
-                while (index < expected.Count && Unwritten(expected[index], cursor.State, bid, bidSize, ask, askSize))
-                    index++;
-
-                if (index == expected.Count)
-                    return Fail(subject.Contract, TransformCheck, $"the tape runs on past the transform at {cursor.Time}");
-
-                var next = expected[index++];
-
-                if (cursor.Kind == L1Kind.Trade)
-                {
-                    if (!next.IsTrade || next.Time != cursor.Time || next.Price != cursor.TradePrice || next.Size != cursor.TradeSize || next.Side != cursor.Side)
-                        return Fail(subject.Contract, TransformCheck, $"the trade at {cursor.Time} differs: {next}");
-
-                    continue;
-                }
-
-                (bid, bidSize, ask, askSize) = (cursor.BidPrice, cursor.BidSize, cursor.AskPrice, cursor.AskSize);
-
-                if (next.IsTrade || next.Time != cursor.Time || !SameTop(next, bid, bidSize, ask, askSize))
-                    return Fail(subject.Contract, TransformCheck, $"the quote at {cursor.Time} differs: {next}");
-            }
-
-            while (index < expected.Count && Unwritten(expected[index], TradingAction, bid, bidSize, ask, askSize))
-                index++;
-
-            return index == expected.Count
-                ? Pass(subject.Contract, TransformCheck)
-                : Fail(subject.Contract, TransformCheck, $"the transform has {expected.Count - index:N0} rows past the tape's end");
-        }
-
-        /// <summary>A row the tape rightly has no event for: only its order count moved, or the open's match is still clearing it.</summary>
-        private static bool Unwritten(in Expected row, byte state, int bid, uint bidSize, int ask, uint askSize) =>
-            !row.IsTrade && (SameTop(row, bid, bidSize, ask, askSize)
-                || (state == TradingAction && row.BidSize > 0 && row.AskSize > 0 && row.Bid >= row.Ask));
-
-        private static bool SameTop(in Expected row, int bid, uint bidSize, int ask, uint askSize) =>
-            row.BidSize == bidSize && row.AskSize == askSize
-            && (bidSize == 0 || row.Bid == bid)
-            && (askSize == 0 || row.Ask == ask);
+        private ProofResult TapeAgainstTransform() =>
+            match.Finish() is { } failure
+                ? Fail(subject.Contract, TransformCheck, failure)
+                : Pass(subject.Contract, TransformCheck);
     }
 }

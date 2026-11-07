@@ -1,5 +1,10 @@
 namespace DbnClient.Tape;
 
+/// <summary>An <see cref="L1Cursor"/>'s place and the event it stands on.</summary>
+internal readonly record struct L1Place(
+    int Position, long Index, L1Kind Kind, long Time, int BidPrice, int AskPrice,
+    uint BidSize, uint AskSize, int TradePrice, uint TradeSize, TradeSide Side, byte State);
+
 /// <summary>Walks an L1 tape. Nothing is created per event, and it lives only in the replay loop.</summary>
 public ref struct L1Cursor
 {
@@ -69,6 +74,26 @@ public ref struct L1Cursor
 
     /// <summary>Whether this event falls in RTH.</summary>
     public readonly bool InRth => index > rthAfter && index <= rthThrough;
+
+    /// <summary>Where the cursor stands, to carry past the loop that a ref struct can't leave.</summary>
+    internal readonly L1Place Here => new(position, index, Kind, Time, BidPrice, AskPrice, BidSize, AskSize, TradePrice, TradeSize, Side, State);
+
+    /// <summary>Takes up a place another cursor on the same tape and span saved.</summary>
+    internal void MoveTo(in L1Place place)
+    {
+        position = place.Position;
+        index = place.Index;
+        Kind = place.Kind;
+        Time = place.Time;
+        BidPrice = place.BidPrice;
+        AskPrice = place.AskPrice;
+        BidSize = place.BidSize;
+        AskSize = place.AskSize;
+        TradePrice = place.TradePrice;
+        TradeSize = place.TradeSize;
+        Side = place.Side;
+        State = place.State;
+    }
 
     /// <summary>Moves to the next event, or returns false at the end.</summary>
     /// <exception cref="InvalidDataException">The body is damaged.</exception>
