@@ -49,12 +49,20 @@
 </p>
 
 <h2 id="install">Install on DigitalOcean</h2>
-<p>These steps add DbnSpool to a <a href="docs/dbnsync#digitalocean">DbnSync Droplet</a>. Allow 4 GB of memory, and disk for the bars, definitions and statistics it caches: about 12 GB for 12 roots from 2020.</p>
+<p>
+    These steps add DbnSpool to a <a href="docs/dbnsync#digitalocean">DbnSync Droplet</a>. Use a Droplet with 4 GB of
+    memory: the Compose file holds DbnSpool to one CPU and 2 GB, and a heavy trade date peaks at about 1.5 GB while
+    it is built and proved. Allow disk for the bars, definitions and statistics it caches: about 12 GB for 12 roots
+    from 2020.
+</p>
 <ol class="steps-list">
     <li><strong>Create a second Space</strong> for tapes, such as <code>dbn-tapes</code>, in the same region. Keep it private, with no CDN.</li>
-    <li><strong>Create two Spaces keys:</strong> one that can only read the archive's Space, and one that can read and write the tapes' Space.</li>
     <li>
-        <strong>Add them to <code>.env</code></strong> on the Droplet.
+        <strong>Create a Spaces key</strong> with Limited Access: <em>Read</em> on the archive's Space and
+        <em>Read/Write/Delete</em> on the tapes' Space. DbnSpool can never change the archive with it.
+    </li>
+    <li>
+        <strong>Add it to <code>.env</code></strong> on the Droplet, in both pairs of lines. Two separate keys work as well.
         <CodeBlock Title=".env on the Droplet" Text="@SpoolEnv" />
     </li>
     <li>
@@ -89,6 +97,10 @@
     <code>-L 8081:localhost:8081</code>, at <code>http://localhost:8081/status</code>. <code>/health</code> says whether
     it is up.
 </p>
+<p>
+    Nothing on the Droplet sends mail, so set up the <a href="docs/dbnsync#alerts">DigitalOcean alerts</a> as well:
+    they email you when memory or disk runs high, or the Droplet stops answering.
+</p>
 
 <h2 id="settings">Settings</h2>
 <div class="table">
@@ -96,11 +108,12 @@
         <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
         <tbody>
             <tr><td><code>Archive__Location</code>, <code>Archive__Bucket</code>, <code>Archive__AccessKey</code>, <code>Archive__SecretKey</code></td><td>none, <code>dbn</code></td><td>The archive to read.</td></tr>
-            <tr><td><code>Tapes__Location</code>, <code>Tapes__Bucket</code>, <code>Tapes__AccessKey</code>, <code>Tapes__SecretKey</code></td><td>none, <code>dbn</code></td><td>Where tapes go.</td></tr>
+            <tr><td><code>Tapes__Location</code>, <code>Tapes__Bucket</code>, <code>Tapes__AccessKey</code>, <code>Tapes__SecretKey</code></td><td>none, <code>dbn</code></td><td>Where tapes go. The Compose file sets the bucket to <code>dbn-tapes</code>.</td></tr>
             <tr><td><code>DbnSpool__Roots</code></td><td>the 12 default roots</td><td>The roots to spool.</td></tr>
             <tr><td><code>DbnSpool__Interval</code></td><td><code>01:00:00</code></td><td>How long to wait between looks at the archive.</td></tr>
             <tr><td><code>DbnSpool__Compress</code></td><td><code>true</code></td><td>Compress tapes with zstd.</td></tr>
             <tr><td><code>DbnSpool__Prove</code></td><td><code>true</code></td><td>Prove each date before uploading it.</td></tr>
+            <tr><td><code>DbnSpool__MostAttempts</code></td><td><code>2</code></td><td>How many times a date may stop DbnSpool before it is set aside.</td></tr>
             <tr><td><code>DbnSpool__WorkPath</code></td><td><code>/work</code></td><td>The folder for tapes being built and cached archive files.</td></tr>
         </tbody>
     </table>
@@ -111,9 +124,9 @@
 @code {
     private const string SpoolEnv = """
         SPACES_TAPES_BUCKET=dbn-tapes
-        DBNSPOOL_ARCHIVE_ACCESS_KEY=<the read-only key for the archive>
+        DBNSPOOL_ARCHIVE_ACCESS_KEY=<the DbnSpool key>
         DBNSPOOL_ARCHIVE_SECRET_KEY=<its secret>
-        DBNSPOOL_TAPES_ACCESS_KEY=<the read-write key for tapes>
+        DBNSPOOL_TAPES_ACCESS_KEY=<the same key>
         DBNSPOOL_TAPES_SECRET_KEY=<its secret>
         """;
 

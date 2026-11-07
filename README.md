@@ -524,9 +524,18 @@ DbnSpool is a second worker that keeps tapes up to date. It exists for running
 simulation and testing from a cloud store, and most people won't need it:
 `dbnf tape build` makes tapes by hand. Every hour it builds each new trade date,
 proves it against the archive, and uploads it to a second Space, and it only ever
-reads the archive. Add it by creating a tapes Space and two keys, filling in the
-`DBNSPOOL_` lines of `.env`, and starting the Compose file with `--profile spool`.
-See the [DbnSpool docs](https://dbnsuite.squideyes.com/docs/dbnspool).
+reads the archive. Add it by creating a tapes Space and a Spaces key with Read
+on the archive's Space and Read/Write/Delete on the tapes' Space, filling in the
+`DBNSPOOL_` lines of `.env` with it, and starting the Compose file with
+`--profile spool`. Compose holds it to one CPU and 2 GB, so use a 4 GB Droplet. A
+date that stops DbnSpool twice, as running out of memory would, is set aside so
+the rest carry on. See the [DbnSpool docs](https://dbnsuite.squideyes.com/docs/dbnspool).
+
+**Alerts:** nothing on the Droplet sends mail, so let DigitalOcean's free
+monitoring watch it: alert policies for memory above 90% and disk above 80%, and
+a ping uptime check with a down alert. The
+[DigitalOcean docs](https://dbnsuite.squideyes.com/docs/dbnsync#alerts) have the
+`doctl` commands.
 
 ## Deploy on a NAS
 

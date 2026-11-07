@@ -165,6 +165,13 @@
     <a href="docs/dbnspool">DbnSpool</a> is an optional second worker for the same Droplet, which keeps tapes up to date
     in a second Space.
 </p>
+<h3 id="alerts">Alerts</h3>
+<p>
+    Nothing on the Droplet sends mail, and every page is private, so let DigitalOcean watch it. Its monitoring is free
+    and comes with the Droplet. From any machine signed in with <code>doctl</code>, these email you when memory stays
+    above 90% or disk above 80% for five minutes, and when the Droplet stops answering pings for two.
+</p>
+<CodeBlock Title="Any terminal with doctl" Text="@Alerts" />
 
 <h2 id="nas">Notes for NAS systems</h2>
 <p>Synology, QNAP, UGREEN and similar systems run DbnSync the same way. The differences are where things are switched on:</p>
@@ -500,6 +507,14 @@
     private const string SpacesStart = """
         docker compose pull
         docker compose up -d
+        """;
+
+    private const string Alerts = """
+        doctl compute droplet list --format ID,Name,PublicIPv4
+        doctl monitoring alert create --type v1/insights/droplet/memory_utilization_percent --compare GreaterThan --value 90 --window 5m --entities <droplet id> --emails <your email> --description "memory over 90%"
+        doctl monitoring alert create --type v1/insights/droplet/disk_utilization_percent --compare GreaterThan --value 80 --window 5m --entities <droplet id> --emails <your email> --description "disk over 80%"
+        doctl monitoring uptime create droplet-ping --target <droplet ip> --type ping --regions us_east --format ID
+        doctl monitoring uptime alert create <check id> --name "droplet down" --type down --comparison less_than --threshold 1 --period 2m --emails <your email>
         """;
 
     private const string ReadOnlyPolicy = """
