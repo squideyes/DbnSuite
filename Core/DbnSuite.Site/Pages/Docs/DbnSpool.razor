@@ -39,6 +39,11 @@
     Each root's catalog goes up at the end of its pass.
 </p>
 <p>
+    A date that stops DbnSpool itself, as running out of memory does, is noted in the ledger before its work starts.
+    Once a date has stopped it twice, it is set aside and logged, and the dates and roots after it carry on. A set-aside
+    date is tried again once DbnSpool's code changes.
+</p>
+<p>
     On a first run it spools everything the archive holds, oldest first, which takes many hours. It runs at low priority
     on one thread, and only ever reads the archive, so it can't get in DbnSync's way.
 </p>
@@ -79,7 +84,8 @@
 
 <h2 id="watch">Watch it run</h2>
 <p>
-    Its log goes to Seq, and <code>/status</code> shows the last pass, root by root. Reach it through the tunnel with
+    Its log goes to Seq, and <code>/status</code> shows the last pass root by root, the roots the running pass has
+    finished, and the latest problem, such as a date set aside. Reach it through the tunnel with
     <code>-L 8081:localhost:8081</code>, at <code>http://localhost:8081/status</code>. <code>/health</code> says whether
     it is up.
 </p>

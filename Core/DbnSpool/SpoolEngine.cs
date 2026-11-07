@@ -9,6 +9,9 @@ public interface ISpoolEngine
 {
     string Dataset { get; }
 
+    /// <summary>Names the code that builds and proves tapes, so a date set aside is tried again once that changes.</summary>
+    string Build { get; }
+
     Task<Result<IReadOnlyList<StoredDay>>> DaysAsync(string schema, string root, CancellationToken cancel);
 
     Task<Result<Catalog>> CatalogAsync(string root, CancellationToken cancel);
@@ -26,7 +29,13 @@ public sealed class SpoolEngine(DbnArchive archive, SpoolOptions options) : ISpo
 {
     private const string MboSchema = "mbo";
 
+    // Builds are deterministic, so a module's id changes only when its code does.
+    private static readonly string CodeBuild =
+        $"{typeof(TapeBuilder).Assembly.ManifestModule.ModuleVersionId:N}.{typeof(SpoolEngine).Assembly.ManifestModule.ModuleVersionId:N}";
+
     public string Dataset => archive.Dataset;
+
+    public string Build => CodeBuild;
 
     public Task<Result<IReadOnlyList<StoredDay>>> DaysAsync(string schema, string root, CancellationToken cancel) =>
         archive.ListDaysAsync(schema, root, cancel);
