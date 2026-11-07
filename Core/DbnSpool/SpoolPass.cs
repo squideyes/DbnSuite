@@ -4,12 +4,15 @@ namespace DbnSpool;
 
 /// <summary>What one pass over one root did.</summary>
 /// <param name="Skipped">True when the archive held nothing new.</param>
-public sealed record RootResult(string Root, int Spooled, int Failed, bool Skipped);
+/// <param name="Problem">What someone should look at, such as dates set aside, or null.</param>
+public sealed record RootResult(string Root, int Spooled, int Failed, bool Skipped, string? Problem = null);
 
 /// <summary>
 /// One root's pass: each trade date the shelf lacks is built, proved, uploaded and
 /// recorded. A date that fails anywhere puts nothing in the ledger, and is tried
-/// again the next time the archive changes.
+/// again the next time the archive changes. A date that stops DbnSpool itself, as
+/// running out of memory does, is set aside once it has done so
+/// <see cref="SpoolOptions.MostAttempts"/> times, so the dates after it still get done.
 /// </summary>
 public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOptions options, ILogger<SpoolPass> logger)
 {
@@ -55,20 +58,52 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
         var pending = SpoolPlan.Pending(catalog.Value.Days.Select(d => d.TradeDate), ledger, mbo, through);
         var spooled = 0;
         var failed = 0;
+        var setAside = new List<DateOnly>();
 
         logger.LogInformation("{Root}: {Dates} trade dates to spool, through {Through}", root, pending.Count, through);
 
         foreach (var date in pending)
         {
-            if (await SpoolAsync(catalog.Value, date, SpoolPlan.HasTicks(date, mbo), ledger, cancel).ConfigureAwait(false))
+            if (ledger.IsSetAside(date, engine.Build, options.MostAttempts))
             {
-                await shelf.PutBytesAsync(key, ledger.ToBytes(), cancel).ConfigureAwait(false);
-                spooled++;
-            }
-            else
-            {
+                logger.LogError("{Root} {Date}: set aside, because it has stopped DbnSpool {Count} times; it is tried again once DbnSpool's code changes",
+                    root, date, ledger.Attempt(date)!.Count);
+
+                setAside.Add(date);
                 failed++;
+
+                continue;
             }
+
+            // Saved before the work starts, so a stop that ends the process is still counted.
+            ledger.Begin(date, engine.Build);
+
+            await shelf.PutBytesAsync(key, ledger.ToBytes(), cancel).ConfigureAwait(false);
+
+            bool done;
+
+            try
+            {
+                done = await SpoolAsync(catalog.Value, date, SpoolPlan.HasTicks(date, mbo), ledger, cancel).ConfigureAwait(false);
+            }
+            catch
+            {
+                // An exception, or a shutdown, is not the date's fault: only a stop that ends the process counts.
+                ledger.End(date);
+
+                await TrySaveAsync(key, ledger).ConfigureAwait(false);
+
+                throw;
+            }
+
+            ledger.End(date);
+
+            await shelf.PutBytesAsync(key, ledger.ToBytes(), cancel).ConfigureAwait(false);
+
+            if (done)
+                spooled++;
+            else
+                failed++;
 
             Clear();
             engine.Release();
@@ -80,7 +115,23 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
 
         await shelf.PutBytesAsync(key, ledger.ToBytes(), cancel).ConfigureAwait(false);
 
-        return new RootResult(root, spooled, failed, Skipped: false);
+        var problem = setAside.Count == 0
+            ? null
+            : $"{root}: {string.Join(", ", setAside.Select(d => d.ToString("yyyy-MM-dd")))} set aside after stopping DbnSpool {options.MostAttempts} times";
+
+        return new RootResult(root, spooled, failed, Skipped: false, problem);
+    }
+
+    private async Task TrySaveAsync(string key, SpoolLedger ledger)
+    {
+        try
+        {
+            await shelf.PutBytesAsync(key, ledger.ToBytes(), CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning(e, "The ledger at {Key} was not saved", key);
+        }
     }
 
     private async Task<bool> SpoolAsync(Catalog catalog, DateOnly date, bool ticks, SpoolLedger ledger, CancellationToken cancel)

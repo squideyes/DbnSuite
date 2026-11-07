@@ -17,6 +17,9 @@ public sealed class SpoolPassTests : IDisposable
     private const string TapeKey = "GLBX.MDP3/s1/ES/2026/ESZ6.s1.20261027.tape";
     private const string CatalogKey = "GLBX.MDP3/catalog/ES.catalog.json";
     private const string LedgerKey = "GLBX.MDP3/spool/ES.json";
+    private const string Build = "build-2";
+    private const string EarlierBuild = "build-1";
+    private const string SetAsideProblem = "ES: 2026-10-27 set aside after stopping DbnSpool 2 times";
 
     private static readonly DateOnly Monday = new(2026, 10, 26);
     private static readonly DateOnly Tuesday = Monday.AddDays(1);
@@ -33,6 +36,7 @@ public sealed class SpoolPassTests : IDisposable
         shelf = new FolderTapeShelf(Path.Combine(home, "shelf"));
 
         engine.Dataset.Returns(Dataset);
+        engine.Build.Returns(Build);
         engine.CatalogAsync(Root, Arg.Any<CancellationToken>()).Returns((Result<Catalog>)TestCatalog());
         engine.ProveAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns([new ProofResult(Symbol, "S1 against source", true, null)]);
@@ -227,6 +231,82 @@ public sealed class SpoolPassTests : IDisposable
         result.Skipped.ShouldBeTrue();
         await engine.DidNotReceive().CatalogAsync(Root, Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task A_date_that_stopped_DbnSpool_twice_is_set_aside()
+    {
+        await StoppedAsync(2, Build);
+
+        var result = await Pass().RunAsync(Root, CancellationToken.None);
+
+        result.ShouldBe(new RootResult(Root, 0, 1, false, SetAsideProblem));
+        await engine.DidNotReceive().BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
+        (await LedgerAsync()).Attempt(Tuesday)!.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task A_date_that_stopped_DbnSpool_once_is_tried_again()
+    {
+        await StoppedAsync(1, Build);
+
+        var result = await Pass().RunAsync(Root, CancellationToken.None);
+
+        result.Spooled.ShouldBe(1);
+        (await LedgerAsync()).Attempt(Tuesday).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_date_set_aside_is_tried_again_once_the_code_changes()
+    {
+        await StoppedAsync(2, EarlierBuild);
+
+        var result = await Pass().RunAsync(Root, CancellationToken.None);
+
+        result.ShouldBe(new RootResult(Root, 1, 0, false));
+        (await LedgerAsync()).Attempt(Tuesday).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task The_attempt_is_on_the_shelf_before_the_work_starts()
+    {
+        SpoolAttempt? during = null;
+
+        engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns(async c =>
+        {
+            during = (await LedgerAsync()).Attempt(Tuesday);
+
+            return (Result<BuildReport>)Built(c.ArgAt<DateOnly>(1));
+        });
+
+        await Pass().RunAsync(Root, CancellationToken.None);
+
+        during.ShouldBe(new SpoolAttempt(Tuesday, 1, Build));
+    }
+
+    [Fact]
+    public async Task A_failed_date_is_not_counted_as_a_stop()
+    {
+        engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns((Result<BuildReport>)new Error(TapeErrors.Refused, "A source day is missing."));
+
+        await Pass().RunAsync(Root, CancellationToken.None);
+
+        (await LedgerAsync()).Attempt(Tuesday).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task An_exception_is_not_counted_as_a_stop()
+    {
+        engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Result<BuildReport>>(new IOException("The archive went away.")));
+
+        await Should.ThrowAsync<IOException>(() => Pass().RunAsync(Root, CancellationToken.None));
+
+        (await LedgerAsync()).Attempt(Tuesday).ShouldBeNull();
+    }
+
+    private async Task StoppedAsync(int count, string build) =>
+        await shelf.PutBytesAsync(LedgerKey, new SpoolLedger { Attempts = [new SpoolAttempt(Tuesday, count, build)] }.ToBytes(), CancellationToken.None);
 
     [Fact]
     public async Task A_folder_shelf_answers_null_for_a_key_it_lacks()

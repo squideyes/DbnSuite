@@ -22,6 +22,12 @@ public sealed class SpoolOptions
     /// <summary>Prove each date against the archive, and upload only what passes.</summary>
     public bool Prove { get; set; } = true;
 
+    /// <summary>
+    /// How many times a date may stop DbnSpool, by running out of memory or anything else
+    /// that ends the process, before it is set aside. It is tried again once DbnSpool's code changes.
+    /// </summary>
+    public int MostAttempts { get; set; } = 2;
+
     public IReadOnlyList<string> RootList =>
         [.. Roots.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(r => r.ToUpperInvariant())];
 

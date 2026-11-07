@@ -26,13 +26,19 @@ public sealed class SpoolWorker(
             status.Started();
 
             var results = new List<RootResult>();
-            string? problem = null;
+            var problems = new List<string>();
 
             foreach (var root in options.RootList)
             {
                 try
                 {
-                    results.Add(await pass.RunAsync(root, stoppingToken).ConfigureAwait(false));
+                    var result = await pass.RunAsync(root, stoppingToken).ConfigureAwait(false);
+
+                    results.Add(result);
+                    status.RootDone(result);
+
+                    if (result.Problem is { } problem)
+                        problems.Add(problem);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -41,11 +47,13 @@ public sealed class SpoolWorker(
                 catch (Exception e)
                 {
                     logger.LogError(e, "{Root}: the pass failed", root);
-                    problem = $"{root}: {e.Message}";
+
+                    problems.Add($"{root}: {e.Message}");
+                    status.Problem(problems[^1]);
                 }
             }
 
-            status.Finished(clock.GetUtcNow(), results, problem);
+            status.Finished(clock.GetUtcNow(), results, problems.Count == 0 ? null : string.Join("; ", problems));
 
             await Task.Delay(options.Interval, clock, stoppingToken).ConfigureAwait(false);
         }
