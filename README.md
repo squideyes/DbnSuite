@@ -2,6 +2,9 @@
 
 <img src="Core/DbnSync.Worker/wwwroot/img/squidly.png" alt="Squidly" width="96" align="right" />
 
+[![DbnClient on NuGet](https://img.shields.io/nuget/v/DbnClient?label=DbnClient%20on%20NuGet)](https://www.nuget.org/packages/DbnClient)
+[![DbnFetch on NuGet](https://img.shields.io/nuget/v/DbnFetch?label=DbnFetch%20on%20NuGet)](https://www.nuget.org/packages/DbnFetch)
+
 Five open-source tools for keeping and using Databento® market data, by
 SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**. MIT licensed.
 
@@ -20,13 +23,22 @@ SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**
 | Tool | What it does | Get it |
 |---|---|---|
 | **DbnSync** | Keeps a growing archive of Databento data in any S3-compatible store. By default it spends nothing at Databento | `ghcr.io/squideyes/dbnsync-worker` (Docker) |
-| **DbnFetch** (`dbnf`) | Downloads raw files from the archive and exports bars, rebuilt order books and, for futures, sessions and back-adjusted continuous series, as Parquet, CSV or JSON Lines for research tools and trading platforms, DBN, or NinjaTrader 8's own import format | `dotnet tool install -g DbnFetch` |
-| **DbnClient** | The engine under DbnFetch, as a C# library | `dotnet add package DbnClient` |
-| **DbnTape** | Compact tapes of each futures contract's trade date for fast, exact backtests: one-second bars, every trade, and top of book with trading state, proved against the archive | `dbnf tape` in DbnFetch, `DbnClient.Tape` in DbnClient |
+| **DbnFetch** (`dbnf`) | Downloads raw files from the archive and exports bars, rebuilt order books and, for futures, sessions and back-adjusted continuous series, as Parquet, CSV or JSON Lines for research tools and trading platforms, DBN, or NinjaTrader 8's own import format | [NuGet](https://www.nuget.org/packages/DbnFetch): `dotnet tool install -g DbnFetch` |
+| **DbnClient** | The engine under DbnFetch, as a C# library | [NuGet](https://www.nuget.org/packages/DbnClient): `dotnet add package DbnClient` |
+| **DbnTape** | Compact tapes of each futures contract's trade date for fast, exact backtests: one-second bars, every trade, and top of book with trading state, proved against the archive | `dbnf tape` in DbnFetch and `DbnClient.Tape` in DbnClient, 0.2.0 or later |
 | **DbnSpool** | Optional. A worker that keeps tapes up to date in a second, private S3 store, building, proving and uploading each new trade date | `ghcr.io/squideyes/dbnspool-worker` (Docker) |
 
 Each runs on your own machines with your own Databento account; nothing passes
 through anyone else.
+
+**Install.** DbnClient and DbnFetch are published on NuGet as
+[DbnClient](https://www.nuget.org/packages/DbnClient) and
+[DbnFetch](https://www.nuget.org/packages/DbnFetch), and need the .NET 10 SDK.
+Update an earlier DbnFetch with `dotnet tool update -g DbnFetch`, and an earlier
+DbnClient by running `dotnet add package DbnClient` again. Native `dbnf`
+binaries that need no .NET are attached to each
+[release](https://github.com/squideyes/DbnSuite/releases). DbnSync and DbnSpool
+are Docker images on GitHub's container registry.
 
 ### Datasets
 
@@ -235,7 +247,9 @@ version 3.
 `dbnf` lists the archive, prints a day's records, downloads raw files and
 exports processed ones. It is a .NET tool built as a native binary for Windows
 (x64 and ARM), macOS and Linux. The DbnClient library underneath it does the same in your own C#.
-Install it with `dotnet tool install -g DbnFetch`, or take a native binary from the
+Install it from [NuGet](https://www.nuget.org/packages/DbnFetch) with
+`dotnet tool install -g DbnFetch` (or `dotnet tool update -g DbnFetch` over an
+earlier version), or take a native binary from the
 [releases](https://github.com/squideyes/DbnSuite/releases).
 
 **Log in once** with your read-only key. It asks for the secret, which Windows

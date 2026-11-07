@@ -24,8 +24,13 @@
 </nav>
 
 <h2 id="install">Install</h2>
-<p>DbnClient targets .NET 10 and is Native AOT compatible. Its only dependencies are the AWS S3 SDK, ZstdSharp and System.IO.Hashing.</p>
+<p>
+    DbnClient is published on NuGet as <a href="@Links.NuGetClient">DbnClient</a>. It targets .NET 10 and is Native AOT
+    compatible, and its only dependencies are the AWS S3 SDK, ZstdSharp and System.IO.Hashing. Tapes, in
+    <code>DbnClient.Tape</code>, need version 0.2.0 or later.
+</p>
 <CodeBlock Title="In your project's folder" Text="dotnet add package DbnClient" />
+<p>Run the same command again later to move to the newest version.</p>
 
 <h2 id="open">Open an archive</h2>
 <p>
