@@ -341,7 +341,8 @@ dbnf export ohlcv-1s ES.v.0 --bars 5m --session rth --since 2026-01-01 --adjust 
   `ohlcv-1s` volume, and the rebuilt book is never crossed.
 - **Formats:** `--format csv` (default), `parquet`, `jsonl`, `dbn` (a filtered
   copy of the records) or `nt8` (NinjaTrader 8 import text for bars, and
-  `--as trades` ticks). `--compress gzip` or `zstd` for the text formats.
+  `--as trades` ticks). `--compress gzip` or `zstd` for `csv`, `jsonl` and
+  `dbn`.
 - **Columns:** Databento's field names; `symbol` names the contract
   (`ESZ26`) and `series` the continuous name. `--columns ts_event,close`
   keeps some, `--price ticks` or `raw` changes the units, and

@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Diagnostics;
 using System.Globalization;
 using DbnClient;
+using DbnClient.Contracts;
 using DbnClient.Tape;
 using DbnClient.Time;
 
@@ -76,14 +77,27 @@ public static class TapeCommand
             if (!loaded.IsSuccess)
                 return await session.FailAsync(loaded.Error!).ConfigureAwait(false);
 
-            var builder = new TapeBuilder(archive, loaded.Value, folder);
-            var only = parse.GetValue(symbols) is { Length: > 0 } named ? new HashSet<string>(named) : null;
-            var failed = 0;
+            var span = dates.Span(parse, loaded.Value);
 
-            foreach (var date in dates.In(parse, loaded.Value))
+            if (!span.IsSuccess)
+                return await session.FailAsync(span.Error!).ConfigureAwait(false);
+
+            var only = TapeDates.Symbols(parse.GetValue(symbols), loaded.Value);
+
+            if (!only.IsSuccess)
+                return await session.FailAsync(only.Error!).ConfigureAwait(false);
+
+            var builder = new TapeBuilder(archive, loaded.Value, folder);
+            var failed = 0;
+            var days = TapeDates.In(span.Value, loaded.Value).ToList();
+
+            if (days.Count == 0)
+                await session.Out.WriteLineAsync($"No trade date from {Text.Day(span.Value.From)} to {Text.Day(span.Value.To)}, so there was nothing to build.").ConfigureAwait(false);
+
+            foreach (var date in days)
             {
                 var started = Stopwatch.GetTimestamp();
-                var built = await builder.BuildAsync(date, parse.GetValue(zstd), only, cancel).ConfigureAwait(false);
+                var built = await builder.BuildAsync(date, parse.GetValue(zstd), only.Value, cancel).ConfigureAwait(false);
 
                 if (!built.IsSuccess)
                 {
@@ -141,11 +155,16 @@ public static class TapeCommand
             if (!loaded.IsSuccess)
                 return await session.FailAsync(loaded.Error!).ConfigureAwait(false);
 
+            var span = dates.Span(parse, loaded.Value);
+
+            if (!span.IsSuccess)
+                return await session.FailAsync(span.Error!).ConfigureAwait(false);
+
             var proof = new TapeProof(archive, loaded.Value, folder);
             var failed = 0;
             var passed = 0;
 
-            foreach (var date in dates.Between(parse, loaded.Value))
+            foreach (var date in TapeDates.Between(span.Value))
             {
                 var results = await proof.RunAsync(date, cancel).ConfigureAwait(false);
 
@@ -255,9 +274,12 @@ internal sealed class TapeOptions
 /// <summary>The span of trade dates a tape command covers.</summary>
 internal sealed class TapeDates
 {
-    public Option<DateOnly> From { get; } = new("--from") { Description = "The first trade date, as yyyy-MM-dd.", Required = true };
+    /// <summary>The span lies outside what the catalog covers, so there is nothing to work on.</summary>
+    public const string OutsideCatalog = "tape.outside_catalog";
 
-    public Option<DateOnly?> To { get; } = new("--to") { Description = "The last trade date, included; --from alone means that one date." };
+    public Option<DateOnly> From { get; } = Dates.Required("--from", "The first trade date, as yyyy-MM-dd.");
+
+    public Option<DateOnly?> To { get; } = Dates.Optional("--to", "The last trade date, included; --from alone means that one date.");
 
     public void AddTo(Command command)
     {
@@ -265,24 +287,70 @@ internal sealed class TapeDates
         command.Add(To);
     }
 
-    /// <summary>The span's dates that have a session.</summary>
-    public IEnumerable<DateOnly> In(ParseResult parse, Catalog catalog)
-    {
-        var from = parse.GetValue(From);
-        var to = parse.GetValue(To) ?? from;
+    /// <summary>
+    /// The span asked for, cut to what the catalog covers. A span back to front is bad usage, and one
+    /// the catalog does not reach at all is an error: doing nothing and reporting success would let a
+    /// script carry on as if tapes had been built or proved.
+    /// </summary>
+    public Result<DateSpan> Span(ParseResult parse, Catalog catalog) =>
+        Span(parse.GetValue(From), parse.GetValue(To), catalog);
 
-        return catalog.Days.Select(d => d.TradeDate).Where(d => d >= from && d <= to);
-    }
-
-    /// <summary>Every date in the span that the catalog reaches, because a date it lacks must have had no trading.</summary>
-    public IEnumerable<DateOnly> Between(ParseResult parse, Catalog catalog)
+    internal static Result<DateSpan> Span(DateOnly from, DateOnly? until, Catalog catalog)
     {
-        var from = parse.GetValue(From);
-        var to = parse.GetValue(To) ?? from;
+        var to = until ?? from;
+
+        if (from > to)
+            return new Error("input.bad_range", $"The range starts {Text.Day(from)}, after it ends ({Text.Day(to)}).");
+
+        if (catalog.Days.Count == 0)
+            return new Error(OutsideCatalog, $"The catalog for {catalog.Root} holds no trade dates. Run dbnf tape catalog {catalog.Root} to rebuild it.");
+
         var first = catalog.Days[0].TradeDate;
         var last = catalog.Days[^1].TradeDate;
 
-        for (var date = from < first ? first : from; date <= (to > last ? last : to); date = date.AddDays(1))
+        if (from > last || to < first)
+        {
+            return new Error(OutsideCatalog,
+                $"The catalog for {catalog.Root} covers {Text.Day(first)} to {Text.Day(last)}, which leaves nothing from {Text.Day(from)} to {Text.Day(to)}. "
+                + $"Run dbnf tape catalog {catalog.Root} to bring it up to date.");
+        }
+
+        return new DateSpan(from < first ? first : from, to > last ? last : to);
+    }
+
+    /// <summary>The span's dates that have a session.</summary>
+    public static IEnumerable<DateOnly> In(DateSpan span, Catalog catalog) =>
+        catalog.Days.Select(d => d.TradeDate).Where(span.Contains);
+
+    /// <summary>Every date in the span, because a date the catalog lacks must have had no trading.</summary>
+    public static IEnumerable<DateOnly> Between(DateSpan span)
+    {
+        for (var date = span.From; date <= span.To; date = date.AddDays(1))
             yield return date;
+    }
+
+    /// <summary>
+    /// The CME names of the contracts <paramref name="named"/> picks, each given as ESZ6 or ESZ26 in
+    /// either case; null when none was named, which means every contract. A name the catalog lacks is
+    /// an error, since building nothing for it would look like success.
+    /// </summary>
+    internal static Result<HashSet<string>?> Symbols(string[]? named, Catalog catalog)
+    {
+        if (named is not { Length: > 0 })
+            return (HashSet<string>?)null;
+
+        var symbols = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var name in named.Select(n => n.Trim()))
+        {
+            var matched = catalog.Contracts.Where(c => ContractSymbol.Matches(name, c.Symbol, c.Year)).Select(c => c.Symbol).ToList();
+
+            if (matched.Count == 0)
+                return new Error(Errors.BadSymbol, $"The catalog for {catalog.Root} has no contract {name}. dbnf contracts {catalog.Root} lists them.");
+
+            symbols.UnionWith(matched);
+        }
+
+        return symbols;
     }
 }

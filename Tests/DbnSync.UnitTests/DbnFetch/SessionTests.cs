@@ -10,6 +10,8 @@ namespace DbnSync.UnitTests.FetchTests;
 public sealed class SessionTests : IDisposable
 {
     private const string Work = "work";
+    private const string Missing = "not-there";
+    private const string CliPrefix = "cli.";
     private const string BadSchema = "tickles";
     private const string Stopped = "Stopped.";
     private const string Reason = "It went wrong.";
@@ -93,6 +95,49 @@ public sealed class SessionTests : IDisposable
     }
 
     [Fact]
+    public void An_archive_folder_that_is_not_there_is_bad_usage()
+    {
+        var opened = session.Open(Parse("ls", "--archive", Path.Combine(dbnf.Home, Missing)));
+
+        opened.Error!.Code.ShouldStartWith(CliPrefix);
+        opened.Error.Message.ShouldContain(Missing);
+    }
+
+    [Fact]
+    public void A_logins_folder_that_is_gone_says_so()
+    {
+        dbnf.Profiles.Save(Profiles.DefaultName, new Profile { Location = Path.Combine(dbnf.Home, Missing) }, "");
+
+        var opened = session.Open(Parse("ls"));
+
+        opened.Error!.Code.ShouldStartWith(CliPrefix);
+        opened.Error.Message.ShouldContain(LogInAgain);
+    }
+
+    [Fact]
+    public void A_login_whose_secret_cannot_be_read_says_to_log_in_again()
+    {
+        using var s3 = new FakeS3(dbnf.ArchiveFolder);
+        dbnf.Profiles.Save(Profiles.DefaultName, new Profile { Location = s3.Location, AccessKey = TestKey.Access }, "");
+
+        var opened = session.Open(Parse("ls"));
+
+        opened.Error!.Code.ShouldStartWith(CliPrefix);
+        opened.Error.Message.ShouldContain(LogInAgain);
+    }
+
+    [Fact]
+    public void A_login_with_no_access_key_says_to_log_in_again()
+    {
+        using var s3 = new FakeS3(dbnf.ArchiveFolder);
+        dbnf.Profiles.Save(Work, new Profile { Location = s3.Location }, TestKey.Secret);
+
+        var opened = session.Open(Parse("ls", "--profile", Work));
+
+        opened.Error!.Message.ShouldContain($"dbnf login --profile {Work}");
+    }
+
+    [Fact]
     public void With_no_login_it_says_to_log_in()
     {
         var opened = session.Open(Parse("ls"));
@@ -150,6 +195,24 @@ public sealed class SessionTests : IDisposable
 
         exit.ShouldBe(Session.Failed);
         error.ToString().ShouldContain(Reason);
+    }
+
+    public static TheoryData<Exception> LocalTrouble() => new()
+    {
+        new InvalidDataException(Reason),
+        new UnauthorizedAccessException(Reason),
+        new Amazon.S3.AmazonS3Exception(Reason) { StatusCode = System.Net.HttpStatusCode.BadRequest, ErrorCode = "InvalidArgument" }
+    };
+
+    [Theory]
+    [MemberData(nameof(LocalTrouble))]
+    public async Task A_failure_a_user_can_cause_is_a_message_not_a_stack_trace(Exception failure)
+    {
+        var exit = await session.RunAsync(OnFolder(), _ => throw failure, CancellationToken.None);
+
+        exit.ShouldBe(Session.Failed);
+        error.ToString().ShouldContain(Reason);
+        error.ToString().ShouldNotContain(StackTrace);
     }
 
     [Fact]

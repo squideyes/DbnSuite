@@ -16,8 +16,8 @@ internal static class TapePullCommand
     public static Command Create(Session session)
     {
         var options = new TapeOptions();
-        var from = new Option<DateOnly?>("--from") { Description = "The first trade date, as yyyy-MM-dd. Every date by default." };
-        var to = new Option<DateOnly?>("--to") { Description = "The last trade date, included." };
+        var from = Dates.Optional("--from", "The first trade date, as yyyy-MM-dd. Every date by default.");
+        var to = Dates.Optional("--to", "The last trade date, included.");
         var kinds = new Option<string[]>("--kind") { Description = "Only these kinds: s1, trade or l1.", AllowMultipleArgumentsPerToken = true };
         var command = new Command("pull", "Copy a root's tapes and catalog down from a tape store, skipping those already here.") { from, to, kinds };
 
@@ -79,9 +79,22 @@ internal static class TapePullCommand
         return (from is null || date >= from) && (to is null || date <= to);
     }
 
+    /// <summary>Where a key puts its file, which must be inside the folder: a key comes from the store, not from us.</summary>
+    internal static string TargetOf(string folder, string key)
+    {
+        var root = Path.GetFullPath(folder);
+        var target = Path.GetFullPath(Path.Combine(root, key.Replace('/', Path.DirectorySeparatorChar)));
+        var inside = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
+
+        if (!target.StartsWith(inside, StringComparison.Ordinal))
+            throw new ArchiveException(new DbnClient.Error(DbnClient.Errors.UnknownLayout, $"The object key {key} is outside the tape folder."));
+
+        return target;
+    }
+
     private static async Task<bool> CopyAsync(IObjectStore store, StoredObject stored, string folder, CancellationToken cancel)
     {
-        var target = Path.Combine(folder, stored.Key.Replace('/', Path.DirectorySeparatorChar));
+        var target = TargetOf(folder, stored.Key);
         var existing = new FileInfo(target);
 
         if (existing.Exists && existing.Length == stored.Size)

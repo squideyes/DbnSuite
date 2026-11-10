@@ -26,6 +26,10 @@ public static class CoverageCommand
         command.SetAction((parse, cancel) => session.RunAsync(parse, async archive =>
         {
             var name = parse.GetValue(root)!.ToUpperInvariant();
+
+            if (parse.GetValue(months) < 1)
+                return await session.FailAsync(new DbnClient.Error("input.bad_months", "--months is how many months to draw, so it must be 1 or more.")).ConfigureAwait(false);
+
             var listed = await archive.ListSeriesAsync(cancel).ConfigureAwait(false);
 
             if (!listed.IsSuccess)

@@ -9,6 +9,9 @@ public static class DoctorCommand
     /// <summary>S3 refuses requests signed more than 15 minutes off; warn well before that.</summary>
     private static readonly TimeSpan ClockTolerance = TimeSpan.FromMinutes(5);
 
+    /// <summary>Less free space than this on the cache's drive fails the check: a month of mbo for one root needs about as much.</summary>
+    private const long LeastFree = 10_000_000_000;
+
     public static Command Create(Session session)
     {
         var command = new Command("doctor", "Check the login, the archive, this computer's clock and the cache.");
@@ -33,6 +36,7 @@ public static class DoctorCommand
                 return await Report(session, false, "Login", $"none saved as {name}; run dbnf login") ? Session.Ok : Session.Failed;
 
             var healthy = true;
+            var usable = true;
 
             healthy &= await Report(session, true, "Archive", options.IsFolder
                 ? options.Location
@@ -40,8 +44,13 @@ public static class DoctorCommand
 
             if (!options.IsFolder)
             {
-                healthy &= await Report(session, options.SecretKey.Length > 0, "Key",
-                    options.SecretKey.Length > 0 ? options.AccessKey : $"{options.AccessKey}, but no secret is saved; run dbnf login").ConfigureAwait(false);
+                usable = options.AccessKey.Length > 0 && options.SecretKey.Length > 0;
+
+                healthy &= await Report(session, usable, "Key", usable
+                    ? options.AccessKey
+                    : options.AccessKey.Length == 0
+                        ? "no access key is saved; run dbnf login"
+                        : $"{options.AccessKey}, but no secret is saved; run dbnf login").ConfigureAwait(false);
 
                 var skew = await ClockSkewAsync(options.Location, cancel).ConfigureAwait(false);
 
@@ -49,6 +58,10 @@ public static class DoctorCommand
                     ? Text.Invariant($"{Math.Abs(s.TotalSeconds):0} s {(s > TimeSpan.Zero ? "ahead of" : "behind")} the archive's")
                     : "the archive sent no time to compare with").ConfigureAwait(false);
             }
+
+            // Without a key and its secret the archive cannot be opened at all, so the checks that need it are left out.
+            if (!usable)
+                return Session.Failed;
 
             using var archive = DbnArchive.Open(options, Path.Combine(parse.GetValue(session.Cache)!, name));
 
@@ -61,16 +74,33 @@ public static class DoctorCommand
             if (archive.Cache is { } cache)
             {
                 var size = cache.Files().Sum(f => f.Size);
-                var free = new DriveInfo(Path.GetPathRoot(cache.Root)!).AvailableFreeSpace;
+                var free = FreeSpace(cache.Root);
 
-                healthy &= await Report(session, free > 10_000_000_000, "Cache",
-                    $"{cache.Root}: {Text.Bytes(size)} used, {Text.Bytes(free)} free on the drive").ConfigureAwait(false);
+                healthy &= await Report(session, free is null or > LeastFree, "Cache", free is { } bytes
+                    ? $"{cache.Root}: {Text.Bytes(size)} used, {Text.Bytes(bytes)} free on the drive"
+                    : $"{cache.Root}: {Text.Bytes(size)} used; the free space could not be read").ConfigureAwait(false);
             }
 
             return healthy ? Session.Ok : Session.Failed;
         });
 
         return command;
+    }
+
+    /// <summary>
+    /// The free space where a folder is, or null when it cannot be read, as for a network share.
+    /// Windows asks by drive; elsewhere the folder itself names its mount.
+    /// </summary>
+    internal static long? FreeSpace(string folder)
+    {
+        try
+        {
+            return new DriveInfo(OperatingSystem.IsWindows() ? Path.GetPathRoot(folder)! : folder).AvailableFreeSpace;
+        }
+        catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static async Task<bool> Report(Session session, bool ok, string what, string detail)

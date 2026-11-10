@@ -37,7 +37,7 @@ public sealed class ArchiveExceptionTests
     [Fact]
     public void A_clock_too_far_out_says_so()
     {
-        var error = ArchiveException.Map(S3(HttpStatusCode.BadRequest, "RequestTimeTooSkewed"));
+        var error = ArchiveException.Map(S3(HttpStatusCode.Forbidden, "RequestTimeTooSkewed"));
 
         error!.Code.ShouldBe(Errors.Denied);
         error.Message.ShouldContain("clock");
@@ -57,7 +57,9 @@ public sealed class ArchiveExceptionTests
         new HttpRequestException(Trouble),
         new SocketException(),
         new TimeoutException(Trouble),
-        new IOException(Trouble, new SocketException())
+        new IOException(Trouble, new SocketException()),
+        new AmazonS3Exception(Trouble) { StatusCode = HttpStatusCode.InternalServerError, ErrorCode = "InternalError" },
+        new AmazonS3Exception(Trouble) { StatusCode = HttpStatusCode.ServiceUnavailable, ErrorCode = "SlowDown" }
     };
 
     [Theory]
@@ -71,7 +73,7 @@ public sealed class ArchiveExceptionTests
     {
         new InvalidOperationException(Trouble),
         new IOException(Trouble),
-        new AmazonS3Exception(Trouble) { StatusCode = HttpStatusCode.InternalServerError, ErrorCode = "InternalError" }
+        new AmazonS3Exception(Trouble) { StatusCode = HttpStatusCode.BadRequest, ErrorCode = "InvalidArgument" }
     };
 
     [Theory]

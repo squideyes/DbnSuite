@@ -9,6 +9,9 @@ public sealed record DateSpan(DateOnly From, DateOnly To)
 
     public int Days => To.DayNumber - From.DayNumber + 1;
 
+    /// <summary>The most days, weeks, months or years a length may count; more is a slip of the hand, and would overflow.</summary>
+    private const int MostUnits = 100_000;
+
     /// <summary>
     /// The range a user asked for: <paramref name="from"/> and <paramref name="to"/>;
     /// or <paramref name="last"/>, such as <c>30d</c>, <c>8w</c>, <c>6m</c> or
@@ -48,16 +51,24 @@ public sealed record DateSpan(DateOnly From, DateOnly To)
     /// <summary>The first day of a span of the given length ending <paramref name="today"/>.</summary>
     private static DateOnly? Length(string text, DateOnly today)
     {
-        if (text.Length < 2 || !int.TryParse(text[..^1], NumberStyles.None, CultureInfo.InvariantCulture, out var n) || n < 1)
+        if (text.Length < 2 || !int.TryParse(text[..^1], NumberStyles.None, CultureInfo.InvariantCulture, out var n) || n is < 1 or > MostUnits)
             return null;
 
-        return char.ToLowerInvariant(text[^1]) switch
+        try
         {
-            'd' => today.AddDays(1 - n),
-            'w' => today.AddDays(1 - 7 * n),
-            'm' => today.AddMonths(-n).AddDays(1),
-            'y' => today.AddYears(-n).AddDays(1),
-            _ => null
-        };
+            return char.ToLowerInvariant(text[^1]) switch
+            {
+                'd' => today.AddDays(1 - n),
+                'w' => today.AddDays(1 - 7 * n),
+                'm' => today.AddMonths(-n).AddDays(1),
+                'y' => today.AddYears(-n).AddDays(1),
+                _ => null
+            };
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            // A length that reaches back before the calendar starts.
+            return null;
+        }
     }
 }

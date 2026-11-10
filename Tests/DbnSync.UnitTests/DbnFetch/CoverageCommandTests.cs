@@ -26,6 +26,19 @@ public sealed class CoverageCommandTests : IDisposable
     private static StoredDay NoData(DateOnly day) =>
         new(day, new StoredObject(DbnSyncLayout.Empty(Dataset, Mbo, Root, day), 0, ""));
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public async Task Fewer_than_one_month_is_bad_usage(int months)
+    {
+        dbnf.Archive.AddDefinitions(Day(10, 30));
+
+        var run = await dbnf.OnArchiveAsync($"coverage {Root} --months {months}");
+
+        run.ExitCode.ShouldBe(Session.Usage);
+        run.Error.ShouldContain("--months");
+    }
+
     [Fact]
     public void Each_day_is_marked_stored_no_data_or_missing()
     {
