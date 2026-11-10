@@ -21,8 +21,19 @@ public sealed class AlertMail(
     private readonly Lock gate = new();
 
     /// <summary>For the startup log: where alerts go, or that they are off.</summary>
-    public string Describe() =>
-        options.Value.Enabled ? $"emailed to {options.Value.To} through {options.Value.Host}" : "off";
+    public string Describe()
+    {
+        var settings = options.Value;
+
+        if (settings.Enabled)
+            return $"emailed to {settings.To} through {settings.Host}";
+
+        // Half a configuration is the likeliest mistake, and "off" alone would hide it.
+        if (!string.IsNullOrWhiteSpace(settings.Host))
+            return $"off, because a server is set ({settings.Host}) but nobody to send to; set ALERT_TO";
+
+        return string.IsNullOrWhiteSpace(settings.To) ? "off" : $"off, because {settings.To} is set but no server; set SMTP_HOST";
+    }
 
     /// <summary>Emails the items not already emailed recently, in one message. True when one was sent.</summary>
     public async Task<bool> RaiseAsync(string source, IEnumerable<AlertItem> items, CancellationToken cancel)

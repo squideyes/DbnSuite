@@ -15,16 +15,18 @@ public static class SpoolAlerts
             if (result.Problem is { } problem)
             {
                 yield return new AlertItem($"set-aside|{result.Root}", $"Dates set aside ({result.Root})",
-                    $"{problem}. They get no tapes until DbnSpool's code changes, when they are tried again. " +
-                    "What to do: find what stopped DbnSpool on those dates in the logs, such as running out of memory.");
+                    $"{problem}. They get no tapes until DbnSpool's code or its memory limit changes, when they are tried again. " +
+                    "What to do: find what stopped DbnSpool on those dates in the logs. If it ran out of memory, " +
+                    "raise mem_limit for dbnspool in the Compose file and start it again.");
             }
 
             if (result.Failed - result.SetAside is var failed and > 0)
             {
                 yield return new AlertItem($"failed|{result.Root}", $"Tapes not made ({result.Root})",
                     $"{failed} trade dates or steps failed for {result.Root}, and nothing was uploaded for them. " +
-                    "They are tried again when the archive next changes. What to do: read the logs for why, " +
-                    "such as a proof that failed.");
+                    (result.Trouble is { } trouble ? $"The first to throw was {trouble} " : "") +
+                    "They are tried again when the archive next changes, or at the next pass if they threw. " +
+                    "What to do: read the logs for why, such as a proof that failed.");
             }
         }
 

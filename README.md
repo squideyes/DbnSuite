@@ -753,6 +753,9 @@ keep SSH off when you are not using it.
 `SecretKey`, `Region` (`us-east-1`).
 
 The Databento key is `Databento__ApiKey` or `DATABENTO_API_KEY`.
+`Databento__StallTimeout` (`00:05:00`) is how long a download may go without
+a byte arriving before it is given up, for the next pass to fetch again, and
+`Databento__CallTimeout` (`00:05:00`) how long any other call may take.
 
 `Dashboard__LogsUrl`: Seq's address as a browser reaches it, for the log links.
 Logs go to Seq when `ConnectionStrings__seq` is set.

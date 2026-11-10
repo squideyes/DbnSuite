@@ -44,6 +44,9 @@ public sealed class SpoolWorker(
 
                     if (result.Problem is { } problem)
                         problems.Add(problem);
+
+                    if (result.Trouble is { } trouble)
+                        problems.Add($"{root} {trouble}");
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {

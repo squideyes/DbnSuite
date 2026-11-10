@@ -46,6 +46,10 @@ builder.Services.AddOptions<DatabentoOptions>()
     })
     .Validate(o => !string.IsNullOrWhiteSpace(o.ApiKey),
         $"No Databento key: set Databento:ApiKey or {DatabentoOptions.KeyVariable}.")
+    .Validate(o => o.Gateway is { IsAbsoluteUri: true } && (o.Gateway.Scheme == Uri.UriSchemeHttps || o.Gateway.IsLoopback),
+        "Databento:Gateway must be an https address, so the key never travels unencrypted.")
+    .Validate(o => o.StallTimeout > TimeSpan.Zero && o.CallTimeout > TimeSpan.Zero,
+        "Databento:StallTimeout and Databento:CallTimeout must be above zero.")
     .ValidateOnStart();
 
 builder.Services.AddOptions<DashboardOptions>()

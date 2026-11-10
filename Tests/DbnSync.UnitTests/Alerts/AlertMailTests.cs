@@ -103,8 +103,28 @@ public sealed class AlertMailTests
         var sent = await mail.RaiseAsync(Source, [Refused], CancellationToken.None);
 
         sent.ShouldBeFalse();
-        mail.Describe().ShouldBe("off");
+        mail.Describe().ShouldStartWith("off");
         await sender.DidNotReceiveWithAnyArgs().SendAsync(default!, default!, default);
+    }
+
+    [Fact]
+    public void With_nothing_set_alerts_are_plainly_off()
+    {
+        new AlertMail(sender, Options.Create(new AlertOptions()), clock, NullLogger<AlertMail>.Instance)
+            .Describe().ShouldBe("off");
+    }
+
+    [Fact]
+    public void A_server_with_nobody_to_send_to_says_what_is_missing()
+    {
+        new AlertMail(sender, Options.Create(new AlertOptions { Host = Host, From = From }), clock, NullLogger<AlertMail>.Instance)
+            .Describe().ShouldContain("ALERT_TO");
+    }
+
+    [Fact]
+    public void Somebody_to_send_to_with_no_server_says_what_is_missing()
+    {
+        Mail(host: "").Describe().ShouldContain("SMTP_HOST");
     }
 
     [Fact]

@@ -23,6 +23,9 @@ public sealed class SpoolPassTests : IDisposable
 
     private static readonly DateOnly Monday = new(2026, 10, 26);
     private static readonly DateOnly Tuesday = Monday.AddDays(1);
+    private static readonly DateOnly Wednesday = Monday.AddDays(2);
+
+    private const string WentAway = "The archive went away.";
     private static readonly string[] Sources = ["ohlcv-1s", "definition", "statistics", "status"];
 
     private readonly string home = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
@@ -298,11 +301,148 @@ public sealed class SpoolPassTests : IDisposable
     public async Task An_exception_is_not_counted_as_a_stop()
     {
         engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<Result<BuildReport>>(new IOException("The archive went away.")));
+            .Returns(Task.FromException<Result<BuildReport>>(new IOException(WentAway)));
+
+        var result = await Pass().RunAsync(Root, CancellationToken.None);
+
+        result.Failed.ShouldBe(1);
+        result.Trouble.ShouldBe($"2026-10-27: {WentAway}");
+        (await LedgerAsync()).Attempt(Tuesday).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_date_that_throws_does_not_hold_up_the_dates_after_it()
+    {
+        Days(Tuesday, Wednesday);
+        Mbos(Monday, Tuesday, Wednesday);
+        engine.BuildAsync(Arg.Any<Catalog>(), Tuesday, Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Result<BuildReport>>(new IOException(WentAway)));
+
+        var result = await Pass().RunAsync(Root, CancellationToken.None);
+
+        result.Spooled.ShouldBe(1);
+        result.Failed.ShouldBe(1);
+        (await LedgerAsync()).Spooled(Wednesday).ShouldNotBeNull();
+        (await shelf.ReadAsync(CatalogKey, CancellationToken.None)).ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task A_date_that_threw_is_tried_again_at_the_next_pass_with_the_archive_unchanged()
+    {
+        engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Result<BuildReport>>(new IOException(WentAway)));
+
+        await Pass().RunAsync(Root, CancellationToken.None);
+
+        engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(c => (Result<BuildReport>)Built(c.ArgAt<DateOnly>(1)));
+
+        var again = await Pass().RunAsync(Root, CancellationToken.None);
+
+        again.ShouldBe(new RootResult(Root, 1, 0, false));
+    }
+
+    [Fact]
+    public async Task Dates_that_throw_one_after_another_stop_the_pass()
+    {
+        Days(Tuesday, Wednesday, Wednesday.AddDays(1), Wednesday.AddDays(2));
+        Mbos(Monday, Tuesday, Wednesday, Wednesday.AddDays(1), Wednesday.AddDays(2));
+        engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Result<BuildReport>>(new IOException(WentAway)));
 
         await Should.ThrowAsync<IOException>(() => Pass().RunAsync(Root, CancellationToken.None));
 
+        await engine.Received(SpoolPass.MostThrowsInARow).BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
+        (await LedgerAsync()).Attempts.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Running_out_of_memory_is_counted_as_a_stop()
+    {
+        engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Result<BuildReport>>(new OutOfMemoryException()));
+
+        await Should.ThrowAsync<OutOfMemoryException>(() => Pass().RunAsync(Root, CancellationToken.None));
+        await Should.ThrowAsync<OutOfMemoryException>(() => Pass().RunAsync(Root, CancellationToken.None));
+
+        var third = await Pass().RunAsync(Root, CancellationToken.None);
+
+        third.ShouldBe(new RootResult(Root, 0, 1, false, SetAsideProblem, SetAside: 1));
+        await engine.Received(2).BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_shutdown_is_not_counted_as_a_stop()
+    {
+        using var stop = new CancellationTokenSource();
+
+        engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns<Result<BuildReport>>(_ =>
+        {
+            stop.Cancel();
+
+            throw new OperationCanceledException(stop.Token);
+        });
+
+        await Should.ThrowAsync<OperationCanceledException>(() => Pass().RunAsync(Root, stop.Token));
+
         (await LedgerAsync()).Attempt(Tuesday).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Dates_set_aside_are_still_reported_when_the_archive_has_not_changed()
+    {
+        await StoppedAsync(2, Build);
+        await Pass().RunAsync(Root, CancellationToken.None);
+
+        var skipped = await Pass().RunAsync(Root, CancellationToken.None);
+
+        skipped.ShouldBe(new RootResult(Root, 0, 1, true, SetAsideProblem, SetAside: 1));
+    }
+
+    [Fact]
+    public async Task Mbo_that_stopped_arriving_long_ago_no_longer_holds_bar_tapes_back()
+    {
+        var later = Tuesday.AddDays(SpoolPlan.MboPatience + 1);
+
+        Days(Tuesday, later);
+        Mbos(Monday, Tuesday);
+
+        var result = await Pass().RunAsync(Root, CancellationToken.None);
+
+        result.Spooled.ShouldBe(2);
+        (await LedgerAsync()).Spooled(later)!.Ticks.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Mbo_a_few_days_behind_is_still_waited_for()
+    {
+        var later = Tuesday.AddDays(SpoolPlan.MboPatience);
+
+        Days(Tuesday, later);
+        Mbos(Monday, Tuesday);
+
+        var result = await Pass().RunAsync(Root, CancellationToken.None);
+
+        result.Spooled.ShouldBe(1);
+        (await LedgerAsync()).Spooled(later).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task The_folder_shelf_leaves_no_temporary_file()
+    {
+        await shelf.PutBytesAsync(LedgerKey, [1, 2, 3], CancellationToken.None);
+        await shelf.PutBytesAsync(LedgerKey, [4, 5], CancellationToken.None);
+
+        (await shelf.ReadAsync(LedgerKey, CancellationToken.None)).ShouldBe([4, 5]);
+        Directory.GetFiles(Path.Combine(home, "shelf"), "*.tmp", SearchOption.AllDirectories).ShouldBeEmpty();
+    }
+
+    /// <summary>The archive and the catalog both hold these trade dates.</summary>
+    private void Days(params DateOnly[] dates)
+    {
+        Archived(dates);
+        engine.CatalogAsync(Root, Arg.Any<CancellationToken>()).Returns((Result<Catalog>)new Catalog(Dataset, Root, [],
+            [.. dates.Select(d => new CatalogDay { TradeDate = d, Sessions = [], Contracts = [] })]));
     }
 
     private async Task StoppedAsync(int count, string build) =>

@@ -31,6 +31,21 @@ public sealed class CorpusTests
     }
 
     [Fact]
+    public void A_day_with_both_a_file_and_an_empty_marker_counts_as_held()
+    {
+        IReadOnlyList<StoredDay> stored =
+        [
+            new(Day(10, 1), 0, Empty: true),
+            new(Day(10, 1), FileBytes, Empty: false)
+        ];
+
+        var series = Corpus.Build(Root, Spec(Mbo), stored, NothingPending, Today, Day(10, 31), HistoryStart);
+
+        series.States[Day(10, 1)].ShouldBe(DayState.Held);
+        series.TotalBytes.ShouldBe(FileBytes);
+    }
+
+    [Fact]
     public void A_hole_that_aged_out_of_the_window_is_lost()
     {
         IReadOnlyList<StoredDay> stored =

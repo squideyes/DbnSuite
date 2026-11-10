@@ -80,7 +80,9 @@ public static class Corpus
     {
         var (planFrom, freeFrom) = new SyncOptions { HistoryStart = historyStart, ReachBackTo = reachBackTo }
             .Window(schema.Level, today);
-        var byDay = stored.ToDictionary(d => d.Day);
+        // A day can hold a data file and an empty marker at once, if data arrived for a day once thought
+        // empty. The data wins; the dashboard must not fail over it.
+        var byDay = stored.GroupBy(d => d.Day).ToDictionary(g => g.Key, g => g.OrderBy(d => d.Empty).First());
 
         var first = byDay.Count > 0 && byDay.Keys.Min() < planFrom ? byDay.Keys.Min() : planFrom;
         var last = byDay.Count > 0 && byDay.Keys.Max() > lastComplete ? byDay.Keys.Max() : lastComplete;

@@ -38,6 +38,25 @@ public sealed class SpoolAlertsTests
     }
 
     [Fact]
+    public void A_date_that_threw_is_named_in_the_alert()
+    {
+        RootResult[] results = [new("MES", 0, 1, false, Trouble: "2026-11-05: The disk is full.")];
+
+        var alert = SpoolAlerts.For(results, []).ShouldHaveSingleItem();
+
+        alert.Key.ShouldBe("failed|MES");
+        alert.Detail.ShouldContain("2026-11-05: The disk is full.");
+    }
+
+    [Fact]
+    public void A_skipped_root_with_dates_still_set_aside_is_an_alert()
+    {
+        RootResult[] results = [new("MES", 0, 1, true, Problem, SetAside: 1)];
+
+        SpoolAlerts.For(results, []).ShouldHaveSingleItem().Key.ShouldBe("set-aside|MES");
+    }
+
+    [Fact]
     public void A_root_whose_pass_threw_is_an_alert()
     {
         var alert = SpoolAlerts.For([], [new RootError("CL", "The archive is unreachable.")]).ShouldHaveSingleItem();

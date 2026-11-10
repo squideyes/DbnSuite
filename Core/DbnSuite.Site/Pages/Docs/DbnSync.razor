@@ -432,6 +432,8 @@
             <tr><td><code>DbnSync__ReachBackTo</code></td><td>none</td><td>The oldest day asked for at L1 and above, when older than the Standard windows.</td></tr>
             <tr><td><code>DbnSync__Interval</code></td><td><code>06:00:00</code></td><td>Time between passes once caught up.</td></tr>
             <tr><td><code>DbnSync__BusyInterval</code></td><td><code>00:05:00</code></td><td>Time between passes while work is pending.</td></tr>
+            <tr><td><code>Databento__StallTimeout</code></td><td><code>00:05:00</code></td><td>How long a download may go without a byte arriving before it is given up, for the next pass to fetch again.</td></tr>
+            <tr><td><code>Databento__CallTimeout</code></td><td><code>00:05:00</code></td><td>How long any other call to Databento may take.</td></tr>
             <tr><td><code>DbnSync__MaxPendingJobs</code></td><td><code>30</code></td><td>Databento jobs in flight at once.</td></tr>
             <tr><td><code>DbnSync__DownloadConcurrency</code></td><td><code>2</code></td><td>Files downloaded at once per job.</td></tr>
             <tr><td><code>DbnSync__Depth</code></td><td><code>2</code></td><td>Leading outrights kept for book and L1 schemas.</td></tr>

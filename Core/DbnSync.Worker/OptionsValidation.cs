@@ -7,6 +7,8 @@ namespace DbnSync.Worker;
 /// <summary>Refuses to start on a configuration that could not do what it says.</summary>
 public sealed class SyncOptionsValidator : IValidateOptions<SyncOptions>
 {
+    private static readonly TimeSpan LongestInterval = TimeSpan.FromDays(30);
+
     public ValidateOptionsResult Validate(string? name, SyncOptions options) =>
         Validate(options, DatasetProfiles.Find(options.Dataset));
 
@@ -47,6 +49,13 @@ public sealed class SyncOptionsValidator : IValidateOptions<SyncOptions>
 
         if (options.Interval < TimeSpan.FromMinutes(5) || options.BusyInterval < TimeSpan.FromMinutes(1))
             failures.Add("DbnSync:Interval must be at least 5 minutes and BusyInterval at least 1.");
+
+        // A wait cannot be longer than about 49 days, and a month between looks would lose book days anyway.
+        if (options.Interval > LongestInterval || options.BusyInterval > LongestInterval)
+            failures.Add("DbnSync:Interval and BusyInterval must be at most 30 days.");
+
+        if (string.IsNullOrWhiteSpace(options.ScratchPath))
+            failures.Add("DbnSync:ScratchPath is empty; it names the folder downloads land in.");
 
         if (options.MaxPendingJobs is < 1 or > 500)
             failures.Add("DbnSync:MaxPendingJobs must be 1-500.");

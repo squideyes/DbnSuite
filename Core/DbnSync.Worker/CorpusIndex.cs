@@ -48,10 +48,11 @@ public sealed class CorpusIndex(
             return;
         }
 
-        Changed?.Invoke();
-
         try
         {
+            // Inside the try: a listener that throws must not leave the gate held, or no scan would ever run again.
+            Changed?.Invoke();
+
             snapshot = await ScanAsync(cancel).ConfigureAwait(false);
         }
         catch (Exception ex) when (!cancel.IsCancellationRequested)
