@@ -128,7 +128,14 @@ public abstract class TapeWriter
         }
         finally
         {
-            File.Delete(temporary);
+            try
+            {
+                File.Delete(temporary);
+            }
+            catch (Exception problem) when (problem is IOException or UnauthorizedAccessException)
+            {
+                // The folder itself could not be made, so there is nothing to delete; the error above says why.
+            }
         }
     }
 

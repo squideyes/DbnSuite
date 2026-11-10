@@ -14,8 +14,17 @@ public static class RecordColumns
         "none", "opening_price", "indicative_opening_price", "settlement_price", "trading_session_low_price",
         "trading_session_high_price", "cleared_volume", "lowest_offer", "highest_bid", "open_interest",
         "fixing_price", "close_price", "net_change", "vwap", "volatility", "delta", "uncrossing_price",
-        "upper_price_limit", "lower_price_limit", "block_volume", "venue_specific_volume_1"
+        "upper_price_limit", "lower_price_limit", "block_volume"
     ];
+
+    /// <summary>DBN numbers a venue's own statistics from 10001, apart from the common ones.</summary>
+    private const ushort VenueSpecificVolume1 = 10001;
+
+    /// <summary>A statistic's name as Databento spells it, or its number when this version does not know it.</summary>
+    internal static string StatTypeName(ushort type) =>
+        type == VenueSpecificVolume1 ? "venue_specific_volume_1"
+        : type < StatTypes.Length ? StatTypes[type]
+        : type.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     public static IReadOnlyList<Column> For(string schema, bool series) => Add(schema switch
     {
@@ -86,7 +95,7 @@ public static class RecordColumns
                 cells[i++] = s.TsRef == DbnTime.Undefined ? Cell.Empty : Cell.Of(s.TsRef);
                 cells[i++] = Cell.Of(symbol);
                 cells[i++] = Cell.Of(s.InstrumentId);
-                cells[i++] = Cell.Of(s.StatType < StatTypes.Length ? StatTypes[s.StatType] : s.StatType.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                cells[i++] = Cell.Of(StatTypeName(s.StatType));
                 cells[i++] = Cell.Of(price(s.Price));
                 cells[i++] = s.Quantity == StatRecord.UndefinedQuantity ? Cell.Empty : Cell.Of(s.Quantity);
                 cells[i++] = Cell.Of(s.UpdateAction);

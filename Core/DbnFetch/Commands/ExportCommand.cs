@@ -33,7 +33,7 @@ public static class ExportCommand
         var adjust = new Option<string>("--adjust") { Description = "For a continuous series other than mbo: none, difference (back-adjusted) or ratio.", DefaultValueFactory = _ => "none" };
         var rollDays = new Option<int>("--roll-days") { Description = "For .c. series: roll this many days before expiry.", DefaultValueFactory = _ => RollSchedule.DefaultRollDays };
         var single = new Option<bool>("--single") { Description = "One file for the whole range, not one per trade date." };
-        var partition = new Option<bool>("--partition") { Description = "series=/date= folders that DuckDB and Spark read as one table." };
+        var partition = new Option<bool>("--partition") { Description = "series=/date= folders that DuckDB and Polars read as one table." };
         var name = new Option<string?>("--name") { Description = "File names of your own: {series}, {kind}, {date}, {from}, {to}, {ext}." };
         var columns = new Option<string?>("--columns") { Description = "Only these columns, in this order, such as ts_event,price,size." };
         var noSpreads = new Option<bool>("--no-spreads") { Description = "For a root: leave out spreads." };

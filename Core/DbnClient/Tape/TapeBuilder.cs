@@ -24,7 +24,7 @@ public static class TapePaths
         var name = Name(kind);
 
         return Path.Combine(tapeRoot, dataset, name, root, tradeDate.Year.ToString(CultureInfo.InvariantCulture),
-            $"{symbol}.{name}.{tradeDate:yyyyMMdd}.tape");
+            $"{symbol}.{name}.{tradeDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}.tape");
     }
 
     private static string Name(TapeKind kind) => kind switch

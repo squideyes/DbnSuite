@@ -12,7 +12,7 @@ public enum FileLayout
     /// <summary>One file for the whole range.</summary>
     Single,
 
-    /// <summary><c>series=ES.v.0/date=2026-10-28/</c> folders, which DuckDB and Spark read as one table.</summary>
+    /// <summary><c>series=ES.v.0/date=2026-10-28/</c> folders, which DuckDB and Polars read as one table.</summary>
     Partitioned
 }
 

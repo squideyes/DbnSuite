@@ -114,10 +114,12 @@ internal static class DbnBytes
 
     /// <summary>A version 3 <c>definition</c> with the fields DbnSync reads; the rest are zeros.</summary>
     public static byte[] Definition(uint instrument, ulong tsEvent, string rawSymbol, string asset, char instrumentClass,
-        long tickSize, ulong activation, ulong expiration, ushort maturityYear, byte maturityMonth)
+        long tickSize, ulong activation, ulong expiration, ushort maturityYear, byte maturityMonth, ulong? tsRecv = null)
     {
         var record = Header(0x13, 520, instrument, tsEvent);
 
+        // Databento stamps a day's definitions as received at that day's midnight; the event time is older.
+        BinaryPrimitives.WriteUInt64LittleEndian(record.AsSpan(16), tsRecv ?? tsEvent);
         BinaryPrimitives.WriteInt64LittleEndian(record.AsSpan(24), tickSize);
         BinaryPrimitives.WriteUInt64LittleEndian(record.AsSpan(40), expiration);
         BinaryPrimitives.WriteUInt64LittleEndian(record.AsSpan(48), activation);

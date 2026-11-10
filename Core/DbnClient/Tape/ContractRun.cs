@@ -107,7 +107,11 @@ internal sealed class ContractRun
 
         int? price = null;
 
-        if (action is 'A' or 'M' or 'T' && raw != DbnPrice.Undefined)
+        // A trade never touches the book and is only written inside the session, so one printed before
+        // the open is not held to the tick: it must not cost the whole date its tapes.
+        var used = action != 'T' || (!snapshot && opened);
+
+        if (used && action is 'A' or 'M' or 'T' && raw != DbnPrice.Undefined)
         {
             if (raw % info.TickRaw != 0)
             {

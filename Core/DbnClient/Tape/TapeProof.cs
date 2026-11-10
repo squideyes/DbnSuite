@@ -111,6 +111,11 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
         {
             var opened = await archive.OpenAsync(BarSchema, catalog.Root, day, cancel).ConfigureAwait(false);
 
+            // A day with no file or no data has no bars. Anything else, such as a damaged file or a store
+            // that went away, must not pass for that: the tape would be blamed for having too many.
+            if (!opened.IsSuccess && opened.Error!.Code is not (Errors.NotStored or Errors.NoData))
+                throw new ArchiveException(opened.Error);
+
             if (!opened.IsSuccess)
                 continue;
 

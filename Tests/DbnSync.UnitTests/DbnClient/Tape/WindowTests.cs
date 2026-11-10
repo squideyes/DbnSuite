@@ -90,6 +90,17 @@ public sealed class WindowTests
     }
 
     [Fact]
+    public async Task HoursInTheEveningAreTheEveningTheSessionOpens()
+    {
+        var tape = await TradesAsync();
+
+        var times = Times(tape, Window.Hours(new TimeOnly(18, 0), new TimeOnly(23, 0)));
+
+        times.ShouldNotBeEmpty();
+        times.ShouldBe(Times(tape, Window.Eth).Where(t => t >= TapeFixture.OpenMicros + Hour && t < TapeFixture.OpenMicros + 6 * Hour));
+    }
+
+    [Fact]
     public async Task ATapeWithNoRegularSessionReplaysNothingForRth()
     {
         var writer = new TradeWriter(TapeFixture.Info());

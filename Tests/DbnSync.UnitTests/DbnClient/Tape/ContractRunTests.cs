@@ -213,6 +213,27 @@ public sealed class ContractRunTests
     }
 
     [Fact]
+    public void ATradeOffTheTickBeforeTheOpenCostsTheDateNothing()
+    {
+        var run = Run();
+
+        run.Feed(RawRecord(Open - Micro, 'T', 0, Ask * TapeFixture.TickRaw + 1, 2, 'N', Last));
+
+        run.Refusal.ShouldBeNull();
+    }
+
+    [Fact]
+    public void ATradeOffTheTickInsideTheSessionIsStillRefused()
+    {
+        var run = Run();
+
+        Warm(run);
+        run.Feed(RawRecord(Open + Micro, 'T', 0, Ask * TapeFixture.TickRaw + 1, 2, 'N', Last));
+
+        run.Refusal!.Code.ShouldBe(TapeErrors.Refused);
+    }
+
+    [Fact]
     public void ARecordWithNoPriceMovesNothing()
     {
         var run = Run();

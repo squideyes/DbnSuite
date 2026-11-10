@@ -123,6 +123,16 @@ public sealed class OutputFilesTests : IDisposable
     }
 
     [Theory]
+    [InlineData("ESZ9", 2019, "ES 12-19")]
+    [InlineData("ESZ9", 2026, "ES 12-29")]
+    [InlineData("ESH0", 2019, "ES 03-20")]
+    [InlineData("ESZ26", 2019, "ES 12-26")]
+    public void A_one_digit_year_takes_its_decade_from_when_the_export_starts(string symbol, int fromYear, string name)
+    {
+        OutputFiles.NinjaTraderName(DbnClient.Contracts.SymbolSpec.Parse(symbol).Value, fromYear).ShouldBe(name);
+    }
+
+    [Theory]
     [InlineData(Contract, "ES 12-26.Last.txt")]
     [InlineData("ESZ6", "ES 12-26.Last.txt")]
     [InlineData("MESH27", "MES 03-27.Last.txt")]

@@ -286,6 +286,43 @@ public sealed class SessionsTests
     }
 
     [Fact]
+    public void Hours_in_the_evening_belong_to_the_trade_date_they_open()
+    {
+        var chicago = Zones.Find(Zones.Default).Value;
+        var filter = SessionFilter.Create(new DateSpan(Day(10, 28), Day(10, 28)), SessionKind.Custom, Es,
+            (Hours.Parse("18:00-23:00").Value, chicago)).Value;
+
+        filter.Accept(Chicago(10, 27, 17, 59)).ShouldBeNull();
+        filter.Accept(Chicago(10, 27, 18, 0)).ShouldBe(Day(10, 28));
+        filter.Accept(Chicago(10, 27, 22, 59)).ShouldBe(Day(10, 28));
+        filter.Accept(Chicago(10, 27, 23, 0)).ShouldBeNull();
+        filter.Accept(Chicago(10, 28, 18, 0)).ShouldBeNull();
+    }
+
+    [Fact]
+    public void Evening_hours_open_and_close_the_evening_before_the_trade_date()
+    {
+        var chicago = Zones.Find(Zones.Default).Value;
+        var filter = SessionFilter.Create(new DateSpan(Day(10, 28), Day(10, 28)), SessionKind.Custom, Es,
+            (Hours.Parse("17:00-20:00").Value, chicago)).Value;
+
+        filter.Anchor(Day(10, 28)).ShouldBe(Sessions.SessionStart(Day(10, 28)));
+        (filter.Close(Day(10, 28)) - filter.Anchor(Day(10, 28))).ShouldBe(TimeSpan.FromHours(3));
+    }
+
+    [Fact]
+    public void Daytime_hours_in_a_zone_a_day_ahead_fall_in_the_right_session()
+    {
+        // 09:00 on the 29th in Auckland is 15:00 on the 28th in Chicago, inside the session of the 28th.
+        var auckland = Zones.Find("Pacific/Auckland").Value;
+        var filter = SessionFilter.Create(new DateSpan(Day(10, 28), Day(10, 28)), SessionKind.Custom, Es,
+            (Hours.Parse("09:00-10:00").Value, auckland)).Value;
+
+        filter.Accept(Chicago(10, 28, 15, 30)).ShouldBe(Day(10, 28));
+        filter.Accept(Chicago(10, 28, 14, 59)).ShouldBeNull();
+    }
+
+    [Fact]
     public void Eth_bars_count_from_the_session_and_end_at_its_close()
     {
         var filter = SessionFilter.Create(new DateSpan(Day(10, 28), Day(10, 28)), SessionKind.Eth, Es).Value;

@@ -160,7 +160,9 @@ public sealed class RecordColumnsTests
     [InlineData(3, "settlement_price")]
     [InlineData(6, "cleared_volume")]
     [InlineData(9, "open_interest")]
-    [InlineData(20, "venue_specific_volume_1")]
+    [InlineData(19, "block_volume")]
+    [InlineData(20, "20")]
+    [InlineData(10001, "venue_specific_volume_1")]
     [InlineData(21, "21")]
     [InlineData(999, "999")]
     public void A_stat_type_is_a_name_or_the_number_when_unknown(int type, string written)

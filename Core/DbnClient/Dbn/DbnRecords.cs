@@ -16,11 +16,21 @@ public abstract record DbnRecord(byte RType, ushort PublisherId, uint Instrument
     public static uint InstrumentOf(ReadOnlySpan<byte> record) => BinaryPrimitives.ReadUInt32LittleEndian(record[4..]);
 
     /// <summary>
-    /// The time a record is filed under, read without decoding it: when
-    /// Databento received it for <c>mbo</c>, else its event time.
+    /// The time a record is filed under, read without decoding it: when Databento received it for
+    /// <c>mbo</c> and for a definition, else its event time. A day's definition file is a snapshot
+    /// stamped at that day's midnight, while each definition's event time is when the exchange last
+    /// changed it, often days before, so only the receive time says which day it belongs to.
     /// </summary>
     public static ulong IndexTimeOf(ReadOnlySpan<byte> record) =>
-        BinaryPrimitives.ReadUInt64LittleEndian(record[1] == MboRecord.Type && record.Length >= MboRecord.Size ? record[40..] : record[8..]);
+        BinaryPrimitives.ReadUInt64LittleEndian(record[1] switch
+        {
+            MboRecord.Type when record.Length >= MboRecord.Size => record[40..],
+            DefinitionRecord.Type when record.Length >= DefinitionRecord.Size => record[ReceivedAt..],
+            _ => record[8..]
+        });
+
+    /// <summary>Where a record that has one keeps its receive time, straight after the header.</summary>
+    private const int ReceivedAt = HeaderSize;
 
     /// <summary>Decodes one whole record, its header included.</summary>
     public static DbnRecord Decode(ReadOnlySpan<byte> record)

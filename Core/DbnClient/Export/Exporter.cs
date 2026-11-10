@@ -313,6 +313,14 @@ public sealed class Exporter(DbnArchive archive)
         if (continuous && request.Schema == Mbo && request.Adjustment != Adjustment.None)
             return new Error("input.bad_adjustment", "--adjust is for bars and records built on a roll schedule; mbo keeps raw prices, so an mbo series cannot be adjusted.");
 
+        // A NinjaTrader file is one instrument, with no symbol in its lines: a root's contracts and
+        // spreads would be mixed into one series.
+        if (request.Format == OutputFormat.NinjaTrader && request.Symbol.Kind == SymbolKind.Root)
+        {
+            return new Error("input.bad_format",
+                $"NinjaTrader output is one instrument a file; name a contract, such as {request.Symbol.Root}Z26, or a continuous series, such as {request.Symbol.Root}.c.0.");
+        }
+
         if (request.Format == OutputFormat.NinjaTrader && request.Columns.Count > 0)
             return new Error("input.bad_format", "NinjaTrader output has a fixed layout; --columns is for the other formats.");
 

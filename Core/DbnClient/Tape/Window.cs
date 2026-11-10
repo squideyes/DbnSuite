@@ -22,7 +22,10 @@ public readonly record struct Window
 
     internal TimeOnly To { get; }
 
-    /// <summary>Hours of your own, Chicago time. Hours that end before they start run past midnight.</summary>
+    /// <summary>
+    /// Hours of your own, Chicago time. Hours that end before they start run past midnight, and hours
+    /// from 17:00 on are the evening the session opens, the day before the trade date's name.
+    /// </summary>
     public static Window Hours(TimeOnly from, TimeOnly to) => new(WindowKind.Hours, from, to);
 }
 
