@@ -66,8 +66,9 @@ public sealed class RollSchedule
     public IReadOnlyList<Roll> Rolls { get; }
 
     /// <summary>
-    /// Calendar rolls happen this many days before expiry unless told otherwise:
+    /// Calendar rolls happen this many days before their anchor unless told otherwise:
     /// the equity indexes roll on the Thursday eight days before the third Friday.
+    /// Each root's anchor and months are its <see cref="CalendarRule"/>.
     /// </summary>
     public const int DefaultRollDays = 8;
 
@@ -118,8 +119,10 @@ public sealed class RollSchedule
         "has no usable settlement for both contracts on the session before it, so earlier prices cannot be adjusted. " +
         "Export without adjustment, or add that session's statistics to the archive.");
 
+    /// <summary>Which contract <paramref name="series"/> holds on each of <paramref name="tradeDates"/>.</summary>
+    /// <param name="rollDays">For a <c>.c.</c> name: days before the root's anchor, or null for its <see cref="CalendarRule"/>.</param>
     public static async Task<Result<RollSchedule>> BuildAsync(DbnArchive archive, SymbolSpec series, DateSpan tradeDates,
-        int rollDays, IProgress<long>? progress, CancellationToken cancel)
+        int? rollDays, IProgress<long>? progress, CancellationToken cancel)
     {
         if (series.Kind != SymbolKind.Continuous)
             throw new ArgumentException("Only a continuous name has a roll schedule.", nameof(series));
@@ -134,6 +137,7 @@ public sealed class RollSchedule
 
         var outrights = listed.Value.Where(c => !c.IsSpread && c.Expiration is not null).ToList();
         var byId = outrights.ToDictionary(c => c.InstrumentId);
+        var calendar = CalendarRule.For(series.Root).WithDays(rollDays);
         var walkFrom = tradeDates.From.AddDays(-Lookback);
         var days = new DateSpan(walkFrom.AddDays(-Lookback), tradeDates.To);
 
@@ -168,7 +172,7 @@ public sealed class RollSchedule
 
             var ranked = series.Rule switch
             {
-                'c' => live.Where(c => DateOnly.FromDateTime(c.Expiration!.Value.UtcDateTime).AddDays(-rollDays) > date)
+                'c' => live.Where(c => calendar.Holds(c) && calendar.LeavesOn(c) > date)
                     .OrderBy(c => c.Expiration).ToList(),
                 'v' => Rank(live, VolumeBefore(volumes, date)),
                 _ => Rank(live, statistics.Latest(OpenInterest, opens, quantity: true))

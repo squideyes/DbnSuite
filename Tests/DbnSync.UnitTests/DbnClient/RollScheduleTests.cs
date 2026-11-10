@@ -95,7 +95,7 @@ public sealed class RollScheduleTests : IDisposable
     private static byte[] Stat(uint id, ulong time, ushort type, long price = DbnPrice.Undefined, long quantity = StatRecord.UndefinedQuantity) =>
         DbnBytes.Statistic(id, time, DbnTime.Undefined, price, quantity, type);
 
-    private async Task<RollSchedule> Build(string series, DateOnly from, DateOnly to, int rollDays = RollSchedule.DefaultRollDays)
+    private async Task<RollSchedule> Build(string series, DateOnly from, DateOnly to, int? rollDays = null)
     {
         using var archive = folder.Open();
 
@@ -117,6 +117,26 @@ public sealed class RollScheduleTests : IDisposable
         roll.TradeDate.ShouldBe(Dec(10));
         roll.From.Symbol.ShouldBe(Front);
         roll.To.Symbol.ShouldBe(Next);
+    }
+
+    [Fact]
+    public async Task Gold_rolls_by_the_calendar_before_its_delivery_month_and_skips_thin_months()
+    {
+        const string gold = "GC";
+        var goldExpires = DbnBytes.Utc(2027, 2, 24, 18, 30);
+        folder.Add(Definition, gold, Listing,
+        [
+            DbnBytes.Definition(41, DbnBytes.Start, "GCG7", gold, DefinitionRecord.Future, Tick, Listed, goldExpires, 2027, 2),
+            DbnBytes.Definition(42, DbnBytes.Start, "GCH7", gold, DefinitionRecord.Future, Tick, Listed, DbnBytes.Utc(2027, 3, 29, 17, 30), 2027, 3),
+            DbnBytes.Definition(43, DbnBytes.Start, "GCJ7", gold, DefinitionRecord.Future, Tick, Listed, DbnBytes.Utc(2027, 4, 28, 17, 30), 2027, 4)
+        ]);
+        using var archive = folder.Open();
+
+        var schedule = (await RollSchedule.BuildAsync(archive, SymbolSpec.Parse("GC.c.0").Value,
+            new DateSpan(new DateOnly(2027, 1, 22), new DateOnly(2027, 1, 25)), null, null, CancellationToken.None)).Value;
+
+        schedule.On(new DateOnly(2027, 1, 22))!.Symbol.ShouldBe("GCG27");
+        schedule.On(new DateOnly(2027, 1, 25))!.Symbol.ShouldBe("GCJ27");
     }
 
     [Fact]
