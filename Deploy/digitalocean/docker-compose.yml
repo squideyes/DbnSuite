@@ -17,6 +17,13 @@
 
 name: dbnsync
 
+# Docker keeps a container's console log for ever unless told otherwise.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   # Searchable logs, linked from the dashboard's issues and job pages. Seq is
   # free for individual use; it keeps everything until a retention policy
@@ -24,6 +31,7 @@ services:
   seq:
     image: datalust/seq:2025.2
     restart: unless-stopped
+    logging: *logging
     environment:
       ACCEPT_EULA: "Y"
       SEQ_FIRSTRUN_ADMINPASSWORD: ${SEQ_ADMIN_PASSWORD:?set SEQ_ADMIN_PASSWORD in .env}
@@ -35,6 +43,9 @@ services:
   dbnsync:
     image: ${DBNSYNC_IMAGE:-ghcr.io/squideyes/dbnsync-worker:latest}
     restart: unless-stopped
+    logging: *logging
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       seq:
         condition: service_started
@@ -72,8 +83,14 @@ services:
     image: ${DBNSPOOL_IMAGE:-ghcr.io/squideyes/dbnspool-worker:latest}
     profiles: [spool]
     restart: unless-stopped
+    logging: *logging
+    security_opt:
+      - no-new-privileges:true
     cpus: 1
     mem_limit: 2g
+    # Time to finish the upload in hand and note it in the ledger, so a restart is not mistaken
+    # for a date that stopped DbnSpool.
+    stop_grace_period: 2m
     depends_on:
       seq:
         condition: service_started

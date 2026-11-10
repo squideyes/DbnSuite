@@ -23,19 +23,27 @@ case $(value DATABENTO_API_KEY) in
     *) fail "DATABENTO_API_KEY does not start db-" ;;
 esac
 
-need S3_ROOT_ACCESS_KEY
-need S3_DATA_PATH
 need SEQ_ADMIN_PASSWORD
 
+# A DigitalOcean install keeps the archive in Spaces: it has no RustFS, so none of its settings.
 store=$(value S3_SERVICE_URL)
 secret=$(value S3_ROOT_SECRET_KEY)
-if [ -n "$store" ] && [ "$store" != "http://s3:9000" ]; then
+if [ -n "$(value SPACES_URL)" ]; then
+    ok "SPACES_URL is set, so the archive is in DigitalOcean Spaces"
     need DBNSYNC_ACCESS_KEY
     need DBNSYNC_SECRET_KEY
-elif [ "${#secret}" -lt 24 ]; then
-    fail "S3_ROOT_SECRET_KEY is shorter than 24 characters"
 else
-    ok "S3_ROOT_SECRET_KEY is long enough"
+    need S3_ROOT_ACCESS_KEY
+    need S3_DATA_PATH
+
+    if [ -n "$store" ] && [ "$store" != "http://s3:9000" ]; then
+        need DBNSYNC_ACCESS_KEY
+        need DBNSYNC_SECRET_KEY
+    elif [ "${#secret}" -lt 24 ]; then
+        fail "S3_ROOT_SECRET_KEY is shorter than 24 characters"
+    else
+        ok "S3_ROOT_SECRET_KEY is long enough"
+    fi
 fi
 
 [ -n "$(value DBNSYNC_LOGS_URL)" ] || echo "note DBNSYNC_LOGS_URL is empty, so the dashboard hides its log links"
@@ -64,9 +72,11 @@ if ids=$(docker ps -q 2>/dev/null); then
         [ -n "$name$home$mounts" ] || continue
         [ "$home" != "$dir" ] || continue
 
-        case ";$mounts" in
-            *";$path;"*) fail "S3_DATA_PATH is already in use by the install in $home"; clash=1 ;;
-        esac
+        if [ -n "$path" ]; then
+            case ";$mounts" in
+                *";$path;"*) fail "S3_DATA_PATH is already in use by the install in $home"; clash=1 ;;
+            esac
+        fi
 
         if [ "$name" = "$project" ] && [ "$clash" -eq 0 ]; then
             fail "project name $project belongs to the install in $home: set COMPOSE_PROJECT_NAME"

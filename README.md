@@ -581,7 +581,7 @@ machine.** UGOS turns SSH off again after a set time; switch it back on in
    ```
 
 3. _PC_: copy `Deploy/.env.example` to `Deploy/.env` and fill it in: the
-   Databento key, an S3 root secret (`openssl rand -base64 30`), the archive
+   Databento key, an S3 root secret (`openssl rand -hex 24`), the archive
    folder, a Seq admin password, and Seq's address for the dashboard's log
    links. `.env` is ignored by git.
 4. _PC_: copy the files across. `-O` makes `scp` use the classic protocol;
@@ -637,7 +637,7 @@ on the NAS, and give everything else its own key:
 | Who | Can | Policy |
 |---|---|---|
 | The worker | read and write the `dbn` bucket | `dbn-readwrite` |
-| Every consumer (the demo client, notebooks, other machines) | read the `dbn` bucket | `dbn-readonly` |
+| Every consumer (`dbnf`, notebooks, other machines) | read the `dbn` bucket | `dbn-readonly` |
 
 In the RustFS console (`http://<nas>:9001`, signed in with the root key),
 create the two policies, then a user for each with its policy attached, and
@@ -767,7 +767,8 @@ Core/DbnClient          library: the archive, DBN files, contracts, rolls, sessi
 Core/DbnFetch         the dbnf tool, a Native AOT .NET tool
 Core/DbnSpool           optional worker: keeps tapes up to date in a second store
 Core/DbnSuite.Site      The website: Blazor WebAssembly, published to GitHub Pages
-Tests/DbnSync.UnitTests xUnit, Shouldly, NSubstitute, bUnit; RustFS through Testcontainers
+Tests/DbnSync.UnitTests xUnit, Shouldly, NSubstitute, bUnit
+Tests/DbnSuite.IntegrationTests  the worker against a made-up Databento and RustFS through Testcontainers
 Aspire/AppHost          local orchestration: workers, RustFS, Seq
 Aspire/ServiceDefaults
 Deploy/digitalocean     Droplet compose file and .env.example

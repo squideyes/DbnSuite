@@ -9,8 +9,9 @@ on:
   push:
     tags: ['v*']
 
+# Read-only by default; the publish job asks for what it needs.
 permissions:
-  contents: write
+  contents: read
 
 env:
   # Not VERSION: MSBuild would read that as the Version property, and restore fails on the v.
@@ -47,8 +48,9 @@ jobs:
         shell: bash
         run: |
           dotnet publish Core/DbnFetch -c Release -r ${{ matrix.rid }} -p:Version=${RELEASE_TAG#v} -o bin/${{ matrix.rid }}
+          cp NOTICE.md LICENSE bin/${{ matrix.rid }}/
           cd bin/${{ matrix.rid }}
-          7z a ../../dbnf-${{ matrix.rid }}.zip dbnf* > /dev/null || zip ../../dbnf-${{ matrix.rid }}.zip dbnf*
+          7z a ../../dbnf-${{ matrix.rid }}.zip dbnf* NOTICE.md LICENSE > /dev/null || zip ../../dbnf-${{ matrix.rid }}.zip dbnf* NOTICE.md LICENSE
 
       - uses: actions/upload-artifact@v7
         with:
@@ -65,6 +67,16 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # A version on nuget.org can never be replaced, so only a commit that is on main, and so
+      # passed main's checks, may be published: a tag pushed on any other commit stops here.
+      - name: Check the tag is on main
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || { echo "::error::$RELEASE_TAG is not on main, so it is not published."; exit 1; }
 
       - uses: actions/setup-dotnet@v5
         with:
@@ -88,7 +100,7 @@ jobs:
           path: native
 
       # A key good for an hour, swapped for this run's GitHub identity.
-      - uses: NuGet/login@v1
+      - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         id: nuget
         with:
           user: ${{ secrets.NUGET_USER }}

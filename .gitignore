@@ -483,3 +483,7 @@ $RECYCLE.BIN/
 
 # Tapes are derived from licensed data: they never go in a repository.
 *.tape
+
+# Nor do Databento's own files.
+*.dbn
+*.dbn.zst

@@ -8,6 +8,10 @@ on:
     paths:
       - Core/DbnSuite.Site/**
       - .github/workflows/pages.yml
+      # A new Blazor runtime or SDK changes the published site too.
+      - Directory.Packages.props
+      - Directory.Build.props
+      - global.json
   workflow_dispatch:
 
 permissions:
@@ -15,9 +19,10 @@ permissions:
   pages: write
   id-token: write
 
+# A newer run waits for the one in flight: a deployment cut off half way can leave the site broken.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:

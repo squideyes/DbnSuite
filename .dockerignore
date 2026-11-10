@@ -3,5 +3,7 @@
 **/.vs/
 .git/
 .env
+**/.env
+Deploy/
 Tests/
 Aspire/AppHost/
