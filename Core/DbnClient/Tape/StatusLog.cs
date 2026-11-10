@@ -34,6 +34,10 @@ internal static class StatusLog
         {
             var opened = await archive.OpenAsync(Schema, root, day, cancel).ConfigureAwait(false);
 
+            // Only a day with no file or no data has no clock to read; any other failure must be heard.
+            if (!opened.IsSuccess && opened.Error!.Code is not (Errors.NotStored or Errors.NoData))
+                throw new ArchiveException(opened.Error);
+
             if (!opened.IsSuccess)
                 continue;
 

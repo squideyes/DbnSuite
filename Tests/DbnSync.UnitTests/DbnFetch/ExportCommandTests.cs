@@ -483,6 +483,7 @@ public sealed class ExportCommandTests : IDisposable
     [InlineData("tickles MNQZ26 --from 2026-10-30", "\"tickles\" is not a schema.")]
     [InlineData("ohlcv-1s NOT!A!SYMBOL --from 2026-10-30", "\"NOT!A!SYMBOL\" is not a symbol")]
     [InlineData("ohlcv-1s MNQZ26", "Give the days as one of")]
+    [InlineData("ohlcv-1s MNQ --from 2026-10-30 --bars 1m --format nt8", "NinjaTrader output is one instrument a file")]
     [InlineData("ohlcv-1s MNQZ26 --from 2026-10-30 --tz Mars/Olympus", "\"Mars/Olympus\" is not a time zone")]
     [InlineData("ohlcv-1s MNQZ26 --from 2026-10-30 --session night", "\"night\" is not a valid session; use eth, rth.")]
     [InlineData("ohlcv-1s ZZZ --from 2026-10-30 --session rth", "There are no regular hours for ZZZ; give them with --hours.")]

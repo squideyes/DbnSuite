@@ -121,6 +121,14 @@ public sealed class DbnRecordsTests
     }
 
     [Fact]
+    public void A_definition_is_filed_by_when_it_was_received()
+    {
+        var bytes = DbnBytes.Definition(Instrument, Event, "ESZ6", "ES", DefinitionRecord.Future, 250_000_000, 1, 2, 2026, 12, Received);
+
+        DbnRecord.IndexTimeOf(bytes).ShouldBe(Received);
+    }
+
+    [Fact]
     public void Everything_else_is_filed_by_its_event_time()
     {
         DbnRecord.IndexTimeOf(DbnBytes.Ohlcv(Instrument, Event, 1, 1, 1, 1, 1)).ShouldBe(Event);

@@ -97,6 +97,24 @@ public sealed class ExporterTests : IDisposable
     }
 
     [Fact]
+    public async Task Definitions_are_exported_for_the_day_of_their_file_not_the_day_they_last_changed()
+    {
+        // As Databento writes them: received at the file day's midnight, last changed by the exchange days before.
+        var midnight = (ulong)(new DateTimeOffset(2026, 10, 28, 0, 0, 0, TimeSpan.Zero) - DateTimeOffset.UnixEpoch).Ticks * 100;
+        var changed = midnight - 4 * 86_400 * Second;
+
+        Write(DbnSyncLayout.Data(Dataset, DbnArchive.DefinitionSchema, Es, Day(10, 28)), DbnBytes.Compress(
+            DbnBytes.Metadata(Dataset, ["ES.FUT"], new Dictionary<string, uint>()),
+            DbnBytes.Definition(FrontId, changed, RawFront, Es, DefinitionRecord.Future, 250_000_000, 1, 1_797_000_000_000_000_000, 2026, 12, midnight)));
+
+        var request = Request("ESZ26", SessionKind.Eth) with { Schema = DbnArchive.DefinitionSchema };
+
+        var summary = (await new Exporter(archive).RunAsync(request, null, CancellationToken.None)).Value;
+
+        summary.Rows.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task A_failed_export_leaves_no_file_that_looks_complete()
     {
         Write(DbnSyncLayout.Data(Dataset, Ohlcv, Es, Day(10, 29)), [1, 2, 3]);

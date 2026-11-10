@@ -185,12 +185,21 @@ public sealed class Catalog
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
             var temporary = $"{path}.{Guid.NewGuid():N}.tmp";
-            var file = File.Create(temporary);
 
-            await using (file.ConfigureAwait(false))
-                await JsonSerializer.SerializeAsync(file, this, CatalogJson.Default.Catalog, cancel).ConfigureAwait(false);
+            try
+            {
+                var file = File.Create(temporary);
 
-            File.Move(temporary, path, overwrite: true);
+                await using (file.ConfigureAwait(false))
+                    await JsonSerializer.SerializeAsync(file, this, CatalogJson.Default.Catalog, cancel).ConfigureAwait(false);
+
+                File.Move(temporary, path, overwrite: true);
+            }
+            finally
+            {
+                // Gone already after the move; left behind only by a stop or a full disk part way through.
+                File.Delete(temporary);
+            }
 
             return path;
         }
@@ -392,9 +401,15 @@ public sealed class Catalog
             var day = days.GetValueOrDefault(key) ?? new DayStatistics(null, null, null);
             var quantity = stat.Quantity == StatRecord.UndefinedQuantity ? (long?)null : stat.Quantity;
 
+            var price = System.Buffers.Binary.BinaryPrimitives.ReadInt64LittleEndian(raw[32..]);
+
+            // A settlement with no price says nothing, and must not wipe out one that has.
+            if (stat.StatType == SettlementStat && price == DbnPrice.Undefined)
+                continue;
+
             days[key] = stat.StatType switch
             {
-                SettlementStat => day with { Settlement = System.Buffers.Binary.BinaryPrimitives.ReadInt64LittleEndian(raw[32..]) },
+                SettlementStat => day with { Settlement = price },
                 ClearedVolumeStat => day with { ClearedVolume = quantity },
                 _ => day with { OpenInterest = quantity }
             };

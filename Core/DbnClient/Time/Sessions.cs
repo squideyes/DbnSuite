@@ -194,11 +194,7 @@ public sealed class SessionFilter
         if (hours is null)
             return Sessions.SessionStart(tradeDate);
 
-        // A window that runs past midnight opens on the day before.
-        var day = hours.Start < hours.End ? tradeDate : tradeDate.AddDays(-1);
-        var local = day.ToDateTime(hours.Start);
-
-        return new DateTimeOffset(local, zone.GetUtcOffset(local)).ToUniversalTime();
+        return At(OpeningDay(tradeDate), hours.Start);
     }
 
     /// <summary>When a trade date's session, or its window of hours, closes.</summary>
@@ -207,7 +203,41 @@ public sealed class SessionFilter
         if (hours is null)
             return Sessions.SessionEnd(tradeDate);
 
-        var local = tradeDate.ToDateTime(hours.End);
+        // A window that runs past midnight closes on the day after it opens.
+        var opening = OpeningDay(tradeDate);
+
+        return At(hours.Start < hours.End ? opening : opening.AddDays(1), hours.End);
+    }
+
+    /// <summary>
+    /// The calendar day, in the window's zone, on which a trade date's window opens. A trade date starts
+    /// the evening before, so hours such as 18:00 to 23:00 Chicago time belong to the day before the
+    /// trade date's name, and hours in a zone far from Chicago can fall on either side of it.
+    /// </summary>
+    private DateOnly OpeningDay(DateOnly tradeDate)
+    {
+        // A window that runs past midnight opens on the day before.
+        if (hours!.Start >= hours.End)
+            return tradeDate.AddDays(-1);
+
+        var from = Sessions.SessionStart(tradeDate);
+        var until = Sessions.SessionStart(tradeDate.AddDays(1));
+
+        // The day of the trade date's own name first, which is where daytime hours are.
+        foreach (var day in new[] { tradeDate, tradeDate.AddDays(-1), tradeDate.AddDays(1) })
+        {
+            var opens = At(day, hours.Start);
+
+            if (opens >= from && opens < until)
+                return day;
+        }
+
+        return tradeDate;
+    }
+
+    private DateTimeOffset At(DateOnly day, TimeOnly time)
+    {
+        var local = day.ToDateTime(time);
 
         return new DateTimeOffset(local, zone.GetUtcOffset(local)).ToUniversalTime();
     }

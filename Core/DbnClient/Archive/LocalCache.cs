@@ -17,6 +17,9 @@ public sealed class LocalCache
     private const string IndexName = ".dbnsync.json";
     private const int BufferSize = 1 << 20;
 
+    /// <summary>How long a download may go without a byte arriving before it is given up, to carry on next time.</summary>
+    public TimeSpan StallTimeout { get; init; } = TimeSpan.FromMinutes(5);
+
     private readonly Lock gate = new();
     private readonly Dictionary<string, CachedFile> index;
     private readonly Dictionary<string, CachedFile> parts;
@@ -92,10 +95,26 @@ public sealed class LocalCache
             var buffer = new byte[BufferSize];
             int read;
 
-            while ((read = await source.ReadAsync(buffer, cancel).ConfigureAwait(false)) > 0)
+            // A store that goes silent part way through a file would otherwise be waited on for ever: the
+            // clock starts again with every read, so a file that keeps coming may take as long as it needs.
+            using var stall = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+
+            try
             {
-                await target.WriteAsync(buffer.AsMemory(0, read), cancel).ConfigureAwait(false);
-                progress?.Report(read);
+                while (true)
+                {
+                    stall.CancelAfter(StallTimeout);
+
+                    if ((read = await source.ReadAsync(buffer, stall.Token).ConfigureAwait(false)) == 0)
+                        break;
+
+                    await target.WriteAsync(buffer.AsMemory(0, read), cancel).ConfigureAwait(false);
+                    progress?.Report(read);
+                }
+            }
+            catch (OperationCanceledException) when (!cancel.IsCancellationRequested)
+            {
+                throw new IOException($"{stored.Key} stopped arriving: nothing came for {StallTimeout.TotalMinutes:0} minutes. It carries on from here next time.");
             }
         }
 

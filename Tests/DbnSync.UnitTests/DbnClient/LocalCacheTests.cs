@@ -82,6 +82,33 @@ public sealed class LocalCacheTests : IDisposable
     }
 
     [Fact]
+    public async Task A_download_that_goes_silent_is_given_up_and_carries_on_next_time()
+    {
+        var cache = new LocalCache(cacheFolder) { StallTimeout = TimeSpan.FromMilliseconds(150) };
+        var store = new CountingStore(new FolderObjectStore(archiveFolder), silentAfter: 400);
+
+        var stalled = await Should.ThrowAsync<IOException>(() => cache.FetchAsync(store, Object(), null, CancellationToken.None));
+
+        stalled.Message.ShouldContain("stopped arriving");
+
+        var resumed = Store();
+        await cache.FetchAsync(resumed, Object(), null, CancellationToken.None);
+
+        resumed.Offsets.ShouldBe([400]);
+        (await File.ReadAllBytesAsync(cache.PathOf(Key))).ShouldBe(Content);
+    }
+
+    [Fact]
+    public async Task A_download_stopped_by_the_caller_is_not_called_a_stall()
+    {
+        var cache = new LocalCache(cacheFolder);
+        var store = new CountingStore(new FolderObjectStore(archiveFolder), silentAfter: 400);
+        using var stop = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
+
+        await Should.ThrowAsync<OperationCanceledException>(() => cache.FetchAsync(store, Object(), null, stop.Token));
+    }
+
+    [Fact]
     public async Task An_interrupted_download_carries_on_from_where_it_stopped()
     {
         var cache = new LocalCache(cacheFolder);
@@ -231,7 +258,8 @@ public sealed class LocalCacheTests : IDisposable
     }
 
     /// <summary>A store that counts opens, and can fail partway through one like a dropped connection.</summary>
-    private sealed class CountingStore(IObjectStore inner, int failAfter = int.MaxValue) : IObjectStore
+    /// <param name="silentAfter">The connection goes quiet after this many bytes: no more arrive, and it never ends.</param>
+    private sealed class CountingStore(IObjectStore inner, int failAfter = int.MaxValue, int silentAfter = int.MaxValue) : IObjectStore
     {
         public int Opens => Offsets.Count;
 
@@ -249,11 +277,14 @@ public sealed class LocalCacheTests : IDisposable
 
             var stream = await inner.OpenAsync(key, offset, cancel);
 
+            if (silentAfter != int.MaxValue)
+                return new FailingStream(stream, silentAfter, silent: true);
+
             return failAfter == int.MaxValue ? stream : new FailingStream(stream, failAfter);
         }
     }
 
-    private sealed class FailingStream(Stream inner, int failAfter) : Stream
+    private sealed class FailingStream(Stream inner, int failAfter, bool silent = false) : Stream
     {
         private int read;
 
@@ -268,6 +299,9 @@ public sealed class LocalCacheTests : IDisposable
 
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancel = default)
         {
+            if (read >= failAfter && silent)
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancel);
+
             if (read >= failAfter)
                 throw new IOException("The connection dropped.");
 

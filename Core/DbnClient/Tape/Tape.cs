@@ -159,9 +159,12 @@ public sealed class Tape
                 return ((open ?? 0) / NanosPerMicro, (close ?? 0) / NanosPerMicro);
 
             case WindowKind.Hours:
-                var firstDay = window.From < window.To ? Header.TradeDate : Header.TradeDate.AddDays(-1);
+                // A trade date starts at 17:00 the evening before, so hours from then on, and hours that run
+                // past midnight, open on the day before the trade date's name.
+                var sameDay = window.From < window.To;
+                var firstDay = sameDay && window.From < Sessions.Open ? Header.TradeDate : Header.TradeDate.AddDays(-1);
 
-                return (Micros(firstDay, window.From), Micros(Header.TradeDate, window.To));
+                return (Micros(firstDay, window.From), Micros(sameDay ? firstDay : firstDay.AddDays(1), window.To));
 
             default:
                 // A delayed open keeps the day's usual grid, so bars line up with every other day's.

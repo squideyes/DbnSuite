@@ -77,22 +77,28 @@ internal sealed class ParquetRowWriter : IRowWriter
 
     public async ValueTask DisposeAsync()
     {
-        if (buffered > 0)
-            Flush();
+        try
+        {
+            if (buffered > 0)
+                Flush();
 
-        Finished = new Closed(position, rows, groups);
+            Finished = new Closed(position, rows, groups);
 
-        var footer = Footer();
+            var footer = Footer();
 
-        Emit(footer);
+            Emit(footer);
 
-        var length = new byte[4];
-        BinaryPrimitives.WriteInt32LittleEndian(length, footer.Length);
-        Emit(length);
-        Emit(Magic);
-
-        await stream.DisposeAsync().ConfigureAwait(false);
-        compressor.Dispose();
+            var length = new byte[4];
+            BinaryPrimitives.WriteInt32LittleEndian(length, footer.Length);
+            Emit(length);
+            Emit(Magic);
+        }
+        finally
+        {
+            // A write that fails, as on a full disk, must still let go of the file, or it could not be deleted.
+            await stream.DisposeAsync().ConfigureAwait(false);
+            compressor.Dispose();
+        }
     }
 
     /// <summary>Writes the buffered rows as a row group: one chunk per column.</summary>
@@ -107,7 +113,8 @@ internal sealed class ParquetRowWriter : IRowWriter
             buffer.Clear();
         }
 
-        groups.Add(new RowGroup(chunks, position - start, buffered));
+        // total_byte_size is the size before compression, by the format's definition.
+        groups.Add(new RowGroup(chunks, chunks.Sum(c => c.Uncompressed), buffered));
         buffered = 0;
     }
 

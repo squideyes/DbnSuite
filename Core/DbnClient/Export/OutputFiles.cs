@@ -105,13 +105,19 @@ internal sealed class OutputFiles : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await CloseAsync().ConfigureAwait(false);
-
-        if (completed)
-            return;
-
-        foreach (var path in files)
-            File.Delete(Unfinished(path));
+        try
+        {
+            await CloseAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            // Even when the last file would not close, as on a full disk, nothing half-written stays behind.
+            if (!completed)
+            {
+                foreach (var path in files)
+                    File.Delete(Unfinished(path));
+            }
+        }
     }
 
     private static string Unfinished(string path) => path + ".partial";
@@ -144,7 +150,7 @@ internal sealed class OutputFiles : IAsyncDisposable
         }
 
         if (request.Format == OutputFormat.NinjaTrader)
-            return $"{NinjaTraderName(request.Symbol)}.Last.{ext}";
+            return $"{NinjaTraderName(request.Symbol, request.TradeDates.From.Year)}.Last.{ext}";
 
         return request.Layout switch
         {
@@ -159,18 +165,19 @@ internal sealed class OutputFiles : IAsyncDisposable
     /// NinjaTrader names an instrument by root and expiry month (<c>ES 12-26</c>)
     /// and imports a file into the instrument its name gives.
     /// </summary>
-    private static string NinjaTraderName(SymbolSpec symbol)
+    /// <param name="fromYear">The year the export starts in, which gives a one-digit year (<c>ESZ9</c>) its decade.</param>
+    internal static string NinjaTraderName(SymbolSpec symbol, int fromYear)
     {
         if (symbol.Kind != SymbolKind.Contract || symbol.Text.Contains('-', StringComparison.Ordinal))
             return symbol.Text;
 
-        var text = symbol.Text;
+        var text = ContractSymbol.Expand(symbol.Text, fromYear);
         var digits = text.Length - text.TrimEnd("0123456789".ToCharArray()).Length;
         var month = ContractSymbol.Month(text[^(digits + 1)]);
         var year = text[^digits..];
 
         return month == 0
             ? text
-            : string.Create(CultureInfo.InvariantCulture, $"{symbol.Root} {month:D2}-{(year.Length == 1 ? "2" + year : year)}");
+            : string.Create(CultureInfo.InvariantCulture, $"{symbol.Root} {month:D2}-{year}");
     }
 }
