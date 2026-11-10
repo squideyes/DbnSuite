@@ -21,3 +21,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+
+  # The images the Compose files name: RustFS, Seq and Caddy.
+  - package-ecosystem: docker-compose
+    directories:
+      - /Deploy
+      - /Deploy/digitalocean
+    schedule:
+      interval: weekly

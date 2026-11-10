@@ -90,7 +90,7 @@
                 <tbody>
                     <tr><td><code>DATABENTO_API_KEY</code></td><td>Your key, from the API keys page of your Databento portal. It starts <code>db-</code>.</td></tr>
                     <tr><td><code>S3_ROOT_ACCESS_KEY</code></td><td>The S3 server's administrator name. The default, <code>dbnsync-admin</code>, is fine.</td></tr>
-                    <tr><td><code>S3_ROOT_SECRET_KEY</code></td><td>A long random secret: run <code>openssl rand -base64 30</code> and paste the result.</td></tr>
+                    <tr><td><code>S3_ROOT_SECRET_KEY</code></td><td>A long random secret: run <code>openssl rand -hex 24</code> and paste the result.</td></tr>
                     <tr><td><code>S3_DATA_PATH</code></td><td>The archive folder from step 3, such as <code>/srv/dbnsync/s3</code>.</td></tr>
                     <tr><td><code>SEQ_ADMIN_PASSWORD</code></td><td>A password for Seq's <code>admin</code> user, used on its first start.</td></tr>
                     <tr><td><code>DBNSYNC_LOGS_URL</code></td><td>Seq as your browser reaches it, such as <code>http://myserver:5341</code>, so the dashboard can link problems to their logs. Leave it empty to hide the links.</td></tr>
@@ -113,6 +113,8 @@
     </li>
     <li>
         <strong>Open the dashboard</strong> at <code>http://&lt;server&gt;:8080</code>. The first pass starts at once.
+        On a server with a public address, set <code>BIND_ADDRESS=127.0.0.1</code> in <code>.env</code> first and reach
+        the dashboard through an SSH tunnel: it has no login of its own, and Docker's published ports go round the firewall.
         With the defaults the first backfill is about 670 Databento jobs, at most 30 in flight at a time, and takes a
         day or two; the dashboard's ETA says when it expects to finish.
     </li>
@@ -390,12 +392,13 @@
             <tr><td><code>S3_DATA_PATH</code></td><td>required</td><td>The folder RustFS keeps the archive in.</td></tr>
             <tr><td><code>SEQ_ADMIN_PASSWORD</code></td><td>required</td><td>Seq's admin password on its first start.</td></tr>
             <tr><td><code>DBNSYNC_LOGS_URL</code></td><td>empty</td><td>Seq as a browser reaches it, for the dashboard's log links.</td></tr>
+            <tr><td><code>BIND_ADDRESS</code></td><td><code>0.0.0.0</code></td><td>Where every published port listens. Set <code>127.0.0.1</code> on a server with a public address.</td></tr>
             <tr><td><code>DBNSYNC_ACCESS_KEY</code>, <code>DBNSYNC_SECRET_KEY</code></td><td>the root key</td><td>The worker's own S3 key.</td></tr>
             <tr><td><code>DBNSYNC_ROOTS</code></td><td>the twelve above</td><td>Comma-separated roots.</td></tr>
             <tr><td><code>DBNSYNC_SCHEMAS</code></td><td><code>mbo,ohlcv-1s,definition,statistics,status</code></td><td>Comma-separated schemas.</td></tr>
             <tr><td><code>S3_SERVICE_URL</code></td><td><code>http://s3:9000</code></td><td>Another S3 store, such as Spaces.</td></tr>
             <tr><td><code>S3_BUCKET</code></td><td><code>dbn</code></td><td>The bucket.</td></tr>
-            <tr><td><code>DBNSYNC_IMAGE</code></td><td><code>ghcr.io/squideyes/dbnsync-worker:latest</code></td><td>Pin a version by its tag.</td></tr>
+            <tr><td><code>DBNSYNC_IMAGE</code></td><td><code>ghcr.io/squideyes/dbnsync-worker:latest</code></td><td>Pin a build by its commit: every image is also tagged with the full commit id it was built from.</td></tr>
             <tr><td><code>S3_DOMAIN</code>, <code>DASHBOARD_DOMAIN</code>, <code>DASHBOARD_USER</code>, <code>DASHBOARD_PASSWORD_HASH</code></td><td>empty</td><td>HTTPS through Caddy.</td></tr>
             <tr><td><code>DBNSYNC_ALLOW_PAID_JOBS</code>, <code>DBNSYNC_MAX_PER_JOB</code>, <code>DBNSYNC_MAX_PER_DAY</code>, <code>DBNSYNC_MAX_PER_MONTH</code></td><td>off, $0</td><td>The <a href="docs/dbnsync#spend">spend policy</a>. Read its caveats first.</td></tr>
             <tr><td><code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>, <code>SMTP_PASSWORD</code>, <code>ALERT_FROM</code>, <code>ALERT_TO</code></td><td>off, port 465</td><td><a href="docs/dbnsync#alert-emails">Alert emails</a>.</td></tr>

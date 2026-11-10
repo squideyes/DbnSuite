@@ -15,17 +15,28 @@
 
 name: dbnsync
 
+# Docker keeps a container's console log for ever unless told otherwise.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   s3:
     image: rustfs/rustfs:1.0.4
     restart: unless-stopped
+    logging: *logging
     environment:
       RUSTFS_ACCESS_KEY: ${S3_ROOT_ACCESS_KEY:?set S3_ROOT_ACCESS_KEY in .env}
       RUSTFS_SECRET_KEY: ${S3_ROOT_SECRET_KEY:?set S3_ROOT_SECRET_KEY in .env}
       RUSTFS_CONSOLE_ENABLE: "true"
+    # BIND_ADDRESS is where every port here listens. The default is every network the machine is
+    # on, which suits a NAS at home. On a server with a public address set it to 127.0.0.1: Docker's
+    # published ports go round the firewall, and the dashboard and Seq have no login of their own.
     ports:
-      - "${S3_PORT:-9000}:9000"
-      - "${S3_CONSOLE_PORT:-9001}:9001"
+      - "${BIND_ADDRESS:-0.0.0.0}:${S3_PORT:-9000}:9000"
+      - "${BIND_ADDRESS:-0.0.0.0}:${S3_CONSOLE_PORT:-9001}:9001"
     volumes:
       - ${S3_DATA_PATH:?set S3_DATA_PATH in .env}:/data
     healthcheck:
@@ -40,11 +51,12 @@ services:
   seq:
     image: datalust/seq:2025.2
     restart: unless-stopped
+    logging: *logging
     environment:
       ACCEPT_EULA: "Y"
       SEQ_FIRSTRUN_ADMINPASSWORD: ${SEQ_ADMIN_PASSWORD:?set SEQ_ADMIN_PASSWORD in .env}
     ports:
-      - "${SEQ_PORT:-5341}:80"
+      - "${BIND_ADDRESS:-0.0.0.0}:${SEQ_PORT:-5341}:80"
     volumes:
       - seq:/data
 
@@ -53,6 +65,9 @@ services:
     build:
       context: ..
     restart: unless-stopped
+    logging: *logging
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       s3:
         condition: service_healthy
@@ -84,7 +99,7 @@ services:
       Alerts__From: ${ALERT_FROM:-}
       Alerts__To: ${ALERT_TO:-}
     ports:
-      - "${DBNSYNC_PORT:-8080}:8080"
+      - "${BIND_ADDRESS:-0.0.0.0}:${DBNSYNC_PORT:-8080}:8080"
     volumes:
       - scratch:/scratch
 
@@ -96,6 +111,7 @@ services:
     image: caddy:2.10.2
     profiles: [internet]
     restart: unless-stopped
+    logging: *logging
     environment:
       S3_DOMAIN: ${S3_DOMAIN:-}
       DASHBOARD_DOMAIN: ${DASHBOARD_DOMAIN:-}

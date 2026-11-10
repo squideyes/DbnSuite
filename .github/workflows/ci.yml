@@ -5,13 +5,15 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only by default: the build job runs every package's build targets and all the tests, and
+# has no business holding a token that can push images. Only the image job may.
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
@@ -26,17 +28,25 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    # One at a time, in order, so two merges close together cannot leave latest on the older commit.
+    concurrency:
+      group: image-main
     steps:
       - uses: actions/checkout@v7
 
-      # The DbnSync worker image, public on GitHub's registry.
-      - uses: docker/login-action@v4
+      # The DbnSync worker image, public on GitHub's registry. Actions from outside GitHub are
+      # pinned to a commit, since a tag can be moved; Dependabot keeps the pins current.
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           push: true
@@ -45,7 +55,7 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/dbnsync-worker:${{ github.sha }}
 
       # The optional DbnSpool worker.
-      - uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: Dockerfile.spool

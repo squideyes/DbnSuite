@@ -11,9 +11,8 @@
 # Shell scripts run on Linux servers and NAS systems, even from a Windows checkout.
 *.sh      text eol=lf
 
-# Market data artifacts are binary. They are gitignored as well, but if one
+# Market data is binary. It is gitignored as well, but if a file
 # ever slips through, do not let it be line-ending mangled.
-*.barset   binary
-*.mboset   binary
-*.quoteset binary
-*.tradeset binary
+*.tape     binary
+*.dbn      binary
+*.zst      binary
