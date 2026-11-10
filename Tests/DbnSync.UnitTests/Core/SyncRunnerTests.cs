@@ -923,22 +923,54 @@ public sealed class SyncRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task A_job_whose_files_are_unavailable_stays_pending_until_it_is_a_week_old()
+    public async Task A_job_whose_files_are_unavailable_stays_pending_until_it_has_failed_for_a_week()
     {
         var job = Pending(new DayRange(Day(10, 30), Day(10, 30)));
-        store.ListPendingAsync(Arg.Any<CancellationToken>()).Returns([job]);
+        KeepPendingAsSaved(job);
         databento.GetStateAsync(JobId, job.SubmittedAt, Arg.Any<CancellationToken>()).Returns(JobState.Done);
         databento.ListFilesAsync(JobId, Arg.Any<CancellationToken>()).Returns(new Error(Errors.Unreachable, "timed out"));
 
         await Runner().RunOnceAsync(CancellationToken.None);
+        clock.Advance(TimeSpan.FromDays(6));
+        await Runner().RunOnceAsync(CancellationToken.None);
         var kept = store.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IArchiveStore.DeletePendingAsync));
-        clock.Advance(TimeSpan.FromDays(8));
+        clock.Advance(TimeSpan.FromDays(2));
         var abandoned = await Runner().RunOnceAsync(CancellationToken.None);
 
         kept.ShouldBe(0);
         abandoned.JobsCollected.ShouldBe(1);
         abandoned.Issues.ShouldContain(i => i.Code == IssueCodes.JobAbandoned && i.Level == IssueLevel.Error);
         await store.Received(1).DeletePendingAsync(JobId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_job_left_waiting_while_the_worker_was_down_is_not_given_up_at_its_first_failure()
+    {
+        var job = Pending(new DayRange(Day(10, 30), Day(10, 30))) with { SubmittedAt = Now.AddDays(-10) };
+        KeepPendingAsSaved(job);
+        databento.GetStateAsync(JobId, job.SubmittedAt, Arg.Any<CancellationToken>()).Returns(JobState.Done);
+        databento.ListFilesAsync(JobId, Arg.Any<CancellationToken>()).Returns(new Error(Errors.Unreachable, "timed out"));
+
+        var summary = await Runner().RunOnceAsync(CancellationToken.None);
+
+        summary.Issues.ShouldNotContain(i => i.Code == IssueCodes.JobAbandoned);
+        await store.DidNotReceive().DeletePendingAsync(JobId, Arg.Any<CancellationToken>());
+        await store.Received(1).SavePendingAsync(Arg.Is<PendingJob>(j => j.Id == JobId && j.FailingSince == Now),
+            Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>The store lists a pending job as it was last saved, as the real one does.</summary>
+    private void KeepPendingAsSaved(PendingJob job)
+    {
+        var current = job;
+        store.ListPendingAsync(Arg.Any<CancellationToken>()).Returns(_ => [current]);
+        store.SavePendingAsync(Arg.Any<PendingJob>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask)
+            .AndDoes(call =>
+            {
+                if (call.Arg<PendingJob>().Id == job.Id)
+                    current = call.Arg<PendingJob>();
+            });
     }
 
     [Theory]

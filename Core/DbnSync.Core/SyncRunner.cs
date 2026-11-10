@@ -27,8 +27,8 @@ public sealed class SyncRunner(
     private const int MaxTrims = 3;
 
     /// <summary>
-    /// A job still failing after this long is abandoned and its days planned
-    /// again: Databento keeps a job's files for a limited time, and a job
+    /// A job still failing this long after its first failure is abandoned and
+    /// its days planned again: Databento keeps a job's files for a limited time, and a job
     /// whose files are gone can never succeed.
     /// </summary>
     private static readonly TimeSpan GiveUpAfter = TimeSpan.FromDays(7);
@@ -128,12 +128,22 @@ public sealed class SyncRunner(
             return true;
         }
 
-        if (clock.GetUtcNow() - job.SubmittedAt > GiveUpAfter)
+        var now = clock.GetUtcNow();
+
+        if (job.FailingSince is not { } failingSince)
         {
-            logger.LogError("Job {Job} has failed to store since {Submitted}; abandoning it",
-                job.Id, job.SubmittedAt);
+            // The week starts now: a job left waiting while the worker was down has not been failing.
+            await store.SavePendingAsync(job with { FailingSince = now }, cancel).ConfigureAwait(false);
+
+            return false;
+        }
+
+        if (now - failingSince > GiveUpAfter)
+        {
+            logger.LogError("Job {Job} has failed to store since {FailingSince}; abandoning it",
+                job.Id, failingSince);
             tally.Issue(IssueLevel.Error, IssueCodes.JobAbandoned,
-                $"Failed to store since {job.SubmittedAt:yyyy-MM-dd HH:mm}Z; its days will be planned again.", job);
+                $"Failed to store since {failingSince:yyyy-MM-dd HH:mm}Z; its days will be planned again.", job);
 
             await store.DeletePendingAsync(job.Id, cancel).ConfigureAwait(false);
 
