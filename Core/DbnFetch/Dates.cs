@@ -18,6 +18,9 @@ internal static class Dates
     public static Option<DateOnly> Required(string name, string description) =>
         new(name) { Description = description, Required = true, CustomParser = result => Parse(result) ?? default };
 
+    public static Argument<DateOnly> Argument(string name, string description) =>
+        new(name) { Description = description, CustomParser = result => Parse(result) ?? default };
+
     private static DateOnly? Parse(ArgumentResult result)
     {
         var text = result.Tokens.Count == 1 ? result.Tokens[0].Value : "";

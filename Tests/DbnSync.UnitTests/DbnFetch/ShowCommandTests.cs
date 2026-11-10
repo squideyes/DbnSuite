@@ -257,6 +257,15 @@ public sealed class ShowCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task A_date_in_the_computers_own_format_is_refused()
+    {
+        var run = await dbnf.OnArchiveAsync($"show {Mbo} {Root} 10/30/2026");
+
+        run.ExitCode.ShouldBe(Dbnf.ParseFailure);
+        run.Error.ShouldContain("is not a date");
+    }
+
+    [Fact]
     public async Task The_day_is_required()
     {
         var run = await dbnf.OnArchiveAsync($"show {Mbo} {Root}");

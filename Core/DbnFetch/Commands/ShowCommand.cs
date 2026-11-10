@@ -14,7 +14,7 @@ public static class ShowCommand
     {
         var schema = new Argument<string>("schema") { Description = "A schema, such as mbo or ohlcv-1s." };
         var symbol = new Argument<string>("symbol") { Description = "A root (ES), a contract (ESZ26), or for mbo ES.n.0 or ES.n.1." };
-        var day = new Argument<DateOnly>("day") { Description = "A UTC day, as yyyy-MM-dd." };
+        var day = Dates.Argument("day", "A UTC day, as yyyy-MM-dd.");
         var limit = new Option<int>("--limit") { Description = "How many records to print.", DefaultValueFactory = _ => 20 };
         var zone = new Option<string>("--tz") { Description = "The time zone to show times in.", DefaultValueFactory = _ => Zones.Default };
 
