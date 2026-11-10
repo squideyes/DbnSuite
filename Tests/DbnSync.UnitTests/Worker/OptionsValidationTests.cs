@@ -150,6 +150,27 @@ public sealed class OptionsValidationTests
     }
 
     [Theory]
+    [InlineData(31, 0)]
+    [InlineData(0, 31)]
+    public void A_wait_longer_than_a_month_is_refused(int intervalDays, int busyDays)
+    {
+        var options = Keeping();
+        options.Interval = intervalDays > 0 ? TimeSpan.FromDays(intervalDays) : options.Interval;
+        options.BusyInterval = busyDays > 0 ? TimeSpan.FromDays(busyDays) : options.BusyInterval;
+
+        Failure(options).ShouldContain("at most 30 days");
+    }
+
+    [Fact]
+    public void An_empty_scratch_folder_is_refused()
+    {
+        var options = Keeping();
+        options.ScratchPath = " ";
+
+        Failure(options).ShouldContain("ScratchPath");
+    }
+
+    [Theory]
     [InlineData(0)]
     [InlineData(501)]
     public void A_pending_limit_out_of_range_is_refused(int jobs)

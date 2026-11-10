@@ -24,9 +24,38 @@ public sealed class SpoolOptions
 
     /// <summary>
     /// How many times a date may stop DbnSpool, by running out of memory or anything else
-    /// that ends the process, before it is set aside. It is tried again once DbnSpool's code changes.
+    /// that ends the process, before it is set aside. It is tried again once DbnSpool's code or its
+    /// memory limit changes.
     /// </summary>
     public int MostAttempts { get; set; } = 2;
+
+    /// <summary>What is wrong with these settings, in words for whoever set them, or null.</summary>
+    public string? Problem()
+    {
+        if (RootList.Count == 0)
+            return "DbnSpool:Roots names no root, so there is nothing to spool.";
+
+        // Task.Delay takes no more than about 49 days, and under a minute would only spin.
+        if (Interval < TimeSpan.FromMinutes(1) || Interval > TimeSpan.FromDays(30))
+            return $"DbnSpool:Interval is {Interval}; it must be from one minute to 30 days.";
+
+        if (MostAttempts < 1)
+            return $"DbnSpool:MostAttempts is {MostAttempts}; it must be 1 or more.";
+
+        return string.IsNullOrWhiteSpace(WorkPath) ? "DbnSpool:WorkPath is empty; it names the folder tapes are built in." : null;
+    }
+
+    /// <summary>
+    /// True when two stores are the same place. The tape store must not be the archive: tapes, catalogs and
+    /// the ledger would land among the archive's own folders.
+    /// </summary>
+    public static bool SamePlace(DbnClient.Archive.ArchiveOptions one, DbnClient.Archive.ArchiveOptions other) =>
+        one.IsFolder == other.IsFolder
+        && (one.IsFolder
+            ? string.Equals(Path.GetFullPath(one.Location).TrimEnd('/', '\\'), Path.GetFullPath(other.Location).TrimEnd('/', '\\'), StringComparison.OrdinalIgnoreCase)
+            : string.Equals(one.Location.TrimEnd('/'), other.Location.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)
+                && one.Bucket == other.Bucket
+                && one.Prefix.Trim('/') == other.Prefix.Trim('/'));
 
     public IReadOnlyList<string> RootList =>
         [.. Roots.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(r => r.ToUpperInvariant())];

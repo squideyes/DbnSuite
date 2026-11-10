@@ -34,14 +34,17 @@
     <li><strong>Uploads</strong> them, then records the date in the store, so a restart or a new machine carries on from there.</li>
 </ol>
 <p>
-    A date that fails any step uploads nothing, is logged, and is tried again when the archive next changes. When
-    <code>mbo</code> arrives for a date that was spooled without it, that date is built again with its tick tapes.
-    Each root's catalog goes up at the end of its pass.
+    A date that fails any step uploads nothing, is logged, and is tried again when the archive next changes. A date
+    that hits an error, such as the store going away, is tried again at the next pass, and the dates after it carry
+    on. When <code>mbo</code> arrives for a date that was spooled without it, that date is built again with its tick
+    tapes. If no <code>mbo</code> has arrived for more than a week, later dates stop waiting for it and get bar tapes
+    only. Each root's catalog goes up at the end of its pass.
 </p>
 <p>
     A date that stops DbnSpool itself, as running out of memory does, is noted in the ledger before its work starts.
     Once a date has stopped it twice, it is set aside and logged, and the dates and roots after it carry on. A set-aside
-    date is tried again once DbnSpool's code changes.
+    date is tried again once DbnSpool's code or its memory limit changes, so raising <code>mem_limit</code> in the
+    Compose file gives it another go.
 </p>
 <p>
     On a first run it spools everything the archive holds, oldest first, which takes many hours. It runs at low priority
@@ -110,7 +113,7 @@
         <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
         <tbody>
             <tr><td><code>Archive__Location</code>, <code>Archive__Bucket</code>, <code>Archive__AccessKey</code>, <code>Archive__SecretKey</code></td><td>none, <code>dbn</code></td><td>The archive to read.</td></tr>
-            <tr><td><code>Tapes__Location</code>, <code>Tapes__Bucket</code>, <code>Tapes__AccessKey</code>, <code>Tapes__SecretKey</code></td><td>none, <code>dbn</code></td><td>Where tapes go. The Compose file sets the bucket to <code>dbn-tapes</code>.</td></tr>
+            <tr><td><code>Tapes__Location</code>, <code>Tapes__Bucket</code>, <code>Tapes__AccessKey</code>, <code>Tapes__SecretKey</code></td><td>none, <code>dbn</code></td><td>Where tapes go, which must not be the archive itself. The Compose file sets the bucket to <code>dbn-tapes</code>.</td></tr>
             <tr><td><code>DbnSpool__Roots</code></td><td>the 12 default roots</td><td>The roots to spool.</td></tr>
             <tr><td><code>DbnSpool__Interval</code></td><td><code>01:00:00</code></td><td>How long to wait between looks at the archive.</td></tr>
             <tr><td><code>DbnSpool__Compress</code></td><td><code>true</code></td><td>Compress tapes with zstd.</td></tr>

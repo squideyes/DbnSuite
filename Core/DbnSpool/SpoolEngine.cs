@@ -9,7 +9,10 @@ public interface ISpoolEngine
 {
     string Dataset { get; }
 
-    /// <summary>Names the code that builds and proves tapes, so a date set aside is tried again once that changes.</summary>
+    /// <summary>
+    /// Names the code that builds and proves tapes and the memory it has, so a date set aside is
+    /// tried again once either changes.
+    /// </summary>
     string Build { get; }
 
     Task<Result<IReadOnlyList<StoredDay>>> DaysAsync(string schema, string root, CancellationToken cancel);
@@ -29,9 +32,11 @@ public sealed class SpoolEngine(DbnArchive archive, SpoolOptions options) : ISpo
 {
     private const string MboSchema = "mbo";
 
-    // Builds are deterministic, so a module's id changes only when its code does.
+    // Builds are deterministic, so a module's id changes only when its code does. The memory DbnSpool may
+    // use is part of the name too: a date set aside for running out of it deserves another try with more.
     private static readonly string CodeBuild =
-        $"{typeof(TapeBuilder).Assembly.ManifestModule.ModuleVersionId:N}.{typeof(SpoolEngine).Assembly.ManifestModule.ModuleVersionId:N}";
+        $"{typeof(TapeBuilder).Assembly.ManifestModule.ModuleVersionId:N}.{typeof(SpoolEngine).Assembly.ManifestModule.ModuleVersionId:N}"
+        + $".{GC.GetGCMemoryInfo().TotalAvailableMemoryBytes >> 20}m";
 
     public string Dataset => archive.Dataset;
 

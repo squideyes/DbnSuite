@@ -48,12 +48,17 @@ public sealed class SyncRunner(
 
         if (!ends.IsSuccess)
         {
-            logger.LogWarning("Pass skipped, dataset range unavailable: {Error}", ends.Error);
+            logger.LogWarning("Nothing new is asked for this pass, dataset range unavailable: {Error}", ends.Error);
             tally.Issue(IssueLevel.Error, ends.Error!.Code, $"Dataset range unavailable: {ends.Error.Message}");
 
-            return tally.Finish(clock.GetUtcNow(), ends.Error.ToString());
+            // With Databento out of reach, or refusing the key, no other call would fare better, and each
+            // pending job would only add an issue of its own.
+            if (ends.Error.Code is not (Errors.Malformed or Errors.ServerError))
+                return tally.Finish(clock.GetUtcNow(), ends.Error.ToString());
         }
 
+        // Collecting needs no range, and a finished job's files do not wait for ever: when it is only
+        // the range that cannot be read, they are still fetched, though nothing new can be planned.
         var pending = new List<PendingJob>();
 
         foreach (var job in await store.ListPendingAsync(cancel).ConfigureAwait(false))
@@ -63,6 +68,11 @@ public sealed class SyncRunner(
             else
                 pending.Add(job);
         }
+
+        tally.JobsPending = pending.Count;
+
+        if (!ends.IsSuccess)
+            return tally.Finish(clock.GetUtcNow(), ends.Error!.ToString());
 
         await SubmitAsync(ends.Value, pending, tally, cancel).ConfigureAwait(false);
 
@@ -166,7 +176,8 @@ public sealed class SyncRunner(
 
         foreach (var file in files.Value.Where(f => !BatchFileName.IsSupport(f.Name)))
         {
-            if (BatchFileName.DayOf(file.Name) is not { } day || !job.Range.Contains(day))
+            // The name becomes a path on the scratch disk, so it must be a bare file name.
+            if (Path.GetFileName(file.Name) != file.Name || BatchFileName.DayOf(file.Name) is not { } day || !job.Range.Contains(day))
             {
                 logger.LogError("Job {Job} produced {File}, which is not a day in {Range}",
                     job.Id, file.Name, job.Range);
@@ -259,6 +270,7 @@ public sealed class SyncRunner(
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
 
         var coverage = new List<Coverage>();
+        var unranged = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var (root, schema) in options.Wanted())
         {
@@ -266,6 +278,13 @@ public sealed class SyncRunner(
             {
                 logger.LogWarning("{Dataset} reports no range for {Schema}; skipped",
                     options.Dataset, schema.Name);
+
+                // Said once per schema, not once per root: otherwise the schema would stop syncing in silence.
+                if (unranged.Add(schema.Name))
+                {
+                    tally.Issue(IssueLevel.Error, Errors.Malformed,
+                        $"Databento's range for {options.Dataset} does not name {schema.Name}, so nothing of it was asked for.");
+                }
 
                 continue;
             }

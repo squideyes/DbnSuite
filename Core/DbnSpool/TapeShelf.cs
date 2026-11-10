@@ -93,8 +93,16 @@ public sealed class FolderTapeShelf(string folder) : ITapeShelf
         return Task.CompletedTask;
     }
 
-    public Task PutBytesAsync(string key, byte[] bytes, CancellationToken cancel) =>
-        File.WriteAllBytesAsync(Prepare(key), bytes, cancel);
+    /// <summary>Replaces the file whole, so a stop part way through never leaves half a ledger behind.</summary>
+    public async Task PutBytesAsync(string key, byte[] bytes, CancellationToken cancel)
+    {
+        var path = Prepare(key);
+        var temporary = path + ".tmp";
+
+        await File.WriteAllBytesAsync(temporary, bytes, cancel).ConfigureAwait(false);
+
+        File.Move(temporary, path, overwrite: true);
+    }
 
     public async Task<byte[]?> ReadAsync(string key, CancellationToken cancel)
     {

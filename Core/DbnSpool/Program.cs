@@ -31,6 +31,12 @@ internal static class Program
         var source = Required(builder.Configuration, SpoolOptions.ArchiveSection);
         var tapes = Required(builder.Configuration, SpoolOptions.TapesSection);
 
+        if (options.Problem() is { } problem)
+            throw new InvalidOperationException(problem);
+
+        if (SpoolOptions.SamePlace(source, tapes))
+            throw new InvalidOperationException("Tapes and Archive name the same place. Tapes need a bucket or folder of their own: set Tapes:Bucket.");
+
         builder.Services.AddSingleton(options);
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton(DbnArchive.Open(source, options.CacheFolder));

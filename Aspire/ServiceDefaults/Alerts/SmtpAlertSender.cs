@@ -35,7 +35,15 @@ public sealed class SmtpAlertSender(IOptions<AlertOptions> options) : IAlertSend
             await client.AuthenticateAsync(settings.User, settings.Password, cancel).ConfigureAwait(false);
 
         await client.SendAsync(message, cancel).ConfigureAwait(false);
-        await client.DisconnectAsync(true, cancel).ConfigureAwait(false);
+
+        try
+        {
+            await client.DisconnectAsync(true, cancel).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // The server has the message. A goodbye that fails must not make the send look failed, or it would go out again.
+        }
     }
 
     /// <summary>

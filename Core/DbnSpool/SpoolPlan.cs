@@ -8,6 +8,17 @@ public static class SpoolPlan
     public static DateOnly? Through(IReadOnlyList<IReadOnlyCollection<DateOnly>> schemas) =>
         schemas.Count == 0 || schemas.Any(s => s.Count == 0) ? null : schemas.Min(s => s.Max());
 
+    /// <summary>How many days <c>mbo</c> may trail the other schemas before a root stops waiting for it.</summary>
+    public const int MboPatience = 7;
+
+    /// <summary>
+    /// True while <c>mbo</c> is close enough behind the other schemas to wait for. It arrives about a day
+    /// after them, and a weekend or a holiday adds a day or two. Further behind than that it has stopped,
+    /// or was only ever collected for older days, and waiting would hold the root's bar tapes back for ever.
+    /// </summary>
+    public static bool StillComing(IReadOnlyCollection<DateOnly> mboDays, DateOnly reached) =>
+        mboDays.Count > 0 && mboDays.Max() >= reached.AddDays(-MboPatience);
+
     /// <summary>
     /// The trade dates to spool, oldest first: those the shelf lacks, and those it holds
     /// without tick tapes whose <c>mbo</c> files have arrived since. A trade date ends in

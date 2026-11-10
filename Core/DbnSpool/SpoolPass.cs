@@ -1,3 +1,4 @@
+using System.Globalization;
 using DbnClient.Tape;
 
 namespace DbnSpool;
@@ -5,20 +6,27 @@ namespace DbnSpool;
 /// <summary>What one pass over one root did.</summary>
 /// <param name="Skipped">True when the archive held nothing new.</param>
 /// <param name="Failed">Dates or steps that failed, set-aside dates among them.</param>
-/// <param name="Problem">What someone should look at, such as dates set aside, or null.</param>
+/// <param name="Problem">The dates set aside, for someone to look at, or null.</param>
 /// <param name="SetAside">How many of the failed dates were set aside.</param>
-public sealed record RootResult(string Root, int Spooled, int Failed, bool Skipped, string? Problem = null, int SetAside = 0);
+/// <param name="Trouble">What the first date that threw said, or null when none did.</param>
+public sealed record RootResult(string Root, int Spooled, int Failed, bool Skipped, string? Problem = null, int SetAside = 0,
+    string? Trouble = null);
 
 /// <summary>
 /// One root's pass: each trade date the shelf lacks is built, proved, uploaded and
 /// recorded. A date that fails anywhere puts nothing in the ledger, and is tried
-/// again the next time the archive changes. A date that stops DbnSpool itself, as
-/// running out of memory does, is set aside once it has done so
+/// again the next time the archive changes. A date that throws is tried again at the
+/// next pass, and the dates after it still get done. A date that stops DbnSpool
+/// itself, as running out of memory does, is set aside once it has done so
 /// <see cref="SpoolOptions.MostAttempts"/> times, so the dates after it still get done.
 /// </summary>
 public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOptions options, ILogger<SpoolPass> logger)
 {
+    /// <summary>Dates in a row that may throw before the pass gives up: by then it is the archive or the disk, not the dates.</summary>
+    public const int MostThrowsInARow = 3;
+
     private const string MboSchema = "mbo";
+    private const string DayFormat = "yyyy-MM-dd";
 
     private static readonly string[] Sources = ["ohlcv-1s", "definition", "statistics", "status"];
 
@@ -30,9 +38,19 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
         foreach (var schema in Sources)
             schemas.Add(await DaysOf(schema, root, cancel).ConfigureAwait(false));
 
-        // A deployment that never collects mbo still spools S1.
+        // A deployment that never collects mbo still spools S1, and so does one whose mbo has stopped arriving.
         if (mbo.Count > 0)
-            schemas.Add((IReadOnlyCollection<DateOnly>)mbo);
+        {
+            if (SpoolPlan.Through(schemas) is not { } reached || SpoolPlan.StillComing(mbo, reached))
+            {
+                schemas.Add((IReadOnlyCollection<DateOnly>)mbo);
+            }
+            else
+            {
+                logger.LogWarning("{Root}: no mbo has arrived since {Last}, so later dates get bar tapes only until it does",
+                    root, mbo.Max());
+            }
+        }
 
         if (SpoolPlan.Through(schemas) is not { } through)
         {
@@ -43,10 +61,15 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
 
         var key = SpoolLedger.KeyOf(engine.Dataset, root);
         var ledger = SpoolLedger.From(await shelf.ReadAsync(key, cancel).ConfigureAwait(false));
-        var seen = $"{through:yyyyMMdd}/{mbo.Count}";
+        var seen = $"{through.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}/{mbo.Count}";
 
         if (ledger.Seen == seen)
-            return new RootResult(root, 0, 0, Skipped: true);
+        {
+            // Nothing new to do, but dates still set aside are still a problem, and are reported for as long as they are.
+            var still = ledger.Attempts.Where(a => ledger.IsSetAside(a.Date, engine.Build, options.MostAttempts)).Select(a => a.Date).ToList();
+
+            return new RootResult(root, 0, still.Count, Skipped: true, SetAsideProblem(root, still), still.Count);
+        }
 
         var catalog = await engine.CatalogAsync(root, cancel).ConfigureAwait(false);
 
@@ -60,6 +83,9 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
         var pending = SpoolPlan.Pending(catalog.Value.Days.Select(d => d.TradeDate), ledger, mbo, through);
         var spooled = 0;
         var failed = 0;
+        var threw = 0;
+        var throwsInARow = 0;
+        string? trouble = null;
         var setAside = new List<DateOnly>();
 
         logger.LogInformation("{Root}: {Dates} trade dates to spool, through {Through}", root, pending.Count, through);
@@ -68,7 +94,7 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
         {
             if (ledger.IsSetAside(date, engine.Build, options.MostAttempts))
             {
-                logger.LogError("{Root} {Date}: set aside, because it has stopped DbnSpool {Count} times; it is tried again once DbnSpool's code changes",
+                logger.LogError("{Root} {Date}: set aside, because it has stopped DbnSpool {Count} times; it is tried again once DbnSpool's code or its memory limit changes",
                     root, date, ledger.Attempt(date)!.Count);
 
                 setAside.Add(date);
@@ -87,20 +113,50 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
             try
             {
                 done = await SpoolAsync(catalog.Value, date, SpoolPlan.HasTicks(date, mbo), ledger, cancel).ConfigureAwait(false);
+                throwsInARow = 0;
             }
-            catch
+            catch (OperationCanceledException) when (cancel.IsCancellationRequested)
             {
-                // An exception, or a shutdown, is not the date's fault: only a stop that ends the process counts.
+                // A shutdown is not the date's fault: only a stop the date itself causes counts.
                 ledger.End(date);
 
                 await TrySaveAsync(key, ledger).ConfigureAwait(false);
 
                 throw;
             }
+            catch (OutOfMemoryException)
+            {
+                // Running out of memory is the stop the count exists for, whether it ends the process or only
+                // this pass. The attempt stays counted, so the date is set aside once it has done this often enough.
+                throw;
+            }
+            catch (Exception e)
+            {
+                // Anything else is not counted against the date, but must not hold up the dates after it.
+                ledger.End(date);
+
+                await TrySaveAsync(key, ledger).ConfigureAwait(false);
+
+                // The same failure on date after date is the archive or the disk, so the pass stops and says so.
+                if (++throwsInARow >= MostThrowsInARow)
+                    throw;
+
+                logger.LogError(e, "{Root} {Date}: failed, and is tried again at the next pass", root, date);
+
+                failed++;
+                threw++;
+                trouble ??= $"{date.ToString(DayFormat, CultureInfo.InvariantCulture)}: {e.Message}";
+
+                Clear();
+                engine.Release();
+
+                continue;
+            }
 
             ledger.End(date);
 
-            await shelf.PutBytesAsync(key, ledger.ToBytes(), cancel).ConfigureAwait(false);
+            // Not cancellable: the tapes are on the shelf, so the ledger must say so even during a shutdown.
+            await shelf.PutBytesAsync(key, ledger.ToBytes(), CancellationToken.None).ConfigureAwait(false);
 
             if (done)
                 spooled++;
@@ -111,18 +167,25 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
             engine.Release();
         }
 
-        await SaveCatalogAsync(catalog.Value, cancel).ConfigureAwait(false);
+        var catalogSaved = await SaveCatalogAsync(catalog.Value, cancel).ConfigureAwait(false);
 
-        ledger.Seen = seen;
+        if (!catalogSaved)
+            failed++;
+
+        // A date that threw, or a catalog that was not saved, is tried again at the next pass, not only when
+        // the archive next changes.
+        if (threw == 0 && catalogSaved)
+            ledger.Seen = seen;
 
         await shelf.PutBytesAsync(key, ledger.ToBytes(), cancel).ConfigureAwait(false);
 
-        var problem = setAside.Count == 0
-            ? null
-            : $"{root}: {string.Join(", ", setAside.Select(d => d.ToString("yyyy-MM-dd")))} set aside after stopping DbnSpool {options.MostAttempts} times";
-
-        return new RootResult(root, spooled, failed, Skipped: false, problem, setAside.Count);
+        return new RootResult(root, spooled, failed, Skipped: false, SetAsideProblem(root, setAside), setAside.Count, trouble);
     }
+
+    private string? SetAsideProblem(string root, IReadOnlyList<DateOnly> dates) =>
+        dates.Count == 0
+            ? null
+            : $"{root}: {string.Join(", ", dates.Select(d => d.ToString(DayFormat, CultureInfo.InvariantCulture)))} set aside after stopping DbnSpool {options.MostAttempts} times";
 
     private async Task TrySaveAsync(string key, SpoolLedger ledger)
     {
@@ -178,7 +241,7 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
         return true;
     }
 
-    private async Task SaveCatalogAsync(Catalog catalog, CancellationToken cancel)
+    private async Task<bool> SaveCatalogAsync(Catalog catalog, CancellationToken cancel)
     {
         var saved = await catalog.SaveAsync(options.TapeFolder, cancel).ConfigureAwait(false);
 
@@ -186,6 +249,8 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
             await shelf.PutFileAsync(KeyOf(saved.Value), saved.Value, cancel).ConfigureAwait(false);
         else
             logger.LogError("{Root}: catalog not saved: {Problem}", catalog.Root, saved.Error!.Message);
+
+        return saved.IsSuccess;
     }
 
     private string KeyOf(string path) => Path.GetRelativePath(options.TapeFolder, path).Replace('\\', '/');

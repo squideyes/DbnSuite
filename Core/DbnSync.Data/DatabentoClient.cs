@@ -136,7 +136,13 @@ public sealed class DatabentoClient(HttpClient http, IOptions<DatabentoOptions> 
                 if (job.GetProperty("id").GetString() != jobId)
                     continue;
 
-                return (true, StateOf(job.GetProperty("state").GetString()) ?? JobState.Gone);
+                var state = job.GetProperty("state").GetString();
+
+                // A state this code has never seen may be a job still running: dropping it here would
+                // plan its days again, so refuse to guess, as get_job_details does.
+                return StateOf(state) is { } known
+                    ? (true, known)
+                    : new Error(Errors.Malformed, $"list_jobs gave a state unknown here: '{state}'.");
             }
 
             return (false, JobState.Gone);
@@ -293,21 +299,34 @@ public sealed class DatabentoClient(HttpClient http, IOptions<DatabentoOptions> 
     {
         var partial = path + ".partial";
 
+        // The key is for Databento's own gateway alone, and never travels unencrypted.
+        if (!Uri.TryCreate(file.Url, UriKind.Absolute, out var url)
+            || (settings.Gateway.Scheme == Uri.UriSchemeHttps && url.Scheme != Uri.UriSchemeHttps))
+        {
+            return new Error(Errors.Malformed, $"{file.Name}: Databento listed an address that is not https.");
+        }
+
+        // The client's own timeout ends once the headers are in, so the body is watched here: the
+        // clock starts again with every read, and a file that keeps coming may take as long as it needs.
+        using var stall = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+
         try
         {
-            using var message = Authorized(new HttpRequestMessage(HttpMethod.Get, file.Url));
+            using var message = Authorized(new HttpRequestMessage(HttpMethod.Get, url));
+
+            stall.CancelAfter(settings.StallTimeout);
 
             using var response = await http.SendAsync(message,
-                HttpCompletionOption.ResponseHeadersRead, cancel).ConfigureAwait(false);
+                HttpCompletionOption.ResponseHeadersRead, stall.Token).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
-                return await RejectedAsync(response, cancel).ConfigureAwait(false);
+                return await RejectedAsync(response, stall.Token).ConfigureAwait(false);
 
             using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
 
             long written = 0;
 
-            await using (var source = await response.Content.ReadAsStreamAsync(cancel)
+            await using (var source = await response.Content.ReadAsStreamAsync(stall.Token)
                 .ConfigureAwait(false))
             await using (var target = new FileStream(partial, FileMode.Create, FileAccess.Write,
                 FileShare.None, 1 << 20, useAsync: true))
@@ -315,8 +334,10 @@ public sealed class DatabentoClient(HttpClient http, IOptions<DatabentoOptions> 
                 var buffer = new byte[1 << 20];
                 int read;
 
-                while ((read = await source.ReadAsync(buffer, cancel).ConfigureAwait(false)) > 0)
+                while ((read = await source.ReadAsync(buffer, stall.Token).ConfigureAwait(false)) > 0)
                 {
+                    stall.CancelAfter(settings.StallTimeout);
+
                     sha.AppendData(buffer, 0, read);
 
                     await target.WriteAsync(buffer.AsMemory(0, read), cancel).ConfigureAwait(false);
@@ -340,11 +361,13 @@ public sealed class DatabentoClient(HttpClient http, IOptions<DatabentoOptions> 
             return written;
         }
         catch (Exception ex) when (ex is HttpRequestException or IOException
-            || (ex is TaskCanceledException && !cancel.IsCancellationRequested))
+            || (ex is OperationCanceledException && !cancel.IsCancellationRequested))
         {
             File.Delete(partial);
 
-            return new Error(Errors.Unreachable, $"{file.Name}: {ex.Message}");
+            return new Error(Errors.Unreachable, stall.IsCancellationRequested
+                ? $"{file.Name}: the download stalled: nothing arrived for {settings.StallTimeout}."
+                : $"{file.Name}: {ex.Message}");
         }
     }
 
@@ -435,15 +458,20 @@ public sealed class DatabentoClient(HttpClient http, IOptions<DatabentoOptions> 
     private async Task<Result<JsonDocument>> SendJsonAsync(HttpRequestMessage message,
         CancellationToken cancel)
     {
+        // A call is small, so one clock covers all of it; the client's own timeout is for nothing here.
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+
+        limit.CancelAfter(settings.CallTimeout);
+
         try
         {
-            using var response = await http.SendAsync(Authorized(message), cancel)
+            using var response = await http.SendAsync(Authorized(message), limit.Token)
                 .ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
-                return await RejectedAsync(response, cancel).ConfigureAwait(false);
+                return await RejectedAsync(response, limit.Token).ConfigureAwait(false);
 
-            var body = await response.Content.ReadAsStringAsync(cancel).ConfigureAwait(false);
+            var body = await response.Content.ReadAsStringAsync(limit.Token).ConfigureAwait(false);
 
             return JsonDocument.Parse(body);
         }
@@ -451,10 +479,12 @@ public sealed class DatabentoClient(HttpClient http, IOptions<DatabentoOptions> 
         {
             return new Error(Errors.Malformed, ex.Message);
         }
-        catch (Exception ex) when (ex is HttpRequestException
-            || (ex is TaskCanceledException && !cancel.IsCancellationRequested))
+        catch (Exception ex) when (ex is HttpRequestException or IOException
+            || (ex is OperationCanceledException && !cancel.IsCancellationRequested))
         {
-            return new Error(Errors.Unreachable, ex.Message);
+            return new Error(Errors.Unreachable, limit.IsCancellationRequested
+                ? $"Databento gave no answer within {settings.CallTimeout}."
+                : ex.Message);
         }
         finally
         {

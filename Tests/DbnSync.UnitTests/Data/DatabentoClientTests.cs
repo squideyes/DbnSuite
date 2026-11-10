@@ -411,7 +411,7 @@ public sealed class DatabentoClientTests : IDisposable
     [Theory]
     [InlineData("received", JobState.Working)]
     [InlineData("queued", JobState.Working)]
-    [InlineData("something new", JobState.Gone)]
+    [InlineData("expired", JobState.Gone)]
     public async Task Other_job_states_map_to_what_the_runner_needs(string state, JobState expected)
     {
         handler.Answer(ListJobs, $$"""[{"id":"{{JobId}}","state":"{{state}}"}]""");
@@ -419,6 +419,68 @@ public sealed class DatabentoClientTests : IDisposable
         var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
 
         result.Value.ShouldBe(expected);
+    }
+
+    [Fact]
+    public async Task A_listed_state_never_seen_before_is_not_guessed_at()
+    {
+        handler.Answer(ListJobs, $$"""[{"id":"{{JobId}}","state":"something new"}]""");
+
+        var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+
+        result.Error!.Code.ShouldBe(Errors.Malformed);
+        result.Error.Message.ShouldContain("something new");
+    }
+
+    [Fact]
+    public async Task A_download_that_goes_silent_is_given_up_and_leaves_no_file()
+    {
+        var bytes = Encoding.ASCII.GetBytes("dbn bytes");
+        var file = Remote(bytes, SHA256.HashData(bytes));
+        handler.Stream(file.Name, new SilentStream());
+
+        var result = await Client(stall: Briefly).DownloadAsync(file, Path.Combine(folder, file.Name), CancellationToken.None);
+
+        result.Error!.Code.ShouldBe(Errors.Unreachable);
+        result.Error.Message.ShouldContain("stalled");
+        Directory.GetFiles(folder).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_download_stopped_by_the_caller_is_not_called_a_stall()
+    {
+        var bytes = Encoding.ASCII.GetBytes("dbn bytes");
+        var file = Remote(bytes, SHA256.HashData(bytes));
+        using var cancel = new CancellationTokenSource(Briefly);
+        handler.Stream(file.Name, new SilentStream());
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => Client().DownloadAsync(file, Path.Combine(folder, file.Name), cancel.Token));
+    }
+
+    [Fact]
+    public async Task A_call_that_gets_no_answer_in_time_is_unreachable()
+    {
+        handler.Stream(GetCost, new SilentStream());
+
+        var result = await Client(call: Briefly).QuoteAsync(Request, CancellationToken.None);
+
+        result.Error!.Code.ShouldBe(Errors.Unreachable);
+        result.Error.Message.ShouldContain("no answer");
+    }
+
+    [Theory]
+    [InlineData("http://api.databento.com/v0/batch/download/X/file")]
+    [InlineData("not an address")]
+    public async Task The_key_is_never_sent_to_an_address_that_is_not_https(string url)
+    {
+        var bytes = Encoding.ASCII.GetBytes("dbn bytes");
+        var file = Remote(bytes, SHA256.HashData(bytes)) with { Url = url };
+
+        var result = await Client().DownloadAsync(file, Path.Combine(folder, file.Name), CancellationToken.None);
+
+        result.Error!.Code.ShouldBe(Errors.Malformed);
+        handler.Paths.ShouldBeEmpty();
     }
 
     [Fact]
@@ -815,8 +877,20 @@ public sealed class DatabentoClientTests : IDisposable
         handler.Hosts.ShouldBe([new Uri(OwnGateway).Host]);
     }
 
+    private static readonly TimeSpan Briefly = TimeSpan.FromMilliseconds(150);
+
     private DatabentoClient Client() => new(new HttpClient(handler),
         Options.Create(new DatabentoOptions { ApiKey = ApiKey }));
+
+    private DatabentoClient Client(TimeSpan? stall = null, TimeSpan? call = null)
+    {
+        var options = new DatabentoOptions { ApiKey = ApiKey };
+
+        options.StallTimeout = stall ?? options.StallTimeout;
+        options.CallTimeout = call ?? options.CallTimeout;
+
+        return new DatabentoClient(new HttpClient(handler), Options.Create(options));
+    }
 
     private DatabentoClient Client(Uri gateway) => new(new HttpClient(handler),
         Options.Create(new DatabentoOptions { ApiKey = ApiKey, Gateway = gateway }));
@@ -880,6 +954,24 @@ public sealed class DatabentoClientTests : IDisposable
             var (body, status) = answers[match];
 
             return new HttpResponseMessage(status) { Content = new ByteArrayContent(body) };
+        }
+    }
+
+    /// <summary>A response body on a connection that has gone silent: no bytes, and no end.</summary>
+    private sealed class SilentStream : MemoryStream
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+
+            return 0;
+        }
+
+        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+
+            return 0;
         }
     }
 

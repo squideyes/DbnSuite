@@ -811,14 +811,19 @@ public sealed class SyncRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task A_schema_Databento_reports_no_range_for_is_skipped()
+    public async Task A_schema_Databento_reports_no_range_for_is_skipped_and_said_once()
     {
         options.Schemas = "statistics";
+        options.Roots = $"{Root},ES";
 
         var pass = await Runner().RunOnceAsync(CancellationToken.None);
 
         await databento.DidNotReceive().SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>());
-        pass.Issues.ShouldBeEmpty();
+
+        var issue = pass.Issues.ShouldHaveSingleItem();
+        issue.Code.ShouldBe(Errors.Malformed);
+        issue.Level.ShouldBe(IssueLevel.Error);
+        issue.Message.ShouldContain("statistics");
     }
 
     [Fact]
@@ -833,7 +838,7 @@ public sealed class SyncRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task With_the_dataset_range_unavailable_the_pass_is_skipped_and_says_why()
+    public async Task With_the_dataset_range_unavailable_nothing_new_is_asked_for_and_the_pass_says_why()
     {
         databento.GetAvailableEndsAsync(Dataset, Arg.Any<CancellationToken>())
             .Returns(new Error(Errors.Rejected, "401 Unauthorized"));
@@ -844,7 +849,29 @@ public sealed class SyncRunnerTests : IDisposable
         issue.Level.ShouldBe(IssueLevel.Error);
         issue.Code.ShouldBe(Errors.Rejected);
         pass.Failure.ShouldNotBeNull();
+        await databento.DidNotReceive().SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>());
         await store.DidNotReceive().ListPendingAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(Errors.Malformed)]
+    [InlineData(Errors.ServerError)]
+    public async Task With_only_the_dataset_range_unreadable_a_finished_job_is_still_collected(string code)
+    {
+        var job = Pending(new DayRange(Day(10, 30), Day(10, 30)));
+
+        Finished(job, File(Day(10, 30)));
+        databento.DownloadAsync(Arg.Any<RemoteFile>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => Write(call.ArgAt<string>(1)));
+        databento.GetAvailableEndsAsync(Dataset, Arg.Any<CancellationToken>())
+            .Returns(new Error(code, "get_dataset_range has no per-schema ranges."));
+
+        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+
+        pass.JobsCollected.ShouldBe(1);
+        pass.Failure.ShouldNotBeNull();
+        await store.Received(1).DeletePendingAsync(job.Id, Arg.Any<CancellationToken>());
+        await databento.DidNotReceive().SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -918,6 +945,8 @@ public sealed class SyncRunnerTests : IDisposable
     [InlineData("glbx-mdp3-20261020.mbo.dbn.zst")]
     [InlineData("glbx-mdp3-20261030-20261031.mbo.dbn.zst")]
     [InlineData("not-a-day.mbo.dbn.zst")]
+    [InlineData("../glbx-mdp3-20261030.mbo.dbn.zst")]
+    [InlineData("sub/glbx-mdp3-20261030.mbo.dbn.zst")]
     public async Task A_file_that_is_not_a_day_of_the_job_stores_nothing(string name)
     {
         var job = Pending(new DayRange(Day(10, 30), Day(10, 31)));
