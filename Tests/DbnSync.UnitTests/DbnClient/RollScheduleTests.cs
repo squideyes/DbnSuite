@@ -603,6 +603,44 @@ public sealed class RollScheduleTests : IDisposable
     }
 
     [Fact]
+    public async Task A_rolls_settlements_come_from_one_session_never_two()
+    {
+        Settlements(Dec(8), (FrontId, 100 * Nano), (NextId, 110 * Nano));
+        Settlements(Dec(9), (FrontId, 105 * Nano));
+
+        var schedule = await Build(Calendar, Dec(9), Dec(10));
+
+        var roll = schedule.Rolls.ShouldHaveSingleItem();
+        roll.FromSettle.ShouldBe(100m);
+        roll.ToSettle.ShouldBe(110m);
+    }
+
+    [Fact]
+    public async Task With_no_session_both_settled_a_roll_has_no_gap()
+    {
+        Settlements(Dec(8), (FrontId, 100 * Nano));
+        Settlements(Dec(9), (NextId, 110 * Nano));
+
+        var schedule = await Build(Calendar, Dec(9), Dec(10));
+
+        var roll = schedule.Rolls.ShouldHaveSingleItem();
+        roll.Gap.ShouldBeNull();
+        schedule.Adjuster(Dec(9), Adjustment.Difference).Error!.Code.ShouldBe(Errors.NoSettlement);
+    }
+
+    [Fact]
+    public async Task A_settlement_counts_for_the_session_it_refers_to_not_the_day_it_was_published()
+    {
+        var sessionOfDec8 = DbnBytes.Utc(2026, 12, 8, 0);
+        folder.Add(Statistics, Es, Dec(8), DbnBytes.Statistic(FrontId, AfterClose(Dec(8)), sessionOfDec8, 100 * Nano, StatRecord.UndefinedQuantity, SettlementPrice));
+        folder.Add(Statistics, Es, Dec(9), DbnBytes.Statistic(NextId, Noon(Dec(9)), sessionOfDec8, 110 * Nano, StatRecord.UndefinedQuantity, SettlementPrice));
+
+        var schedule = await Build(Calendar, Dec(9), Dec(10));
+
+        schedule.Rolls.ShouldHaveSingleItem().Gap.ShouldBe(10m);
+    }
+
+    [Fact]
     public async Task A_settlement_of_zero_has_a_gap_but_no_ratio()
     {
         Settlements(Dec(9), (FrontId, 0), (NextId, 110 * Nano));

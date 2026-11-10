@@ -134,7 +134,8 @@
     before the first date asked for, so a date holds the same contract whatever span it is asked in. <code>--adjust difference</code>
     adds each roll's settlement gap to every earlier price (back-adjustment); <code>--adjust ratio</code> scales them,
     keeping percentage moves. Adjustment applies to bars: order book events keep raw prices, so <code>--adjust</code>
-    on an <code>mbo</code> series is refused. A roll with no settlement for either contract has no gap, so an adjusted
+    on an <code>mbo</code> series is refused. A roll's gap takes both settlements from one session, the latest before
+    the roll that both contracts settled. A roll with no such session has no gap, so an adjusted
     export that crosses it is refused, naming the roll and the contracts; export it unadjusted, or add that session's
     <code>statistics</code> to the archive.
 </p>
