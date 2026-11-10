@@ -239,7 +239,7 @@ public sealed class SpoolPassTests : IDisposable
 
         var result = await Pass().RunAsync(Root, CancellationToken.None);
 
-        result.ShouldBe(new RootResult(Root, 0, 1, false, SetAsideProblem));
+        result.ShouldBe(new RootResult(Root, 0, 1, false, SetAsideProblem, SetAside: 1));
         await engine.DidNotReceive().BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
         (await LedgerAsync()).Attempt(Tuesday)!.Count.ShouldBe(2);
     }

@@ -167,7 +167,9 @@
 </p>
 <h3 id="alerts">Alerts</h3>
 <p>
-    Nothing on the Droplet sends mail, and every page is private, so let DigitalOcean watch it. Its monitoring is free
+    Every page is private, so let the problems come to you, in two ways. DbnSync and DbnSpool email you about problems
+    that need a person, such as Databento refusing the key or dates set aside, once you give them an SMTP service: see
+    <a href="docs/dbnsync#alert-emails">alert emails</a>. DigitalOcean watches the Droplet itself. Its monitoring is free
     and comes with the Droplet. From any machine signed in with <code>doctl</code>, these email you when memory stays
     above 90% or disk above 80% for five minutes, and when the Droplet stops answering pings for two.
 </p>
@@ -396,9 +398,25 @@
             <tr><td><code>DBNSYNC_IMAGE</code></td><td><code>ghcr.io/squideyes/dbnsync-worker:latest</code></td><td>Pin a version by its tag.</td></tr>
             <tr><td><code>S3_DOMAIN</code>, <code>DASHBOARD_DOMAIN</code>, <code>DASHBOARD_USER</code>, <code>DASHBOARD_PASSWORD_HASH</code></td><td>empty</td><td>HTTPS through Caddy.</td></tr>
             <tr><td><code>DBNSYNC_ALLOW_PAID_JOBS</code>, <code>DBNSYNC_MAX_PER_JOB</code>, <code>DBNSYNC_MAX_PER_DAY</code>, <code>DBNSYNC_MAX_PER_MONTH</code></td><td>off, $0</td><td>The <a href="docs/dbnsync#spend">spend policy</a>. Read its caveats first.</td></tr>
+            <tr><td><code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>, <code>SMTP_PASSWORD</code>, <code>ALERT_FROM</code>, <code>ALERT_TO</code></td><td>off, port 465</td><td><a href="docs/dbnsync#alert-emails">Alert emails</a>.</td></tr>
         </tbody>
     </table>
 </div>
+<h3 id="alert-emails">Alert emails</h3>
+<p>
+    DbnSync emails you when a pass meets a problem that needs a person: Databento refusing the key or a request, an
+    answer it can't read, a job abandoned after seven days, or a pass that crashed. Problems it handles by itself, such
+    as Databento being unreachable for a while, stay on the dashboard. DbnSpool emails you when dates are set aside,
+    tapes can't be made, or a root's pass fails. Each problem is emailed once a day at most, for as long as it lasts.
+</p>
+<p>
+    Any SMTP service works, and the mail is always encrypted. Resend's free plan, 3,000 emails a month, is plenty: add a
+    sending domain such as <code>alerts.example.com</code>, make an API key with sending access, and set
+    <code>SMTP_HOST=smtp.resend.com</code>, <code>SMTP_USER=resend</code> and the key as <code>SMTP_PASSWORD</code>.
+    Port 465 uses TLS from the start, and any other port must offer STARTTLS. DigitalOcean blocks the usual mail ports,
+    so its Compose file uses 2465, which Resend also serves. The log says at startup where alerts go, or that they are
+    off.
+</p>
 <p>
     The worker reads more settings as <code>DbnSync__*</code> environment variables. To set one, add it under
     <code>environment:</code> for the <code>dbnsync</code> service in <code>docker-compose.yml</code>.

@@ -14,6 +14,7 @@ internal static class Program
         builder.Logging.ClearProviders();
 
         builder.AddServiceDefaults();
+        builder.AddAlertMail();
 
         builder.Services.AddSerilog((services, logger) =>
         {

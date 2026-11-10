@@ -54,6 +54,13 @@ services:
       DbnSync__Spend__MaxPerJob: ${DBNSYNC_MAX_PER_JOB:-0}
       DbnSync__Spend__MaxPerDay: ${DBNSYNC_MAX_PER_DAY:-0}
       DbnSync__Spend__MaxPerMonth: ${DBNSYNC_MAX_PER_MONTH:-0}
+      # Optional alert emails over SMTP, for problems that need a person. Off while SMTP_HOST is empty.
+      Alerts__Host: ${SMTP_HOST:-}
+      Alerts__Port: ${SMTP_PORT:-2465}
+      Alerts__User: ${SMTP_USER:-}
+      Alerts__Password: ${SMTP_PASSWORD:-}
+      Alerts__From: ${ALERT_FROM:-}
+      Alerts__To: ${ALERT_TO:-}
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
@@ -81,6 +88,13 @@ services:
       Tapes__AccessKey: ${DBNSPOOL_TAPES_ACCESS_KEY:-}
       Tapes__SecretKey: ${DBNSPOOL_TAPES_SECRET_KEY:-}
       DbnSpool__Roots: ${DBNSPOOL_ROOTS:-ES,MES,NQ,MNQ,YM,MYM,RTY,M2K,CL,MCL,GC,MGC}
+      # Optional alert emails over SMTP, for problems that need a person. Off while SMTP_HOST is empty.
+      Alerts__Host: ${SMTP_HOST:-}
+      Alerts__Port: ${SMTP_PORT:-2465}
+      Alerts__User: ${SMTP_USER:-}
+      Alerts__Password: ${SMTP_PASSWORD:-}
+      Alerts__From: ${ALERT_FROM:-}
+      Alerts__To: ${ALERT_TO:-}
     ports:
       - "127.0.0.1:8081:8080"
     volumes:

@@ -1,3 +1,4 @@
+using DbnSuite.Alerts;
 using DbnSync.Core;
 using DbnSync.Data;
 
@@ -16,6 +17,7 @@ public sealed class SyncWorker(
     CorpusIndex corpus,
     SyncOptions options,
     SyncStatus status,
+    AlertMail alerts,
     TimeProvider clock,
     ILogger<SyncWorker> logger) : BackgroundService
 {
@@ -45,6 +47,8 @@ public sealed class SyncWorker(
         {
             logger.LogInformation("Spend policy: {Policy}", options.Spend.Describe());
         }
+
+        logger.LogInformation("Alerts: {Alerts}", alerts.Describe());
 
         // The dashboard should show the archive at once, not after a first
         // pass that may spend minutes submitting. The scan handles its own errors.
@@ -77,6 +81,8 @@ public sealed class SyncWorker(
             }
 
             await RecordAsync(pass, stoppingToken).ConfigureAwait(false);
+
+            await alerts.RaiseAsync("DbnSync", PassAlerts.For(pass), stoppingToken).ConfigureAwait(false);
 
             var delay = pass is { Busy: false, Failure: null } ? options.Interval : options.BusyInterval;
 

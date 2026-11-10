@@ -98,8 +98,10 @@
     it is up.
 </p>
 <p>
-    Nothing on the Droplet sends mail, so set up the <a href="docs/dbnsync#alerts">DigitalOcean alerts</a> as well:
-    they email you when memory or disk runs high, or the Droplet stops answering.
+    With the <a href="docs/dbnsync#alert-emails">alert email settings</a> in <code>.env</code>, DbnSpool emails you
+    when dates are set aside, tapes can't be made, or a root's pass fails, once a day at most for each problem. Set up
+    the <a href="docs/dbnsync#alerts">DigitalOcean alerts</a> as well: they email you when memory or disk runs high, or
+    the Droplet stops answering.
 </p>
 
 <h2 id="settings">Settings</h2>
@@ -115,6 +117,8 @@
             <tr><td><code>DbnSpool__Prove</code></td><td><code>true</code></td><td>Prove each date before uploading it.</td></tr>
             <tr><td><code>DbnSpool__MostAttempts</code></td><td><code>2</code></td><td>How many times a date may stop DbnSpool before it is set aside.</td></tr>
             <tr><td><code>DbnSpool__WorkPath</code></td><td><code>/work</code></td><td>The folder for tapes being built and cached archive files.</td></tr>
+            <tr><td><code>Alerts__Host</code>, <code>Alerts__Port</code>, <code>Alerts__User</code>, <code>Alerts__Password</code>, <code>Alerts__From</code>, <code>Alerts__To</code></td><td>off, <code>465</code></td><td><a href="docs/dbnsync#alert-emails">Alert emails</a>. The Compose file fills them from the <code>SMTP_</code> and <code>ALERT_</code> lines of <code>.env</code>, with port 2465.</td></tr>
+            <tr><td><code>Alerts__Every</code></td><td><code>1.00:00:00</code></td><td>How long before the same problem is emailed again.</td></tr>
         </tbody>
     </table>
 </div>
