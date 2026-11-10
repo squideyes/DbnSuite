@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DbnSuite.Alerts;
 
 namespace DbnSpool;
 
@@ -11,6 +12,7 @@ public sealed class SpoolWorker(
     ITapeShelf shelf,
     SpoolOptions options,
     SpoolStatus status,
+    AlertMail alerts,
     TimeProvider clock,
     ILogger<SpoolWorker> logger) : BackgroundService
 {
@@ -19,6 +21,8 @@ public sealed class SpoolWorker(
         using (var process = Process.GetCurrentProcess())
             process.PriorityClass = ProcessPriorityClass.BelowNormal;
 
+        logger.LogInformation("Alerts: {Alerts}", alerts.Describe());
+
         await shelf.EnsureReadyAsync(stoppingToken).ConfigureAwait(false);
 
         while (!stoppingToken.IsCancellationRequested)
@@ -26,6 +30,7 @@ public sealed class SpoolWorker(
             status.Started();
 
             var results = new List<RootResult>();
+            var errors = new List<RootError>();
             var problems = new List<string>();
 
             foreach (var root in options.RootList)
@@ -48,12 +53,15 @@ public sealed class SpoolWorker(
                 {
                     logger.LogError(e, "{Root}: the pass failed", root);
 
+                    errors.Add(new RootError(root, e.Message));
                     problems.Add($"{root}: {e.Message}");
                     status.Problem(problems[^1]);
                 }
             }
 
             status.Finished(clock.GetUtcNow(), results, problems.Count == 0 ? null : string.Join("; ", problems));
+
+            await alerts.RaiseAsync("DbnSpool", SpoolAlerts.For(results, errors), stoppingToken).ConfigureAwait(false);
 
             await Task.Delay(options.Interval, clock, stoppingToken).ConfigureAwait(false);
         }

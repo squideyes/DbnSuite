@@ -548,11 +548,14 @@ on the archive's Space and Read/Write/Delete on the tapes' Space, filling in the
 date that stops DbnSpool twice, as running out of memory would, is set aside so
 the rest carry on. See the [DbnSpool docs](https://dbnsuite.squideyes.com/docs/dbnspool).
 
-**Alerts:** nothing on the Droplet sends mail, so let DigitalOcean's free
-monitoring watch it: alert policies for memory above 90% and disk above 80%, and
-a ping uptime check with a down alert. The
-[DigitalOcean docs](https://dbnsuite.squideyes.com/docs/dbnsync#alerts) have the
-`doctl` commands.
+**Alerts:** fill in the `SMTP_` and `ALERT_` lines of `.env` and DbnSync and
+DbnSpool email you about problems that need a person, such as Databento refusing
+the key or dates set aside, once a day at most for each. Any SMTP service works;
+Resend's free plan is plenty, on port 2465 because DigitalOcean blocks the usual
+mail ports. Let DigitalOcean's free monitoring watch the Droplet too: alert
+policies for memory above 90% and disk above 80%, and a ping uptime check with a
+down alert. The [DigitalOcean docs](https://dbnsuite.squideyes.com/docs/dbnsync#alerts)
+have the details and the `doctl` commands.
 
 ## Deploy on a NAS
 

@@ -13,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
 
 builder.AddServiceDefaults();
+builder.AddAlertMail();
 
 builder.Services.AddSerilog((services, logger) =>
 {

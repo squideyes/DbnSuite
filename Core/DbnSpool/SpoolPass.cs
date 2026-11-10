@@ -4,8 +4,10 @@ namespace DbnSpool;
 
 /// <summary>What one pass over one root did.</summary>
 /// <param name="Skipped">True when the archive held nothing new.</param>
+/// <param name="Failed">Dates or steps that failed, set-aside dates among them.</param>
 /// <param name="Problem">What someone should look at, such as dates set aside, or null.</param>
-public sealed record RootResult(string Root, int Spooled, int Failed, bool Skipped, string? Problem = null);
+/// <param name="SetAside">How many of the failed dates were set aside.</param>
+public sealed record RootResult(string Root, int Spooled, int Failed, bool Skipped, string? Problem = null, int SetAside = 0);
 
 /// <summary>
 /// One root's pass: each trade date the shelf lacks is built, proved, uploaded and
@@ -119,7 +121,7 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
             ? null
             : $"{root}: {string.Join(", ", setAside.Select(d => d.ToString("yyyy-MM-dd")))} set aside after stopping DbnSpool {options.MostAttempts} times";
 
-        return new RootResult(root, spooled, failed, Skipped: false, problem);
+        return new RootResult(root, spooled, failed, Skipped: false, problem, setAside.Count);
     }
 
     private async Task TrySaveAsync(string key, SpoolLedger ledger)
