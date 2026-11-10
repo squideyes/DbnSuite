@@ -50,10 +50,15 @@ public sealed class SyncRunner(
         {
             logger.LogWarning("Nothing new is asked for this pass, dataset range unavailable: {Error}", ends.Error);
             tally.Issue(IssueLevel.Error, ends.Error!.Code, $"Dataset range unavailable: {ends.Error.Message}");
+
+            // With Databento out of reach, or refusing the key, no other call would fare better, and each
+            // pending job would only add an issue of its own.
+            if (ends.Error.Code is not (Errors.Malformed or Errors.ServerError))
+                return tally.Finish(clock.GetUtcNow(), ends.Error.ToString());
         }
 
-        // Collecting needs no range, and a finished job's files do not wait for ever: they are fetched
-        // even on a pass that cannot plan anything new.
+        // Collecting needs no range, and a finished job's files do not wait for ever: when it is only
+        // the range that cannot be read, they are still fetched, though nothing new can be planned.
         var pending = new List<PendingJob>();
 
         foreach (var job in await store.ListPendingAsync(cancel).ConfigureAwait(false))

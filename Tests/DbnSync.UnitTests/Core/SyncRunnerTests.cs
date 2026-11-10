@@ -850,10 +850,13 @@ public sealed class SyncRunnerTests : IDisposable
         issue.Code.ShouldBe(Errors.Rejected);
         pass.Failure.ShouldNotBeNull();
         await databento.DidNotReceive().SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>());
+        await store.DidNotReceive().ListPendingAsync(Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task With_the_dataset_range_unavailable_a_finished_job_is_still_collected()
+    [Theory]
+    [InlineData(Errors.Malformed)]
+    [InlineData(Errors.ServerError)]
+    public async Task With_only_the_dataset_range_unreadable_a_finished_job_is_still_collected(string code)
     {
         var job = Pending(new DayRange(Day(10, 30), Day(10, 30)));
 
@@ -861,7 +864,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.DownloadAsync(Arg.Any<RemoteFile>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call => Write(call.ArgAt<string>(1)));
         databento.GetAvailableEndsAsync(Dataset, Arg.Any<CancellationToken>())
-            .Returns(new Error(Errors.Malformed, "get_dataset_range has no per-schema ranges."));
+            .Returns(new Error(code, "get_dataset_range has no per-schema ranges."));
 
         var pass = await Runner().RunOnceAsync(CancellationToken.None);
 
