@@ -12,6 +12,9 @@ public sealed class Session
     public const int Usage = 2;
     public const int Cancelled = 130;
 
+    /// <summary>A file or folder on this computer could not be read or written.</summary>
+    public const string LocalFile = "local.refused";
+
     public Option<string> Profile { get; } = new("--profile")
     {
         Description = "Which saved login to use.",
@@ -61,18 +64,45 @@ public sealed class Session
         var cache = Path.Combine(parse.GetValue(Cache)!, profile);
 
         if (parse.GetValue(Archive) is { } folder)
-            return DbnArchive.Open(new ArchiveOptions { Location = Path.GetFullPath(folder) }, cache);
+        {
+            return Directory.Exists(folder)
+                ? DbnArchive.Open(new ArchiveOptions { Location = Path.GetFullPath(folder) }, cache)
+                : new Error("cli.no_folder", $"There is no folder {Path.GetFullPath(folder)}.");
+        }
 
         var resolved = Profiles.Resolve(profile);
 
         if (!resolved.IsSuccess)
             return resolved.Error!;
 
-        return resolved.Value is { } options
-            ? DbnArchive.Open(options, cache)
-            : new Error("cli.no_login", profile == Profiles.DefaultName
+        if (resolved.Value is not { } options)
+        {
+            return new Error("cli.no_login", profile == Profiles.DefaultName
                 ? "Not logged in. Run dbnf login first."
                 : $"No login named {profile}. Run dbnf login --profile {profile} first.");
+        }
+
+        return Usable(options, profile) is { } problem ? problem : DbnArchive.Open(options, cache);
+    }
+
+    /// <summary>What stops a login being opened, or null: a folder that is gone, or a key with no secret to sign with.</summary>
+    internal static Error? Usable(ArchiveOptions options, string profile)
+    {
+        var again = profile == Profiles.DefaultName ? "dbnf login" : $"dbnf login --profile {profile}";
+
+        if (options.IsFolder)
+        {
+            return Directory.Exists(options.Location)
+                ? null
+                : new Error("cli.no_folder", $"The login's folder, {options.Location}, is not there. Check the drive, or run {again} again.");
+        }
+
+        if (options.AccessKey.Length == 0)
+            return new Error("cli.no_key", $"The login has no access key. Run {again} again, or set DBNF_ACCESS_KEY.");
+
+        return options.SecretKey.Length == 0
+            ? new Error("cli.no_secret", $"The login's secret key cannot be read on this computer. Run {again} again, or set DBNF_SECRET_KEY.")
+            : null;
     }
 
     /// <summary>Runs <paramref name="work"/> against the archive, turning expected failures into a message and an exit code.</summary>
@@ -93,10 +123,23 @@ public sealed class Session
         {
             return await FailAsync(e.Error).ConfigureAwait(false);
         }
+        catch (InvalidDataException e)
+        {
+            return await FailAsync(new Error(Errors.Corrupt, $"A file is damaged: {e.Message}")).ConfigureAwait(false);
+        }
         catch (IOException e)
         {
             // A connection dropped part way through a file; the next run carries on from there.
             return await FailAsync(new Error(Errors.Unreachable, $"The transfer stopped: {e.Message}")).ConfigureAwait(false);
+        }
+        catch (UnauthorizedAccessException e)
+        {
+            return await FailAsync(new Error(LocalFile, $"A file or folder on this computer refused: {e.Message}")).ConfigureAwait(false);
+        }
+        catch (Amazon.S3.AmazonS3Exception e)
+        {
+            return await FailAsync(new Error(Errors.Unreachable,
+                $"The archive answered with an error ({(int)e.StatusCode} {e.ErrorCode}): {e.Message}")).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested)
         {

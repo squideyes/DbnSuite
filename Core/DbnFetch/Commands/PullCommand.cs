@@ -131,10 +131,10 @@ public static class PullCommand
 /// <summary>The date options commands share: --from and --to, --last, or --since.</summary>
 public sealed class RangeOptions
 {
-    public Option<DateOnly?> From { get; } = new("--from") { Description = "The first day, as yyyy-MM-dd." };
-    public Option<DateOnly?> To { get; } = new("--to") { Description = "The last day, included; --from alone means that one day." };
+    public Option<DateOnly?> From { get; } = Dates.Optional("--from", "The first day, as yyyy-MM-dd.");
+    public Option<DateOnly?> To { get; } = Dates.Optional("--to", "The last day, included; --from alone means that one day.");
     public Option<string?> Last { get; } = new("--last") { Description = "The most recent stretch: 30d, 8w, 6m or 1y." };
-    public Option<DateOnly?> Since { get; } = new("--since") { Description = "From this day to the latest." };
+    public Option<DateOnly?> Since { get; } = Dates.Optional("--since", "From this day to the latest.");
 
     public void AddTo(Command command)
     {

@@ -79,8 +79,9 @@
 </p>
 <CodeBlock Title="Any terminal" Text="@Login" />
 <ul>
-    <li><strong>Where it is kept:</strong> in <code>%APPDATA%\DbnFetch</code> on Windows, with the secret encrypted for your Windows user, and in <code>~/.config/DbnFetch</code> elsewhere, readable only by you.</li>
-    <li><strong>Check everything:</strong> <code>dbnf doctor</code> tests the login, the archive, your clock (S3 refuses requests from a clock more than 15 minutes out) and the cache.</li>
+    <li><strong>Where it is kept:</strong> in <code>%APPDATA%\DbnFetch</code> on Windows, with the secret encrypted for your Windows user. On Linux it is in <code>~/.config/DbnFetch</code> and on macOS in <code>~/Library/Application Support/DbnFetch</code>, readable only by you.</li>
+    <li><strong>Check everything:</strong> <code>dbnf doctor</code> tests the login, the archive, your clock (S3 refuses requests from a clock more than 15 minutes out) and the cache, which fails the check with under 10 GB free on its drive.</li>
+    <li><strong>Another bucket:</strong> <code>login --bucket</code> names a bucket other than <code>dbn</code>, and <code>--prefix</code> a folder inside it that holds the archive.</li>
     <li><strong>More than one archive:</strong> add <code>--profile work</code> to <code>login</code> and to every later command.</li>
     <li><strong>Scripts and CI:</strong> set <code>DBNF_LOCATION</code>, <code>DBNF_ACCESS_KEY</code> and <code>DBNF_SECRET_KEY</code> (and <code>DBNF_BUCKET</code> if it isn't <code>dbn</code>) instead of logging in, or pipe the secret with <code>--secret-stdin</code>.</li>
     <li><strong>A folder instead of S3:</strong> <code>--archive D:\dbn</code> on any command reads a folder in the archive's layout, such as one <code>dbnf pull --out</code> filled. No login needed.</li>
@@ -160,7 +161,7 @@
 </p>
 <h3 id="formats">Formats and files</h3>
 <ul>
-    <li><code>--format</code>: <code>csv</code> (default), <code>parquet</code>, <code>jsonl</code>, <code>dbn</code> (a filtered copy of the records, for Databento's own tools) or <code>nt8</code>. <code>--compress gzip</code> or <code>zstd</code> for the text formats.</li>
+    <li><code>--format</code>: <code>csv</code> (default), <code>parquet</code>, <code>jsonl</code>, <code>dbn</code> (a filtered copy of the records, for Databento's own tools) or <code>nt8</code>. <code>--compress gzip</code> or <code>zstd</code> for <code>csv</code>, <code>jsonl</code> and <code>dbn</code>; Parquet is always compressed inside, and NinjaTrader reads plain text.</li>
     <li><strong>Columns</strong> use Databento's field names; <code>symbol</code> names the contract and <code>series</code> the continuous name. <code>--columns ts_event,close</code> keeps some, in that order.</li>
     <li><strong>Units:</strong> <code>--price ticks</code> or <code>raw</code> (Databento's integers, 1e-9) instead of decimals; <code>--time unix-ns</code>, <code>unix-ms</code> or <code>excel</code> instead of ISO 8601. <code>--split-time</code> writes an ISO time as a date and a time, <code>ts_event_date</code> and <code>ts_event_time</code>, as columns in CSV and fields in JSON Lines.</li>
     <li><strong>Files:</strong> one per trade date by default; <code>--single</code> for one file; <code>--partition</code> for <code>series=</code>/<code>date=</code> folders that DuckDB, Polars and Spark read as one table; <code>--name</code> with <code>{series}</code>, <code>{kind}</code>, <code>{date}</code>, <code>{from}</code>, <code>{to}</code> and <code>{ext}</code> for names of your own. A name without <code>{date}</code> writes one file for the whole export. <code>--out</code> picks the folder.</li>
@@ -219,7 +220,7 @@
 <h2 id="cache">The cache</h2>
 <p>
     Raw files are cached in <code>%LOCALAPPDATA%\DbnFetch\cache</code> on Windows and
-    <code>~/.cache/DbnFetch</code> elsewhere, so a second export of the same days downloads nothing. A file that
+    <code>~/.cache/DbnFetch</code> elsewhere, in a folder for each login, so a second export of the same days downloads nothing. A file that
     changes in the archive is downloaded again. <code>--cache</code> on any command uses another folder.
 </p>
 <ul>
@@ -241,7 +242,7 @@
             <tr><td><code>0</code></td><td>It worked.</td></tr>
             <tr><td><code>1</code></td><td>The work failed: the archive refused or couldn't be reached, a file is damaged, a roll has no settlement. <code>dbnf doctor</code> also exits 1 if a check fails.</td></tr>
             <tr><td><code>2</code></td><td>A usage mistake: an option or argument dbnf can't parse, a value it can't use, a request it refuses, or no login.</td></tr>
-            <tr><td><code>130</code></td><td>Stopped with Ctrl+C.</td></tr>
+            <tr><td><code>130</code></td><td>Stopped with Ctrl+C, in a command that reads the archive.</td></tr>
         </tbody>
     </table>
 </div>

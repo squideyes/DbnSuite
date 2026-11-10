@@ -121,6 +121,23 @@ public sealed class DoctorCommandTests : IDisposable
 
         run.ExitCode.ShouldBe(Session.Failed);
         run.Lines[1].ShouldBe($"FAIL  Key      {TestKey.Access}, but no secret is saved; run dbnf login");
+        run.Lines.Count.ShouldBe(3);
+        run.Error.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Free_space_is_read_for_a_folder_that_exists()
+    {
+        DbnFetch.Commands.DoctorCommand.FreeSpace(dbnf.Home).ShouldNotBeNull().ShouldBeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Free_space_that_cannot_be_read_is_unknown()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        DbnFetch.Commands.DoctorCommand.FreeSpace(@"\\no-such-server\share\cache").ShouldBeNull();
     }
 
     [Fact]

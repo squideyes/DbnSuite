@@ -51,10 +51,17 @@ public sealed class Profiles
     public Profiles(string folder)
     {
         this.folder = folder;
-        Directory.CreateDirectory(folder);
+
+        if (OperatingSystem.IsWindows())
+            Directory.CreateDirectory(folder);
+        else
+            Directory.CreateDirectory(folder, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     }
 
-    /// <summary>The config folder: %APPDATA%\DbnFetch on Windows, ~/.config/DbnFetch elsewhere.</summary>
+    /// <summary>
+    /// The config folder: %APPDATA%\DbnFetch on Windows, ~/.config/DbnFetch on Linux and
+    /// ~/Library/Application Support/DbnFetch on macOS.
+    /// </summary>
     public static string DefaultFolder =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create), "DbnFetch");
 
@@ -102,13 +109,14 @@ public sealed class Profiles
         if (!secrets.IsSuccess)
             return secrets.Error!;
 
+        // A secret can outlive its login, when the profiles file was replaced; it goes either way.
+        if (secrets.Value.Remove(name))
+            WriteSecrets(secrets.Value);
+
         if (!file.Value.Profiles.Remove(name))
             return false;
 
         Write(ProfilesFile, JsonSerializer.Serialize(file.Value, ProfilesJson.Default.ProfilesFile));
-
-        secrets.Value.Remove(name);
-        WriteSecrets(secrets.Value);
 
         return true;
     }
@@ -193,27 +201,26 @@ public sealed class Profiles
         return fresh;
     }
 
-    private void WriteSecrets(Dictionary<string, string> secrets)
-    {
-        var path = Write(SecretsFile, JsonSerializer.Serialize(secrets, ProfilesJson.Default.DictionaryStringString));
+    private void WriteSecrets(Dictionary<string, string> secrets) =>
+        Write(SecretsFile, JsonSerializer.Serialize(secrets, ProfilesJson.Default.DictionaryStringString));
 
-        if (!OperatingSystem.IsWindows())
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-    }
-
-    private string Write(string name, string json)
+    /// <summary>Replaces a file whole. Off Windows it is made readable by its owner alone, before anything is in it.</summary>
+    private void Write(string name, string json)
     {
         var path = Path.Combine(folder, name);
         var temp = path + ".tmp";
 
-        File.WriteAllText(temp, json);
+        File.Delete(temp);
+
+        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
 
         if (!OperatingSystem.IsWindows())
-            File.SetUnixFileMode(temp, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+
+        using (var writer = new StreamWriter(temp, new UTF8Encoding(false), options))
+            writer.Write(json);
 
         File.Move(temp, path, overwrite: true);
-
-        return path;
     }
 
     private static string Protect(string secret) =>

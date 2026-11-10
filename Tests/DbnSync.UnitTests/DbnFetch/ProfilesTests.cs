@@ -85,6 +85,37 @@ public sealed class ProfilesTests : IDisposable
     }
 
     [Fact]
+    public void A_secret_left_without_its_login_is_removed_too()
+    {
+        WriteSecret("plain:" + Secret);
+
+        Profiles().Remove(Work).Value.ShouldBeFalse();
+
+        Profiles().Secret(Work).Value.ShouldBeNull();
+        File.ReadAllText(Path.Combine(folder, SecretsFile)).ShouldNotContain(Secret);
+    }
+
+    [Fact]
+    public void Saving_leaves_no_temp_file_behind()
+    {
+        Profiles().Save(Work, Profile, Secret);
+
+        Directory.GetFiles(folder).Select(Path.GetFileName).ShouldBe([ProfilesFile, SecretsFile], ignoreOrder: true);
+    }
+
+    [Fact]
+    public void Off_windows_the_secrets_are_readable_by_their_owner_alone()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        Profiles().Save(Work, Profile, Secret);
+
+        File.GetUnixFileMode(Path.Combine(folder, SecretsFile)).ShouldBe(UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        File.GetUnixFileMode(folder).ShouldBe(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+    }
+
+    [Fact]
     public void A_removed_login_is_gone_with_its_secret()
     {
         Profiles().Save(Work, Profile, Secret);

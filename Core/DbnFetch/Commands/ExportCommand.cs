@@ -106,6 +106,13 @@ public static class ExportCommand
 
             (Hours, TimeZoneInfo)? custom = null;
 
+            // An option that would be quietly ignored is refused, so nobody is misled about what they got.
+            if (parse.GetValue(hours) is null && Given(hoursZone))
+                return new Error("input.bad_session", "--hours-tz says which zone --hours is in, so it needs --hours.");
+
+            if (parse.GetValue(hours) is not null && Given(sessionKind))
+                return new Error("input.bad_session", "--hours takes the place of --session, so give only one of them.");
+
             if (parse.GetValue(hours) is { } text)
             {
                 var window = Hours.Parse(text);
@@ -154,6 +161,19 @@ public static class ExportCommand
             if (parse.GetValue(single) && parse.GetValue(partition))
                 return new Error("input.bad_layout", "--single and --partition cannot both be given.");
 
+            if (parse.GetValue(partition) && parse.GetValue(name) is not null)
+                return new Error("input.bad_layout", "--partition names the files itself, so --name cannot be given with it.");
+
+            if (compression.Value != Compression.None && outputFormat.Value is OutputFormat.Parquet or OutputFormat.NinjaTrader)
+            {
+                return new Error("input.bad_compression", outputFormat.Value == OutputFormat.Parquet
+                    ? "--compress is for csv, jsonl and dbn. A Parquet file is always compressed inside."
+                    : "--compress is for csv, jsonl and dbn. NinjaTrader imports plain text only.");
+            }
+
+            if (parse.GetValue(splitTime) && timeMode.Value != TimeMode.Iso)
+                return new Error("input.bad_time", "--split-time splits an iso time into a date and a time, so it cannot be given with another --time.");
+
             return new ExportRequest
             {
                 Schema = schemaName.Value,
@@ -176,6 +196,9 @@ public static class ExportCommand
                 RollDays = parse.GetValue(rollDays),
                 Spreads = !parse.GetValue(noSpreads)
             };
+
+            // True when the option was typed, not just left at its default.
+            bool Given(Option option) => parse.GetResult(option) is { Implicit: false };
         }
 
         return command;

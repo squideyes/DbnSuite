@@ -56,6 +56,10 @@ public sealed class DateSpanTests
     [InlineData("0d")]
     [InlineData("5q")]
     [InlineData("xd")]
+    [InlineData("99999999d")]
+    [InlineData("100001w")]
+    [InlineData("5000y")]
+    [InlineData("30000m")]
     public void A_length_it_cannot_read_is_refused(string last)
     {
         DateSpan.Resolve(null, null, last, null, Today).Error!.Code.ShouldBe(BadRange);

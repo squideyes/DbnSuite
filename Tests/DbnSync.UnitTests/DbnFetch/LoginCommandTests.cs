@@ -94,10 +94,24 @@ public sealed class LoginCommandTests : IDisposable
     [Fact]
     public async Task A_folder_that_is_no_archive_is_not_saved()
     {
+        Directory.CreateDirectory(dbnf.Output);
+
         var run = await dbnf.RunAsync($"login --location \"{dbnf.Output}\"");
 
         run.ExitCode.ShouldBe(Session.Failed);
         run.Error.ShouldContain(NotALayout);
+        dbnf.Profiles.All().Value.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("s3.example.com")]
+    [InlineData("not-a-folder")]
+    public async Task A_location_that_is_neither_an_address_nor_a_folder_is_bad_usage(string location)
+    {
+        var run = await dbnf.RunAsync($"login --location {location} --access-key {TestKey.Access}");
+
+        run.ExitCode.ShouldBe(Session.Usage);
+        run.Error.ShouldContain("https://");
         dbnf.Profiles.All().Value.ShouldBeEmpty();
     }
 

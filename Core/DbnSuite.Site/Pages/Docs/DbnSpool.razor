@@ -140,7 +140,7 @@
         """;
 
     private const string Pull = """
-        dbnf login --profile tapes --location https://nyc3.digitaloceanspaces.com --bucket dbn-tapes
+        dbnf login --profile tapes --location https://nyc3.digitaloceanspaces.com --bucket dbn-tapes --access-key <the read-only key>
         dbnf tape pull ES --profile tapes --tapes D:\Tapes --from 2026-10-01 --kind l1
         """;
 }

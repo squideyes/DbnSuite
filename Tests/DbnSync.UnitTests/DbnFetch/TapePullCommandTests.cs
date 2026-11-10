@@ -44,6 +44,34 @@ public sealed class TapePullCommandTests : IDisposable
         dbnf.Written().ShouldBe([Catalog, Late], ignoreOrder: true);
     }
 
+    [Theory]
+    [InlineData("GLBX.MDP3/s1/ES/../../../../outside.s1.20261029.tape")]
+    [InlineData("../outside.s1.20261029.tape")]
+    public void A_key_that_climbs_out_of_the_folder_is_refused(string key)
+    {
+        var refused = Should.Throw<DbnClient.Archive.ArchiveException>(() => TapePullCommand.TargetOf(dbnf.Output, key));
+
+        refused.Error.Code.ShouldBe(DbnClient.Errors.UnknownLayout);
+    }
+
+    [Fact]
+    public void A_key_lands_inside_the_folder()
+    {
+        TapePullCommand.TargetOf(dbnf.Output, Late).ShouldBe(Path.Combine(dbnf.Output, Late.Replace('/', Path.DirectorySeparatorChar)));
+    }
+
+    [Fact]
+    public async Task A_date_in_another_format_is_bad_usage()
+    {
+        Put(Catalog, Late);
+
+        var run = await dbnf.OnArchiveAsync($"tape pull ES {Tapes} --from 10/29/2026");
+
+        run.ExitCode.ShouldBe(Dbnf.ParseFailure);
+        run.Error.ShouldContain("is not a date");
+        dbnf.Written().ShouldBeEmpty();
+    }
+
     [Fact]
     public async Task A_file_already_here_is_left_alone()
     {

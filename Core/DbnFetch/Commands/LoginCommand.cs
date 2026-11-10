@@ -38,6 +38,12 @@ public static class LoginCommand
 
             var isFolder = new ArchiveOptions { Location = profile.Location }.IsFolder;
 
+            if (isFolder && !Directory.Exists(profile.Location))
+            {
+                return await session.FailAsync(new Error("input.no_folder",
+                    $"There is no folder {Path.GetFullPath(profile.Location)}. An S3 address starts with https:// or http://.")).ConfigureAwait(false);
+            }
+
             if (isFolder)
                 profile = profile with { Location = Path.GetFullPath(profile.Location) };
             else if (profile.AccessKey.Length == 0)
