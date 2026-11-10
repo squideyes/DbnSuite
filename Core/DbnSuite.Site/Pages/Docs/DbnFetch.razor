@@ -157,7 +157,10 @@
     <code>--as</code> rebuilds the order book from <code>mbo</code> and writes a schema Databento® sells separately:
     <code>trades</code>, <code>tbbo</code>, <code>mbp-1</code>, <code>mbp-10</code>, <code>bbo-1s</code> or
     <code>bbo-1m</code>. The trades of a day add up to the archive's own <code>ohlcv-1s</code> volume, and the rebuilt
-    book is never crossed. Use a contract or <code>.n.0</code>/<code>.n.1</code>.
+    book is never crossed. Use a contract or <code>.n.0</code>/<code>.n.1</code>. A fill takes its size off the
+    resting order at once, so within a sweep each <code>tbbo</code> row shows the book as it stood between fills; Databento's
+    own <code>tbbo</code> waits for the cancel or modify that follows, and can show the book from before the sweep. The tapes
+    rebuild their book the same way.
 </p>
 <h3 id="formats">Formats and files</h3>
 <ul>
