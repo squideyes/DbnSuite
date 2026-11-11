@@ -10,7 +10,7 @@ COPY Core/ Core/
 
 RUN dotnet publish Core/DbnSpool/DbnSpool.csproj -c Release -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS final
 WORKDIR /app
 
 # Owned by the app user, so a named volume mounted here starts writable.
