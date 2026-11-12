@@ -51,12 +51,17 @@ public enum JobState
 }
 
 /// <summary>A job submitted and not yet stored. Persisted, since a job outlives the process.</summary>
+/// <param name="FailingSince">
+/// When storing its files first failed, or null while none has; a job is
+/// given up a week after this, so time the worker was down does not count.
+/// </param>
 public sealed record PendingJob(
     string Id,
     string Root,
     string Schema,
     DayRange Range,
-    DateTimeOffset SubmittedAt);
+    DateTimeOffset SubmittedAt,
+    DateTimeOffset? FailingSince = null);
 
 /// <summary>Databento's historical API, as far as DbnSync uses it.</summary>
 public interface IDatabento
