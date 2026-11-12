@@ -49,8 +49,8 @@
 <p>
     <code>dbnf tape</code> reads the archive from your login or <code>--archive</code>, and writes to the folder
     <code>--tapes</code> names. Build a root's catalog first, and rebuild it whenever new days arrive. These commands
-    run at low priority, so the machine stays usable. They need <a href="@Links.NuGetFetch">DbnFetch</a> 0.2.0 or
-    later, and replaying from C# needs <a href="@Links.NuGetClient">DbnClient</a> 0.2.0 or later, both from NuGet.
+    run at low priority, so the machine stays usable. They need <a href="@Links.NuGetFetch">DbnFetch</a> 0.3.0 or
+    later, and replaying from C# needs <a href="@Links.NuGetClient">DbnClient</a> 0.3.0 or later, both from NuGet.
 </p>
 <CodeBlock Title="Any terminal" Text="@BuildCommands" />
 <div class="table">
@@ -165,6 +165,12 @@
     gives what back-adjustment would, and moves stay in ticks as traded, so a stitched series can drift a long way, or
     below zero, over a long run. A missing tape, or a run whose tapes don't share one tick size, ends the run with a
     failed result.
+</p>
+<p>
+    <strong>Be flat at every session's end.</strong> The next session in a run is an unrelated day, often years away
+    at a very different price, so a position carried into it would be filled at that day's prices and book a profit or
+    loss that never happened. The next tape loads on a background thread while one replays, and leaving a run early,
+    or cancelling it, stops that load.
 </p>
 
 <h2 id="proof">Prove them</h2>

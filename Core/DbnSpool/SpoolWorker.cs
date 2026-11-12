@@ -45,6 +45,9 @@ public sealed class SpoolWorker(
                     if (result.Problem is { } problem)
                         problems.Add(problem);
 
+                    if (result.Shelf is { } shelf)
+                        problems.Add(shelf);
+
                     if (result.Trouble is { } trouble)
                         problems.Add($"{root} {trouble}");
                 }

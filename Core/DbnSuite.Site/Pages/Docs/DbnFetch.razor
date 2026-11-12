@@ -43,7 +43,7 @@
     </li>
     <li>
         <strong>Install DbnFetch</strong> from NuGet, where it is published as <a href="@Links.NuGetFetch">DbnFetch</a>.
-        NuGet picks the native build for your system. <code>dbnf tape</code> needs version 0.2.0 or later; update an
+        NuGet picks the native build for your system. <code>dbnf tape</code> needs version 0.3.0 or later; update an
         older install with <code>dotnet tool update -g DbnFetch</code>.
         <CodeBlock Title="Any terminal" Text="dotnet tool install -g DbnFetch" />
     </li>
@@ -74,7 +74,10 @@
 <h2 id="login">Log in to an archive</h2>
 <p>
     You need the archive's S3 address and a read-only key, from whoever runs DbnSync
-    (<a href="docs/dbnsync#keys">how they make one</a>). Log in once; <code>dbnf</code> checks the key reaches the
+    (<a href="docs/dbnsync#keys">how they make one</a>). For DigitalOcean Spaces the address is the region's endpoint,
+    such as <code>https://nyc3.digitaloceanspaces.com</code>, with the Space's name as <code>--bucket</code>; the Space's own
+    address, <code>https://dbn.nyc3.digitaloceanspaces.com</code>, doesn't work here. A key with Read on that Space is enough.
+    Log in once; <code>dbnf</code> checks the key reaches the
     archive before saving it, and asks for the secret so it never lands in your shell history.
 </p>
 <CodeBlock Title="Any terminal" Text="@Login" />
@@ -308,7 +311,7 @@
         """;
 
     private const string Login = """
-        dbnf login --location http://nas:9000 --access-key alice
+        dbnf login --location https://nyc3.digitaloceanspaces.com --bucket dbn --access-key DO801EXAMPLEKEY
         dbnf doctor
         """;
 

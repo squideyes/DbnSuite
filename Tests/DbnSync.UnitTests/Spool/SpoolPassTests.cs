@@ -16,6 +16,7 @@ public sealed class SpoolPassTests : IDisposable
     private const string Symbol = "ESZ6";
     private const string Mbo = "mbo";
     private const string TapeKey = "GLBX.MDP3/s1/ES/2026/ES.s1.20261027.tape";
+    private const string OldTapeKey = "GLBX.MDP3/s1/ES/2026/ESZ6.s1.20261027.tape";
     private const string CatalogKey = "GLBX.MDP3/catalog/ES.catalog.json";
     private const string LedgerKey = "GLBX.MDP3/spool/ES.json";
     private const string Build = "build-2";
@@ -33,6 +34,7 @@ public sealed class SpoolPassTests : IDisposable
     private readonly ISpoolEngine engine = Substitute.For<ISpoolEngine>();
     private readonly SpoolOptions options;
     private readonly FolderTapeShelf shelf;
+    private HashSet<DateOnly> mboDays = [];
 
     public SpoolPassTests()
     {
@@ -66,16 +68,27 @@ public sealed class SpoolPassTests : IDisposable
 
     private BuildReport Built(DateOnly date)
     {
-        var path = TapePaths.For(options.TapeFolder, Dataset, TapeKind.S1, Root, date);
+        // As the builder does: an L1 tape only when mbo covers the whole date.
+        var kinds = mboDays.Contains(date.AddDays(-1)) && mboDays.Contains(date) ? new[] { TapeKind.S1, TapeKind.L1 } : [TapeKind.S1];
+        var tapes = new List<TapeOutcome>();
 
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllBytes(path, [1, 2, 3]);
+        foreach (var kind in kinds)
+        {
+            var path = TapePaths.For(options.TapeFolder, Dataset, kind, Root, date);
 
-        return new BuildReport(date, [new TapeOutcome(Symbol, TapeKind.S1, path, 1, 3, null)], []);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllBytes(path, [1, 2, 3]);
+            tapes.Add(new TapeOutcome(Symbol, kind, path, 1, 3, null));
+        }
+
+        return new BuildReport(date, tapes, []);
     }
 
-    private static Result<IReadOnlyList<StoredDay>> Stored(IEnumerable<DateOnly> days) =>
-        days.Select(d => new StoredDay(d, new StoredObject(DbnSyncLayout.Data(Dataset, Mbo, Root, d), 1, ""))).ToList();
+    private const string FirstTag = "first";
+    private const string SecondTag = "second";
+
+    private static Result<IReadOnlyList<StoredDay>> Stored(IEnumerable<DateOnly> days, string tag = "") =>
+        days.Select(d => new StoredDay(d, new StoredObject(DbnSyncLayout.Data(Dataset, Mbo, Root, d), 1, tag))).ToList();
 
     private void Archived(params DateOnly[] days)
     {
@@ -83,8 +96,11 @@ public sealed class SpoolPassTests : IDisposable
             engine.DaysAsync(schema, Root, Arg.Any<CancellationToken>()).Returns(Stored(days));
     }
 
-    private void Mbos(params DateOnly[] days) =>
+    private void Mbos(params DateOnly[] days)
+    {
+        mboDays = [.. days];
         engine.DaysAsync(Mbo, Root, Arg.Any<CancellationToken>()).Returns(Stored(days));
+    }
 
     private async Task<SpoolLedger> LedgerAsync() =>
         SpoolLedger.From(await shelf.ReadAsync(LedgerKey, CancellationToken.None));
@@ -97,7 +113,7 @@ public sealed class SpoolPassTests : IDisposable
         result.ShouldBe(new RootResult(Root, 1, 0, false));
         (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldNotBeNull();
         (await shelf.ReadAsync(CatalogKey, CancellationToken.None)).ShouldNotBeNull();
-        (await LedgerAsync()).Spooled(Tuesday).ShouldBe(new SpooledDate(Tuesday, 1, true));
+        (await LedgerAsync()).Spooled(Tuesday).ShouldBe(new SpooledDate(Tuesday, 2, true));
     }
 
     [Fact]
@@ -171,22 +187,87 @@ public sealed class SpoolPassTests : IDisposable
     }
 
     [Fact]
-    public async Task A_contract_mbo_does_not_hold_is_no_failure()
+    public async Task A_date_whose_mbo_lacks_its_contract_keeps_its_bar_tapes_and_waits_for_new_mbo()
     {
-        engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns(c =>
-        {
-            var report = Built(c.ArgAt<DateOnly>(1));
+        NotHeldOnTuesday();
 
-            return (Result<BuildReport>)(report with
-            {
-                Tapes = [.. report.Tapes, new TapeOutcome(Symbol, TapeKind.L1, null, 0, 0, new Error(TapeErrors.NotHeld, "Not held."))]
-            });
-        });
+        var first = await Pass().RunAsync(Root, CancellationToken.None);
+
+        first.Spooled.ShouldBe(1);
+        first.Failed.ShouldBe(0);
+        (await LedgerAsync()).Spooled(Tuesday).ShouldBe(new SpooledDate(Tuesday, 1, Ticks: false, Mbo: $"{FirstTag}|{FirstTag}"));
+        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task A_date_whose_mbo_lacked_its_contract_is_tried_again_only_when_that_mbo_changes()
+    {
+        NotHeldOnTuesday();
+        await Pass().RunAsync(Root, CancellationToken.None);
+        Archived(Tuesday, Wednesday);
+        mboDays = [Monday, Tuesday, Wednesday];
+        engine.DaysAsync(Mbo, Root, Arg.Any<CancellationToken>()).Returns(Stored(mboDays, FirstTag));
+
+        var unchanged = await Pass().RunAsync(Root, CancellationToken.None);
+
+        unchanged.Spooled.ShouldBe(0);
+
+        engine.DaysAsync(Mbo, Root, Arg.Any<CancellationToken>())
+            .Returns(Stored([Monday, Tuesday, Wednesday], SecondTag));
+
+        var refetched = await Pass().RunAsync(Root, CancellationToken.None);
+
+        refetched.Spooled.ShouldBe(1);
+        (await LedgerAsync()).Spooled(Tuesday)!.Ticks.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task A_store_of_old_per_contract_tapes_is_refused_until_it_is_emptied()
+    {
+        await shelf.PutBytesAsync(OldTapeKey, [1], CancellationToken.None);
+
+        var result = await Pass().RunAsync(Root, CancellationToken.None);
+
+        result.Spooled.ShouldBe(0);
+        result.Shelf.ShouldNotBeNull().ShouldContain("old format");
+        await engine.DidNotReceive().CatalogAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_ledger_whose_tapes_were_deleted_starts_again()
+    {
+        await Pass().RunAsync(Root, CancellationToken.None);
+        await foreach (var key in shelf.KeysAsync($"{Dataset}/s1/", CancellationToken.None))
+            await shelf.DeleteAsync(key, CancellationToken.None);
+        await foreach (var key in shelf.KeysAsync($"{Dataset}/l1/", CancellationToken.None))
+            await shelf.DeleteAsync(key, CancellationToken.None);
+        Archived(Tuesday, Wednesday);
+        Mbos(Monday, Tuesday, Wednesday);
 
         var result = await Pass().RunAsync(Root, CancellationToken.None);
 
         result.Spooled.ShouldBe(1);
-        (await LedgerAsync()).Spooled(Tuesday)!.Tapes.ShouldBe(1);
+        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldNotBeNull();
+    }
+
+    /// <summary>The build finds Tuesday's contract missing from mbo, once: later builds have it.</summary>
+    private void NotHeldOnTuesday()
+    {
+        var calls = 0;
+
+        engine.DaysAsync(Mbo, Root, Arg.Any<CancellationToken>()).Returns(Stored([Monday, Tuesday], FirstTag));
+        engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns(c =>
+        {
+            var report = Built(c.ArgAt<DateOnly>(1));
+
+            if (c.ArgAt<DateOnly>(1) != Tuesday || calls++ > 0)
+                return (Result<BuildReport>)report;
+
+            return (Result<BuildReport>)(report with
+            {
+                Tapes = [.. report.Tapes.Where(t => t.Kind != TapeKind.L1), new TapeOutcome(Symbol, TapeKind.L1, null, 0, 0, new Error(TapeErrors.NotHeld, "Not held."))]
+            });
+        });
     }
 
     [Fact]
@@ -489,8 +570,7 @@ public sealed class SpoolPassTests : IDisposable
 
         var result = await Pass().RunAsync(Root, CancellationToken.None);
 
-        result.Problem.ShouldNotBeNull().ShouldContain("nothing was removed");
-        result.Failed.ShouldBeGreaterThan(0);
+        result.Shelf.ShouldNotBeNull().ShouldContain("nothing was removed");
         (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldNotBeNull();
         (await LedgerAsync()).Spooled(Tuesday).ShouldNotBeNull();
     }

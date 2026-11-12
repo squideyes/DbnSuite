@@ -235,6 +235,20 @@ public sealed class RollScheduleTests : IDisposable
     }
 
     [Fact]
+    public async Task After_a_roll_the_second_rank_moves_on_instead_of_copying_the_front()
+    {
+        Volumes(Dec(8), (FrontId, 100), (NextId, 50), (ThirdId, 1));
+        Volumes(Dec(9), (FrontId, 40), (NextId, 60), (ThirdId, 1));
+
+        var front = await Build(ByVolume, Dec(9), Dec(10));
+        var second = await Build(SecondByVolume, Dec(9), Dec(10));
+
+        second.On(Dec(9))!.Symbol.ShouldBe(Next);
+        front.On(Dec(10))!.Symbol.ShouldBe(Next);
+        second.On(Dec(10))!.Symbol.ShouldBe(Third);
+    }
+
+    [Fact]
     public async Task Volume_rolls_at_the_session_after_the_next_contract_overtakes()
     {
         Volumes(Dec(8), (FrontId, 100), (NextId, 50));

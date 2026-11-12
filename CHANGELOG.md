@@ -5,10 +5,14 @@ What changed in each release of the **DbnClient** library and the **DbnFetch**
 release. The format follows [Keep a Changelog](https://keepachangelog.com), and
 versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.3.0 (2026-11-12)
 
 ### Breaking
 
+- **Prices in ticks need a known tick size.** An export with `Prices = Ticks`
+  (`--price ticks`) now stops with `Errors.NoTickSize` at the first price of an
+  instrument whose definition is missing that day. It used to write that price
+  as a decimal, mixing units in one column.
 - **A trade date has one tape of each kind, for one contract:** the one that
   traded the most in the previous session (`ES.v.0`; it was open interest,
   `ES.n.0`). Tapes used to be made for every contract. Files are named by root,
@@ -47,6 +51,9 @@ versions follow [Semantic Versioning](https://semver.org).
 
 ### Added
 
+- `BuildReport.Removed`: tapes an earlier build left of a kind this build
+  didn't make, now deleted so a date never replays another contract.
+  `dbnf tape build` lists them.
 - `SessionStream` replays a Monte Carlo run's sessions, whole, in the order a
   `SessionSampler` deals them, loading the next tape while one replays. Each
   `StreamSession.Offset` stitches the run into one unbroken series in ticks,
@@ -69,6 +76,14 @@ versions follow [Semantic Versioning](https://semver.org).
 
 ### Fixed
 
+- A continuous series above rank 0, such as `ES.v.1` or `ES.n.1`, held the
+  same contract as rank 0 for about a week after each roll. Each rank now holds
+  a contract that expires after the rank below's.
+- `--as` exports of a root kept calendar spreads when told to leave them out.
+- A tape build no longer leaves an older tape of a kind it didn't make, which
+  could hold another contract after the catalog changed a date's contract.
+- `SessionStream` stops loading the next tape when a run ends early or is
+  cancelled, and always loads it on a background thread.
 - A roll's gap takes both settlements from the same session. With no session
   both contracts settled, an adjusted export across that roll is refused with
   `NoSettlement`. ([#36](https://github.com/squideyes/DbnSuite/pull/36))

@@ -48,7 +48,7 @@
     zstd-compressed <a href="@Links.DbnFormat">DBN</a>, version 3.
 </p>
 <ul>
-    <li><strong>The metadata block</strong> says what was requested (<code>MNQ.n.0</code> and <code>MNQ.n.1</code> for <code>mbo</code>; <code>MNQ.FUT</code> for the rest) and maps each instrument id in the file back to it. Records name instruments only by id.</li>
+    <li><strong>The metadata block</strong> says what was requested (<code>MNQ.n.0</code>, <code>MNQ.n.1</code> and, in files from November 2026, <code>MNQ.v.0</code> for <code>mbo</code>; <code>MNQ.FUT</code> for the rest) and maps each instrument id in the file back to it. Records name instruments only by id.</li>
     <li><strong><code>mbo</code></strong> holds only the two leading outrights. Which contract <code>MNQ.n.0</code> is changes at each roll; the mapping in each day's file says which it was that day, and that day's <code>definition</code> file names it.</li>
     <li><strong>Prices</strong> are integers in units of 1e-9, and <strong>times</strong> nanoseconds since the UNIX epoch, UTC. DBN readers convert both.</li>
 </ul>

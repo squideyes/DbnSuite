@@ -156,7 +156,9 @@ public sealed class FolderTapeShelf(string folder) : ITapeShelf
 
     public Task DeleteAsync(string key, CancellationToken cancel)
     {
-        File.Delete(PathOf(key));
+        // As in S3, a key that isn't there is no error.
+        if (File.Exists(PathOf(key)))
+            File.Delete(PathOf(key));
 
         return Task.CompletedTask;
     }

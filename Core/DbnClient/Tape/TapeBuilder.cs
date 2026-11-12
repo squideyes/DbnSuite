@@ -14,7 +14,12 @@ public sealed record TapeOutcome(string Symbol, TapeKind Kind, string? Path, lon
 public sealed record BoundaryChange(string Symbol, int Count);
 
 /// <summary>What one trade date's build did.</summary>
-public sealed record BuildReport(DateOnly TradeDate, IReadOnlyList<TapeOutcome> Tapes, IReadOnlyList<BoundaryChange> Boundaries);
+/// <param name="Removed">
+/// Tapes an earlier build left of a kind this one didn't make, deleted so the date never replays
+/// another contract.
+/// </param>
+public sealed record BuildReport(DateOnly TradeDate, IReadOnlyList<TapeOutcome> Tapes, IReadOnlyList<BoundaryChange> Boundaries,
+    IReadOnlyList<string>? Removed = null);
 
 /// <summary>
 /// Where a tape lives under a tape root. A trade date has one tape of each kind, so a date alone
@@ -126,25 +131,44 @@ public sealed class TapeBuilder(DbnArchive archive, Catalog catalog, string tape
             var outcomes = new List<TapeOutcome>();
             var boundaries = new List<BoundaryChange>();
 
-            if (catalog.HeldOn(tradeDate) is not { } held)
-                return new BuildReport(tradeDate, outcomes, boundaries);
+            if (catalog.HeldOn(tradeDate) is { } held)
+            {
+                var bars = await BuildBarsAsync(tradeDate, compress, held, outcomes, cancel).ConfigureAwait(false);
 
-            var bars = await BuildBarsAsync(tradeDate, compress, held, outcomes, cancel).ConfigureAwait(false);
+                if (bars is not null)
+                    return bars;
 
-            if (bars is not null)
-                return bars;
+                var ticks = await BuildTicksAsync(tradeDate, compress, held, outcomes, boundaries, cancel).ConfigureAwait(false);
 
-            var ticks = await BuildTicksAsync(tradeDate, compress, held, outcomes, boundaries, cancel).ConfigureAwait(false);
+                if (ticks is not null)
+                    return ticks;
+            }
 
-            if (ticks is not null)
-                return ticks;
-
-            return new BuildReport(tradeDate, outcomes, boundaries);
+            return new BuildReport(tradeDate, outcomes, boundaries, RemoveUnmade(tradeDate, outcomes));
         }
         catch (ArchiveException e)
         {
             return e.Error;
         }
+    }
+
+    /// <summary>Deletes the date's tapes of every kind this build didn't save, whatever made them.</summary>
+    private List<string> RemoveUnmade(DateOnly tradeDate, List<TapeOutcome> outcomes)
+    {
+        var removed = new List<string>();
+
+        foreach (var kind in Enum.GetValues<TapeKind>().Where(k => !outcomes.Any(o => o.Kind == k && o.Path is not null)))
+        {
+            var path = TapePaths.For(tapeRoot, catalog.Dataset, kind, catalog.Root, tradeDate);
+
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                removed.Add(path);
+            }
+        }
+
+        return removed;
     }
 
     private async Task<Error?> BuildBarsAsync(DateOnly tradeDate, bool compress, CatalogContract held,

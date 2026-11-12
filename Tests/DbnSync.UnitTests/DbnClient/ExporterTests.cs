@@ -338,6 +338,8 @@ public sealed class ExporterTests : IDisposable
 
     private async Task<ExportSummary> Export(ExportRequest request) => (await Try(request)).Value;
 
+    private async Task<Error> Fail(ExportRequest request) => (await Try(request)).Error.ShouldNotBeNull();
+
     private static Task<string[]> Lines(string path) => File.ReadAllLinesAsync(path);
 
     private async Task<string[][]> AllLines(ExportSummary summary) =>
@@ -418,14 +420,15 @@ public sealed class ExporterTests : IDisposable
     }
 
     [Fact]
-    public async Task Ticks_of_an_instrument_with_no_definition_stay_decimal()
+    public async Task Ticks_of_an_instrument_with_no_definition_stop_the_export_with_a_reason()
     {
         folder.AddEmpty(Ohlcv, Es, Dec(8));
         folder.Add(Ohlcv, Es, Dec(9), Bar(FrontNumber, Morning(Dec(9)), 100));
 
-        var summary = await Export(Ask(Ohlcv, Es, Dec(9), Dec(9)) with { Prices = PriceMode.Ticks, Columns = [SymbolColumn, Close] });
+        var failed = await Fail(Ask(Ohlcv, Es, Dec(9), Dec(9)) with { Prices = PriceMode.Ticks, Columns = [SymbolColumn, Close] });
 
-        (await AllLines(summary))[0][1].ShouldBe("1,100");
+        failed.Code.ShouldBe(Errors.NoTickSize);
+        failed.Message.ShouldContain("2026-12-09");
     }
 
     [Fact]
@@ -652,6 +655,18 @@ public sealed class ExporterTests : IDisposable
             "ts_recv,ts_event,symbol,instrument_id,side,price,size,sequence,series",
             "2026-10-28T13:30:00.000000000Z,2026-10-28T13:30:00.000000000Z,ESZ26,1,A,100,2,0,ES.n.0"]);
         Path.GetFileName(summary.Files.Single()).ShouldBe("ES.n.0.trades.20261028.csv");
+    }
+
+    [Fact]
+    public async Task Rebuilt_rows_of_a_root_leave_spreads_out_when_asked()
+    {
+        var time = At(October, 13, 30);
+        Define(October);
+        folder.Add(Mbo, Es, October, Order(FrontNumber, time, 100, 2, 'T', 'A', 0), Order(SpreadNumber, time, 5, 1, 'T', 'A', 0));
+
+        var summary = await Export(Ask(Mbo, Es, October, October) with { As = Trades, Spreads = false, Columns = [SymbolColumn] });
+
+        (await AllLines(summary)).SelectMany(l => l.Skip(1)).ShouldBe([Front]);
     }
 
     [Fact]

@@ -43,6 +43,20 @@ public sealed class TapeBuilderTests : IDisposable
     }
 
     [Fact]
+    public async Task ARebuildDeletesATapeOfAKindItDidNotMake()
+    {
+        var stale = TapePaths.For(tapes, TapeFixture.Dataset, TapeKind.L1, TapeFixture.Root, TradeDate);
+        Directory.CreateDirectory(Path.GetDirectoryName(stale)!);
+        File.WriteAllBytes(stale, [1, 2, 3]);
+        var builder = new TapeBuilder(archive.Open(), CatalogHolding(Next), tapes);
+
+        var built = await builder.BuildAsync(TradeDate, compress: false, CancellationToken.None);
+
+        File.Exists(stale).ShouldBeFalse();
+        built.Value.Removed.ShouldBe([stale]);
+    }
+
+    [Fact]
     public async Task ADateThatHoldsNoContractHasNoTapes()
     {
         var builder = new TapeBuilder(archive.Open(), CatalogHolding(null), tapes);

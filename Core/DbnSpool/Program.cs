@@ -59,8 +59,15 @@ internal static class Program
         app.Run();
     }
 
-    private static ArchiveOptions Required(IConfiguration configuration, string section) =>
-        configuration.GetSection(section).Get<ArchiveOptions>() is { Location.Length: > 0 } found
-            ? found
-            : throw new InvalidOperationException($"{section}:Location is not set: an S3 address or a folder.");
+    /// <summary>A section's store, refused at start-up when it can't work, rather than failing every pass later.</summary>
+    private static ArchiveOptions Required(IConfiguration configuration, string section)
+    {
+        if (configuration.GetSection(section).Get<ArchiveOptions>() is not { Location.Length: > 0 } found)
+            throw new InvalidOperationException($"{section}:Location is not set: an S3 address or a folder.");
+
+        if (!found.IsFolder && (found.AccessKey.Length == 0 || found.SecretKey.Length == 0))
+            throw new InvalidOperationException($"{section}:AccessKey and {section}:SecretKey must both be set for an S3 store.");
+
+        return found;
+    }
 }

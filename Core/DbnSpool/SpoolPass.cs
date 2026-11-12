@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.IO.Hashing;
+using System.Text;
 using DbnClient.Tape;
 
 namespace DbnSpool;
@@ -9,8 +11,9 @@ namespace DbnSpool;
 /// <param name="Problem">The dates set aside, for someone to look at, or null.</param>
 /// <param name="SetAside">How many of the failed dates were set aside.</param>
 /// <param name="Trouble">What the first date that threw said, or null when none did.</param>
+/// <param name="Shelf">What is wrong with the tape store itself, so the pass did nothing, or null.</param>
 public sealed record RootResult(string Root, int Spooled, int Failed, bool Skipped, string? Problem = null, int SetAside = 0,
-    string? Trouble = null);
+    string? Trouble = null, string? Shelf = null);
 
 /// <summary>
 /// One root's pass: each trade date the shelf lacks is built, proved, uploaded and
@@ -35,7 +38,7 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
     /// Names the rules the shelf is kept to. Changing it makes every root's next pass run, and so
     /// enforce them, even when the archive itself has not changed.
     /// </summary>
-    private const string Rules = "full-eth";
+    private const string Rules = "one-contract";
 
     private const string MboSchema = "mbo";
     private const string DayFormat = "yyyy-MM-dd";
@@ -44,7 +47,8 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
 
     public async Task<RootResult> RunAsync(string root, CancellationToken cancel)
     {
-        var mbo = await DaysOf(MboSchema, root, cancel).ConfigureAwait(false);
+        var mboFiles = await FilesOf(MboSchema, root, cancel).ConfigureAwait(false);
+        var mbo = mboFiles.Keys.ToHashSet();
         var schemas = new List<IReadOnlyCollection<DateOnly>>();
 
         foreach (var schema in Sources)
@@ -73,7 +77,9 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
 
         var key = SpoolLedger.KeyOf(engine.Dataset, root);
         var ledger = SpoolLedger.From(await shelf.ReadAsync(key, cancel).ConfigureAwait(false));
-        var seen = $"{through.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}/{mbo.Count}/{Rules}";
+
+        // mbo's tags are in it, so fetching an mbo day again makes the next pass run.
+        var seen = $"{through.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}/{mbo.Count}/{Fingerprint(mboFiles)}/{Rules}";
 
         if (ledger.Seen == seen)
         {
@@ -81,6 +87,27 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
             var still = ledger.Attempts.Where(a => ledger.IsSetAside(a.Date, engine.Build, options.MostAttempts)).Select(a => a.Date).ToList();
 
             return new RootResult(root, 0, still.Count, Skipped: true, SetAsideProblem(root, still), still.Count);
+        }
+
+        var (anyShelved, old) = await ShelvedAsync(root, cancel).ConfigureAwait(false);
+
+        // A ledger that lists dates the shelf no longer holds, because the tapes were deleted, would keep them from being made again.
+        if (!anyShelved && ledger.Dates.Count > 0)
+        {
+            logger.LogWarning("{Root}: the ledger lists {Dates} dates but the shelf holds no tapes, so it starts again", root, ledger.Dates.Count);
+
+            ledger = new SpoolLedger();
+        }
+
+        if (old is not null)
+        {
+            var problem = $"{root}: the tape store holds tapes in the old format, one per contract, such as {old}. " +
+                $"Stop DbnSpool, delete everything under {engine.Dataset}/ in the tape store (the tapes, catalog/ and spool/), " +
+                "and start it again: it then builds every date in the new format";
+
+            logger.LogError("{Problem}", problem);
+
+            return new RootResult(root, 0, 0, Skipped: false, Shelf: problem);
         }
 
         var catalog = await engine.CatalogAsync(root, cancel).ConfigureAwait(false);
@@ -96,13 +123,11 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
         var failed = 0;
         var removal = await RemoveExcludedAsync(catalog.Value, ledger, cancel).ConfigureAwait(false);
 
-        if (removal is not null)
-            failed++;
-
         await shelf.PutBytesAsync(key, ledger.ToBytes(), cancel).ConfigureAwait(false);
 
         // Only full ETH days get tapes, so holidays and early closes are never pending.
-        var pending = SpoolPlan.Pending(catalog.Value.FullDays.Select(d => d.TradeDate), ledger, mbo, through);
+        var pending = SpoolPlan.Pending(catalog.Value.FullDays.Select(d => d.TradeDate), ledger, mbo, through,
+            date => StampOf(mboFiles, date));
         var threw = 0;
         var throwsInARow = 0;
         string? trouble = null;
@@ -132,7 +157,8 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
 
             try
             {
-                done = await SpoolAsync(catalog.Value, date, SpoolPlan.HasTicks(date, mbo), ledger, cancel).ConfigureAwait(false);
+                done = await SpoolAsync(catalog.Value, date, SpoolPlan.HasTicks(date, mbo), StampOf(mboFiles, date), ledger, cancel)
+                    .ConfigureAwait(false);
                 throwsInARow = 0;
             }
             catch (OperationCanceledException) when (cancel.IsCancellationRequested)
@@ -199,9 +225,7 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
 
         await shelf.PutBytesAsync(key, ledger.ToBytes(), cancel).ConfigureAwait(false);
 
-        var problem = string.Join("; ", new[] { removal, SetAsideProblem(root, setAside) }.OfType<string>());
-
-        return new RootResult(root, spooled, failed, Skipped: false, problem.Length == 0 ? null : problem, setAside.Count, trouble);
+        return new RootResult(root, spooled, failed, Skipped: false, SetAsideProblem(root, setAside), setAside.Count, trouble, removal);
     }
 
     /// <summary>
@@ -281,7 +305,32 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
         }
     }
 
-    private async Task<bool> SpoolAsync(Catalog catalog, DateOnly date, bool ticks, SpoolLedger ledger, CancellationToken cancel)
+    /// <summary>
+    /// Whether the shelf holds any of the root's tapes, and a key of one named the old way, by contract
+    /// rather than by root, or null when there is none.
+    /// </summary>
+    private async Task<(bool Any, string? Old)> ShelvedAsync(string root, CancellationToken cancel)
+    {
+        var any = false;
+
+        foreach (var kind in TapePaths.Kinds)
+        {
+            await foreach (var key in shelf.KeysAsync(TapePaths.KindFolder("", engine.Dataset, kind, root), cancel).ConfigureAwait(false))
+            {
+                if (TapePaths.TradeDateOf(key) is null)
+                    continue;
+
+                any = true;
+
+                if (!key[(key.LastIndexOf('/') + 1)..].StartsWith($"{root}.", StringComparison.Ordinal))
+                    return (true, key);
+            }
+        }
+
+        return (any, null);
+    }
+
+    private async Task<bool> SpoolAsync(Catalog catalog, DateOnly date, bool ticks, string? stamp, SpoolLedger ledger, CancellationToken cancel)
     {
         var built = await engine.BuildAsync(catalog, date, cancel).ConfigureAwait(false);
 
@@ -316,7 +365,21 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
         foreach (var tape in tapes)
             await shelf.PutFileAsync(KeyOf(tape.Path!), tape.Path!, cancel).ConfigureAwait(false);
 
-        ledger.Add(new SpooledDate(date, tapes.Count, ticks));
+        // A kind not made this time must not keep a tape from an earlier build, which may hold another contract.
+        foreach (var kind in Enum.GetValues<TapeKind>().Where(k => tapes.All(t => t.Kind != k)))
+            await shelf.DeleteAsync(KeyOf(TapePaths.For(options.TapeFolder, engine.Dataset, kind, catalog.Root, date)), cancel).ConfigureAwait(false);
+
+        var made = tapes.Any(t => t.Kind == TapeKind.L1);
+
+        if (ticks && !made)
+        {
+            var why = built.Value.Tapes.FirstOrDefault(t => t.Kind == TapeKind.L1 && t.Error is not null)?.Error?.Message ?? "no L1 tape was made";
+
+            logger.LogWarning("{Root} {Date}: bar tapes only, because {Why} It is tried again if its mbo is fetched again",
+                catalog.Root, date, why);
+        }
+
+        ledger.Add(new SpooledDate(date, tapes.Count, made, ticks && !made ? stamp : null));
 
         logger.LogInformation("{Root} {Date}: {Tapes} tapes on the shelf", catalog.Root, date, tapes.Count);
 
@@ -343,13 +406,25 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
             Directory.Delete(options.TapeFolder, recursive: true);
     }
 
-    private async Task<HashSet<DateOnly>> DaysOf(string schema, string root, CancellationToken cancel)
+    private async Task<HashSet<DateOnly>> DaysOf(string schema, string root, CancellationToken cancel) =>
+        (await FilesOf(schema, root, cancel).ConfigureAwait(false)).Keys.ToHashSet();
+
+    /// <summary>Each day the archive holds a schema for, with its file's tag; mbo's empty days are left out.</summary>
+    private async Task<Dictionary<DateOnly, string>> FilesOf(string schema, string root, CancellationToken cancel)
     {
         var days = await engine.DaysAsync(schema, root, cancel).ConfigureAwait(false);
 
         if (!days.IsSuccess)
             throw new InvalidOperationException($"{root} {schema}: {days.Error!.Message}");
 
-        return days.Value.Where(d => schema != MboSchema || !d.Empty).Select(d => d.Day).ToHashSet();
+        return days.Value.Where(d => schema != MboSchema || !d.Empty).ToDictionary(d => d.Day, d => d.Object.ETag);
     }
+
+    /// <summary>The tags of a trade date's two mbo files, or null when either is missing.</summary>
+    private static string? StampOf(Dictionary<DateOnly, string> mbo, DateOnly tradeDate) =>
+        mbo.TryGetValue(tradeDate.AddDays(-1), out var before) && mbo.TryGetValue(tradeDate, out var on) ? $"{before}|{on}" : null;
+
+    private static string Fingerprint(Dictionary<DateOnly, string> files) =>
+        XxHash3.HashToUInt64(Encoding.UTF8.GetBytes(string.Join(',', files.OrderBy(f => f.Key).Select(f => $"{f.Key:yyyyMMdd}={f.Value}"))))
+            .ToString("x16", CultureInfo.InvariantCulture);
 }

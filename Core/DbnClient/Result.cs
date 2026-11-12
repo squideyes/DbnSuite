@@ -30,6 +30,9 @@ public static class Errors
     /// <summary>An adjusted series needs a roll's settlements, and the archive lacks them.</summary>
     public const string NoSettlement = "export.no_settlement";
 
+    /// <summary>Prices were asked for in ticks, and an instrument's tick size isn't known.</summary>
+    public const string NoTickSize = "export.no_tick_size";
+
     /// <summary>A symbol that is neither a root, a contract nor a continuous name.</summary>
     public const string BadSymbol = "input.bad_symbol";
 

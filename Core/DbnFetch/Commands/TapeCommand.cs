@@ -108,6 +108,9 @@ public static class TapeCommand
 
                 await session.WriteAsync(Report(date, built.Value)).ConfigureAwait(false);
 
+                foreach (var removed in built.Value.Removed ?? [])
+                    await session.Out.WriteLineAsync($"Removed {removed}: this build made no tape of its kind").ConfigureAwait(false);
+
                 var made = built.Value.Tapes.Where(t => t.Error is null).ToList();
                 var what = made.Count == 0 ? "no tapes" : $"{made[0].Symbol} {string.Join(", ", made.Select(t => t.Kind))}";
 

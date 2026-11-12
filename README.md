@@ -25,7 +25,7 @@ SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**
 | **DbnSync** | Keeps a growing archive of Databento data in any S3-compatible store. By default it spends nothing at Databento | `ghcr.io/squideyes/dbnsync-worker` (Docker) |
 | **DbnFetch** (`dbnf`) | Downloads raw files from the archive and exports bars, rebuilt order books and, for futures, sessions and back-adjusted continuous series, as Parquet, CSV or JSON Lines for research tools and trading platforms, DBN, or NinjaTrader 8's own import format | [NuGet](https://www.nuget.org/packages/DbnFetch): `dotnet tool install -g DbnFetch` |
 | **DbnClient** | The engine under DbnFetch, as a C# library | [NuGet](https://www.nuget.org/packages/DbnClient): `dotnet add package DbnClient` |
-| **DbnTape** | Compact tapes of each futures contract's trade date for fast, exact backtests: one-second bars, every trade, and top of book with trading state, proved against the archive | `dbnf tape` in DbnFetch and `DbnClient.Tape` in DbnClient, 0.2.0 or later |
+| **DbnTape** | Compact tapes of each trade date, for its most traded contract, for fast, exact backtests: one-second bars, every trade, and top of book with trading state, proved against the archive | `dbnf tape` in DbnFetch and `DbnClient.Tape` in DbnClient, 0.2.0 or later |
 | **DbnSpool** | Optional. A worker that keeps tapes up to date in a second, private S3 store, building, proving and uploading each new trade date | `ghcr.io/squideyes/dbnspool-worker` (Docker) |
 
 Each runs on your own machines with your own Databento account; nothing passes

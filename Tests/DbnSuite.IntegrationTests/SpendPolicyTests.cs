@@ -479,7 +479,7 @@ public sealed class SpendPolicyTests(RustFs s3)
     }
 
     /// <summary>What the worker asks for on its first pass here: mbo of MNQ, Friday to Tuesday.</summary>
-    private static readonly JobSpec Wanted = new(Dataset, Mbo, $"{Mnq}.n.0,{Mnq}.n.1", "continuous", FirstDay, LastDay);
+    private static readonly JobSpec Wanted = new(Dataset, Mbo, $"{Mnq}.n.0,{Mnq}.n.1,{Mnq}.v.0", "continuous", FirstDay, LastDay);
 
     /// <summary>What an earlier run left in the spend ledger for what the worker asks for first, yesterday, so no limit of today's counts it.</summary>
     private static SpendEntry BoughtEarlier(string root = Mnq, string schema = Mbo) =>

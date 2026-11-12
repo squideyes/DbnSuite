@@ -594,7 +594,7 @@ public sealed class SyncRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task Book_jobs_ask_for_the_leading_outrights_by_open_interest()
+    public async Task Book_jobs_ask_for_the_leading_outrights_by_open_interest_and_the_volume_leader()
     {
         options.MaxPendingJobs = 1;
         BatchRequest? asked = null;
@@ -606,7 +606,7 @@ public sealed class SyncRunnerTests : IDisposable
 
         asked.ShouldNotBeNull();
         asked.StypeIn.ShouldBe("continuous");
-        asked.Symbols.ShouldBe([$"{Root}.n.0", $"{Root}.n.1"]);
+        asked.Symbols.ShouldBe([$"{Root}.n.0", $"{Root}.n.1", $"{Root}.v.0"]);
     }
 
     [Fact]
