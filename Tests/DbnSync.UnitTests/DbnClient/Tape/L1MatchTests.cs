@@ -64,6 +64,41 @@ public sealed class L1MatchTests
     }
 
     [Fact]
+    public async Task AQuoteASnapshotMovedIsAcceptedAtTheNextEvent()
+    {
+        var writer = new L1Writer(TapeFixture.Info());
+        var time = TapeFixture.OpenMicros;
+        var moved = TapeFixture.BasePrice - 1;
+
+        writer.Quote(time, TapeFixture.BasePrice, Lots, TapeFixture.BasePrice + 1, Lots);
+        writer.Quote(time + 5, moved, Lots, TapeFixture.BasePrice + 1, Lots);
+        writer.Trade(time + 9, TapeFixture.BasePrice + 1, 2, TradeSide.Buyer);
+
+        var match = new L1Match(await TapeFixture.RoundTripAsync(writer));
+
+        match.AfterSnapshot(Quote(time + 5, moved, Lots, TapeFixture.BasePrice + 1, Lots));
+        match.Row(Trade(time + 9, TapeFixture.BasePrice + 1, 2, TradeSide.Buyer));
+
+        match.Finish().ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task AQuoteAfterASnapshotUnlikeTheBookStillFails()
+    {
+        var writer = new L1Writer(TapeFixture.Info());
+        var time = TapeFixture.OpenMicros;
+
+        writer.Quote(time, TapeFixture.BasePrice, Lots, TapeFixture.BasePrice + 1, Lots);
+        writer.Quote(time + 5, TapeFixture.BasePrice - 1, Lots, TapeFixture.BasePrice + 1, Lots);
+
+        var match = new L1Match(await TapeFixture.RoundTripAsync(writer));
+
+        match.AfterSnapshot(Quote(time + 5, TapeFixture.BasePrice - 2, Lots, TapeFixture.BasePrice + 1, Lots));
+
+        match.Finish().ShouldBe($"the tape runs on past the transform at {time + 5}");
+    }
+
+    [Fact]
     public async Task ItAgreesWithCheckingTheWholeDayAtOnce()
     {
         var random = new Random(20261107);

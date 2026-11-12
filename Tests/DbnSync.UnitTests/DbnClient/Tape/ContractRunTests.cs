@@ -7,8 +7,8 @@ namespace DbnSync.UnitTests.TapeFormatTests;
 public sealed class ContractRunTests
 {
     private const byte MboType = 0xA0;
-    private const byte Last = 0x80;
-    private const byte Snapshot = 0x20;
+    internal const byte Last = 0x80;
+    internal const byte Snapshot = 0x20;
     private const byte Trading = 7;
     private const byte Halt = 8;
     private const byte CloseAction = 12;
@@ -16,8 +16,8 @@ public sealed class ContractRunTests
     private const int Ask = 30_843;
     private const long Micro = 1_000;
 
-    private static readonly long Open = TapeFixture.OpenSeconds * TapeFixture.NanosPerSecond;
-    private static readonly long Close = TapeFixture.CloseSeconds * TapeFixture.NanosPerSecond;
+    internal static readonly long Open = TapeFixture.OpenSeconds * TapeFixture.NanosPerSecond;
+    internal static readonly long Close = TapeFixture.CloseSeconds * TapeFixture.NanosPerSecond;
     private static readonly long RthOpen = Open + 15 * 3_600 * TapeFixture.NanosPerSecond;
     private static readonly long RthClose = RthOpen + 6 * 3_600 * TapeFixture.NanosPerSecond;
 
@@ -303,7 +303,7 @@ public sealed class ContractRunTests
         TapeChecksum.Of(tape).ShouldBe(run.L1!.Checksum);
     }
 
-    private static ContractRun Run(IReadOnlyList<(long Time, byte Action)>? states = null)
+    internal static ContractRun Run(IReadOnlyList<(long Time, byte Action)>? states = null)
     {
         var day = new SessionDay(TapeFixture.TradeDate, Open, Close, [], RthOpen, RthClose);
 
@@ -328,7 +328,7 @@ public sealed class ContractRunTests
     private static async Task<List<L1CursorTests.Step>> StepsAsync(ContractRun run) =>
         L1CursorTests.Read(await TapeFixture.RoundTripAsync(run.L1!));
 
-    private static byte[] Record(long time, char action, ulong orderId, int price, uint size, char side, byte flags) =>
+    internal static byte[] Record(long time, char action, ulong orderId, int price, uint size, char side, byte flags) =>
         RawRecord(time, action, orderId, price * TapeFixture.TickRaw, size, side, flags);
 
     private static byte[] RawRecord(long time, char action, ulong orderId, long raw, uint size, char side, byte flags)
