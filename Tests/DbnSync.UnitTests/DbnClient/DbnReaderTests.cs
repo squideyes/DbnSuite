@@ -230,6 +230,42 @@ public sealed class DbnReaderTests
     }
 
     [Fact]
+    public async Task Records_in_later_frames_are_read_across_a_skippable_frame()
+    {
+        await using var reader = await DbnReader.OpenAsync(new MemoryStream(
+            [.. DbnBytes.Compress(DbnBytes.Metadata(Dataset, Requested, Mappings)),
+                .. DbnBytes.Compress(Order(FrontId)), .. ZstdFrames.Skippable, .. DbnBytes.Compress(Order(NextId))]),
+            CancellationToken.None);
+
+        var records = await reader.ReadAsync(CancellationToken.None).ToListAsync();
+
+        records.Select(r => r.InstrumentId).ShouldBe([FrontId, NextId]);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(8)]
+    [InlineData(4_096)]
+    public async Task Bytes_after_the_last_record_that_are_not_zstd_are_refused_as_damaged(int junk)
+    {
+        await using var reader = await DbnReader.OpenAsync(
+            new MemoryStream([.. File(Order(FrontId)).ToArray(), .. ZstdFrames.Junk(junk)]), CancellationToken.None);
+
+        await Should.ThrowAsync<InvalidDataException>(async () => await reader.ReadAsync(CancellationToken.None).ToListAsync());
+    }
+
+    [Fact]
+    public async Task A_records_frame_cut_short_is_refused_as_damaged()
+    {
+        var records = DbnBytes.Compress(Order(FrontId), Order(NextId));
+        await using var reader = await DbnReader.OpenAsync(
+            new MemoryStream([.. DbnBytes.Compress(DbnBytes.Metadata(Dataset, Requested, Mappings)), .. records[..^TailCut]]),
+            CancellationToken.None);
+
+        await Should.ThrowAsync<InvalidDataException>(async () => await reader.ReadAsync(CancellationToken.None).ToListAsync());
+    }
+
+    [Fact]
     public async Task An_io_failure_is_not_taken_for_damage()
     {
         var failing = new FailingStream(new IOException(DiskFailed), File());
@@ -238,6 +274,9 @@ public sealed class DbnReaderTests
     }
 
     private const string DiskFailed = "the disk went away";
+    private const int TailCut = 4;
+
+    private static byte[] Order(uint instrument) => DbnBytes.Mbo(instrument, TsEvent, Price, Quantity, 'A', 'B', OrderId);
 
     private sealed class FailingStream(Exception failure, Stream inner) : MemoryStream
     {

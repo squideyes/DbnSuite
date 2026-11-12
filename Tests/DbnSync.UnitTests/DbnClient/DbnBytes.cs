@@ -1,6 +1,6 @@
 using System.Buffers.Binary;
+using System.IO.Compression;
 using System.Text;
-using ZstdSharp;
 
 namespace DbnSync.UnitTests.ClientTests;
 
@@ -153,9 +153,13 @@ internal static class DbnBytes
 
     public static byte[] Compress(params byte[][] parts)
     {
-        using var compressor = new Compressor();
+        var plain = parts.SelectMany(p => p).ToArray();
+        var packed = new byte[ZstandardEncoder.GetMaxCompressedLength(plain.Length)];
 
-        return compressor.Wrap(parts.SelectMany(p => p).ToArray()).ToArray();
+        if (!ZstandardEncoder.TryCompress(plain, packed, out var written))
+            throw new InvalidOperationException("zstd could not compress the test bytes.");
+
+        return packed[..written];
     }
 
     private static byte[] Header(byte rtype, int length, uint instrument, ulong tsEvent)

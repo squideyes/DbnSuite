@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using ZstdSharp;
 
 namespace DbnClient.Dbn;
 
@@ -36,7 +35,7 @@ public sealed class DbnReader : IAsyncDisposable
     /// <param name="damaged">Makes the exception damage is thrown as, from what is wrong.</param>
     internal static async Task<DbnReader> OpenAsync(Stream compressed, Func<string, Exception> damaged, CancellationToken cancel)
     {
-        var reader = new DbnReader(new BufferedStream(new DecompressionStream(compressed, leaveOpen: false), BufferSize), damaged);
+        var reader = new DbnReader(new BufferedStream(Zstd.Decompressing(compressed), BufferSize), damaged);
 
         try
         {
@@ -120,5 +119,5 @@ public sealed class DbnReader : IAsyncDisposable
         }
     }
 
-    private static bool IsDamage(Exception e) => e is ZstdException or EndOfStreamException or InvalidDataException;
+    private static bool IsDamage(Exception e) => e is EndOfStreamException or InvalidDataException;
 }

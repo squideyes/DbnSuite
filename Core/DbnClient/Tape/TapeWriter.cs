@@ -1,5 +1,4 @@
 using System.IO.Hashing;
-using ZstdSharp;
 
 namespace DbnClient.Tape;
 
@@ -11,7 +10,6 @@ public abstract class TapeWriter
 {
     private const int InitialCapacity = 1 << 16;
     private const int MostBytesInAnEvent = 64;
-    private const int ZstdLevel = 3;
 
     private readonly TapeKind kind;
     private readonly TapeInfo info;
@@ -183,9 +181,7 @@ public abstract class TapeWriter
         if (!info.Compress)
             return plain.ToArray();
 
-        using var compressor = new Compressor(ZstdLevel);
-
-        return compressor.Wrap(plain).ToArray();
+        return Zstd.Compress(plain);
     }
 
     private TapeHeader HeaderFor(byte[] stored)
