@@ -169,7 +169,7 @@ public sealed class RollScheduleTests : IDisposable
     public async Task A_contract_listed_exactly_at_the_open_is_held()
     {
         var listedAtOpen = DbnBytes.Utc(2026, 12, 8, 23);
-        List(Future(FrontId, RawFront, FrontExpires, 2026, 12, listedAtOpen), Future(NextId, RawNext, NextExpires, 2027, 3));
+        List(Future(FrontId, RawFront, FrontExpires, 2026, 12, listedAtOpen), Future(NextId, RawNext, NextExpires, 2027, 3, listedAtOpen));
 
         var schedule = await Build(Calendar, Dec(9), Dec(9));
 
@@ -414,12 +414,33 @@ public sealed class RollScheduleTests : IDisposable
     [Fact]
     public async Task The_latest_open_interest_is_the_one_that_counts()
     {
-        Interest(Dec(7), (FrontId, 100), (NextId, 900));
-        Interest(Dec(8), (FrontId, 100), (NextId, 50));
+        Interest(Dec(7), (FrontId, 900), (NextId, 100));
+        Interest(Dec(8), (FrontId, 100), (NextId, 900));
 
         var schedule = await Build(ByInterest, Dec(9), Dec(9));
 
-        schedule.On(Dec(9))!.Symbol.ShouldBe(Front);
+        schedule.On(Dec(9))!.Symbol.ShouldBe(Next);
+    }
+
+    [Fact]
+    public async Task A_date_holds_the_same_contract_whatever_span_it_is_asked_in()
+    {
+        Interest(Dec(8), (FrontId, 100), (NextId, 900));
+        Interest(Dec(10), (FrontId, 900), (NextId, 100));
+
+        var wide = await Build(ByInterest, Dec(9), Dec(11));
+        var alone = await Build(ByInterest, Dec(11), Dec(11));
+
+        wide.On(Dec(11))!.Symbol.ShouldBe(Next);
+        alone.On(Dec(11))!.Symbol.ShouldBe(Next);
+    }
+
+    [Fact]
+    public async Task The_week_before_the_span_is_not_part_of_it()
+    {
+        var schedule = await Build(Calendar, Dec(10), Dec(11));
+
+        schedule.On(Dec(9)).ShouldBeNull();
     }
 
     [Fact]

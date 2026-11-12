@@ -130,7 +130,8 @@
     </table>
 </div>
 <p>
-    A roll is decided from the last complete session and takes effect at the next open. <code>--adjust difference</code>
+    A roll is decided from the last complete session and takes effect at the next open. The schedule starts a week
+    before the first date asked for, so a date holds the same contract whatever span it is asked in. <code>--adjust difference</code>
     adds each roll's settlement gap to every earlier price (back-adjustment); <code>--adjust ratio</code> scales them,
     keeping percentage moves. Adjustment applies to bars: order book events keep raw prices, so <code>--adjust</code>
     on an <code>mbo</code> series is refused. A roll with no settlement for either contract has no gap, so an adjusted

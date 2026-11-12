@@ -37,11 +37,16 @@ public sealed record Roll(DateOnly TradeDate, Contract From, Contract To, decima
 /// Which contract a continuous name holds on each trade date. A roll is decided
 /// from the last complete session and takes effect at the next session's open,
 /// so nothing is decided with hindsight, and a series never rolls back to an
-/// earlier contract.
+/// earlier contract. The schedule starts deciding a week before the first date
+/// asked for, so a date holds the same contract whatever span it is asked in.
 /// </summary>
 public sealed class RollSchedule
 {
-    /// <summary>How far back data is read before the first date, to have a previous session to decide from.</summary>
+    /// <summary>
+    /// Days walked before the first date, so the contract held going into it is
+    /// known; data is read a further week back, so that walk has a previous
+    /// session to decide from too.
+    /// </summary>
     private const int Lookback = 7;
 
     private const ushort SettlementPrice = 3;
@@ -129,7 +134,8 @@ public sealed class RollSchedule
 
         var outrights = listed.Value.Where(c => !c.IsSpread && c.Expiration is not null).ToList();
         var byId = outrights.ToDictionary(c => c.InstrumentId);
-        var days = new DateSpan(tradeDates.From.AddDays(-Lookback), tradeDates.To);
+        var walkFrom = tradeDates.From.AddDays(-Lookback);
+        var days = new DateSpan(walkFrom.AddDays(-Lookback), tradeDates.To);
 
         StatisticSeries statistics;
         Dictionary<DateOnly, Dictionary<uint, decimal>> volumes;
@@ -150,8 +156,11 @@ public sealed class RollSchedule
         var rolls = new List<Roll>();
         Contract? current = null;
 
-        for (var date = tradeDates.From; date <= tradeDates.To; date = date.AddDays(1))
+        for (var date = walkFrom; date <= tradeDates.To; date = date.AddDays(1))
         {
+            // The week before the span only learns what is held going into it.
+            var asked = date >= tradeDates.From;
+
             var opens = Sessions.SessionStart(date);
             var live = outrights
                 .Where(c => c.Expiration > opens && (c.FirstTrade is null || c.FirstTrade <= opens))
@@ -174,7 +183,8 @@ public sealed class RollSchedule
             if (current is not null && pick.Expiration < current.Expiration && current.Expiration > opens)
                 pick = current;
 
-            if (current is not null && pick.InstrumentId != current.InstrumentId)
+            // A change on the first date adjusts nothing asked for, so it is no roll of this span.
+            if (date > tradeDates.From && current is not null && pick.InstrumentId != current.InstrumentId)
             {
                 var settles = statistics.Latest(SettlementPrice, opens, quantity: false);
 
@@ -184,7 +194,9 @@ public sealed class RollSchedule
                     settles.TryGetValue(pick.InstrumentId, out var t) ? t : null) { Changed = date });
             }
 
-            held[date] = pick;
+            if (asked)
+                held[date] = pick;
+
             current = pick;
         }
 
