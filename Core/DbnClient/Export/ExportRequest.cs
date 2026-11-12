@@ -47,7 +47,12 @@ public sealed record ExportRequest
 
     /// <summary>For a continuous series.</summary>
     public Adjustment Adjustment { get; init; } = Adjustment.None;
-    public int RollDays { get; init; } = RollSchedule.DefaultRollDays;
+
+    /// <summary>
+    /// For a <c>.c.</c> series: roll this many days before the root's anchor
+    /// instead of its <see cref="CalendarRule"/>'s own.
+    /// </summary>
+    public int? RollDays { get; init; }
 
     /// <summary>For a root: keep spreads as well as outright contracts.</summary>
     public bool Spreads { get; init; } = true;

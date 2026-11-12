@@ -10,7 +10,7 @@ public static class RollsCommand
     {
         var symbol = new Argument<string>("series") { Description = "A continuous name: ES.c.0 (calendar), ES.v.0 (volume) or ES.n.0 (open interest)." };
         var range = new RangeOptions();
-        var rollDays = new Option<int>("--roll-days") { Description = "For .c. series: roll this many days before expiry.", DefaultValueFactory = _ => RollSchedule.DefaultRollDays };
+        var rollDays = new Option<int?>("--roll-days") { Description = "For .c. series: roll this many days before expiry (before the delivery month for gold) instead of the root's own rule." };
 
         var command = new Command("rolls", "List a continuous series' rolls: the date, the contracts, and the settlement gap.")
         {

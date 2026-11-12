@@ -31,7 +31,7 @@ public static class ExportCommand
         var hoursZone = new Option<string>("--hours-tz") { Description = "The zone --hours is in.", DefaultValueFactory = _ => Zones.Default };
         var bars = new Option<string?>("--bars") { Description = "Bars instead of records: 5s, 1m, 15m, 1h, 1d, 1w, 1mo, or from mbo 500t (trades), 1000v (volume)." };
         var adjust = new Option<string>("--adjust") { Description = "For a continuous series other than mbo: none, difference (back-adjusted) or ratio.", DefaultValueFactory = _ => "none" };
-        var rollDays = new Option<int>("--roll-days") { Description = "For .c. series: roll this many days before expiry.", DefaultValueFactory = _ => RollSchedule.DefaultRollDays };
+        var rollDays = new Option<int?>("--roll-days") { Description = "For .c. series: roll this many days before expiry (before the delivery month for gold) instead of the root's own rule." };
         var single = new Option<bool>("--single") { Description = "One file for the whole range, not one per trade date." };
         var partition = new Option<bool>("--partition") { Description = "series=/date= folders that DuckDB and Polars read as one table." };
         var name = new Option<string?>("--name") { Description = "File names of your own: {series}, {kind}, {date}, {from}, {to}, {ext}." };

@@ -100,7 +100,7 @@
             <tr><td><code>Columns</code></td><td>all</td><td><code>--columns</code></td></tr>
             <tr><td><code>Bars</code></td><td>none</td><td><code>--bars</code></td></tr>
             <tr><td><code>As</code></td><td>none</td><td><code>--as</code></td></tr>
-            <tr><td><code>Adjustment</code>, <code>RollDays</code></td><td><code>None</code>, 8</td><td><code>--adjust</code>, <code>--roll-days</code></td></tr>
+            <tr><td><code>Adjustment</code>, <code>RollDays</code></td><td><code>None</code>, the root's <code>CalendarRule</code></td><td><code>--adjust</code>, <code>--roll-days</code></td></tr>
             <tr><td><code>Spreads</code></td><td>true</td><td><code>--no-spreads</code></td></tr>
         </tbody>
     </table>
@@ -245,7 +245,7 @@
         """;
 
     private const string Rolls = """
-        var schedule = await RollSchedule.BuildAsync(archive, symbol, dates, RollSchedule.DefaultRollDays, progress: null, cancel);
+        var schedule = await RollSchedule.BuildAsync(archive, symbol, dates, rollDays: null, progress: null, cancel);
 
         if (schedule.IsSuccess)
         {

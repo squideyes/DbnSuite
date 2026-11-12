@@ -425,7 +425,7 @@ public sealed class Catalog
         if (!series.IsSuccess)
             return series.Error!;
 
-        var schedule = await RollSchedule.BuildAsync(archive, series.Value, span, RollSchedule.DefaultRollDays, null, cancel).ConfigureAwait(false);
+        var schedule = await RollSchedule.BuildAsync(archive, series.Value, span, null, null, cancel).ConfigureAwait(false);
 
         if (!schedule.IsSuccess)
             return schedule.Error!;
