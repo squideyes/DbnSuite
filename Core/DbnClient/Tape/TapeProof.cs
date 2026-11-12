@@ -42,20 +42,23 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
             return results;
         }
 
+        if (catalog.Excluded(tradeDate) is { } reason)
+        {
+            results.AddRange(NotFullDay(tradeDate, reason));
+
+            return results;
+        }
+
         var lead = await StatusLog.ClockLeadAsync(archive, catalog.Root, tradeDate, cancel).ConfigureAwait(false);
 
-        foreach (var contract in catalog.Contracts)
+        // A date's tapes hold one contract: the one the catalog holds that day.
+        if (catalog.HeldOn(tradeDate) is { } contract && calendar.For(contract.Symbol, tradeDate) is { } session)
         {
-            // Names repeat, so only one contract of a name is the one this date's tapes hold.
-            if (catalog.Contract(contract.Symbol, tradeDate)?.InstrumentId != contract.InstrumentId)
-                continue;
+            var s1 = await LoadAsync(TapeKind.S1, tradeDate, cancel).ConfigureAwait(false);
+            var trade = await LoadAsync(TapeKind.Trade, tradeDate, cancel).ConfigureAwait(false);
+            var l1 = await LoadAsync(TapeKind.L1, tradeDate, cancel).ConfigureAwait(false);
 
-            if (calendar.For(contract.Symbol, tradeDate) is not { } session)
-                continue;
-
-            var s1 = await LoadAsync(TapeKind.S1, contract, tradeDate, cancel).ConfigureAwait(false);
-            var trade = await LoadAsync(TapeKind.Trade, contract, tradeDate, cancel).ConfigureAwait(false);
-            var l1 = await LoadAsync(TapeKind.L1, contract, tradeDate, cancel).ConfigureAwait(false);
+            results.Add(HeldContract(contract, s1, trade, l1));
 
             if (s1 is not null)
             {
@@ -91,9 +94,23 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
         return results;
     }
 
-    private async Task<Tape?> LoadAsync(TapeKind kind, CatalogContract contract, DateOnly tradeDate, CancellationToken cancel)
+    /// <summary>Every tape of the date holds the contract the catalog holds that day, and no other.</summary>
+    private static ProofResult HeldContract(CatalogContract contract, params Tape?[] tapes)
     {
-        var path = TapePaths.For(tapeRoot, catalog.Dataset, kind, catalog.Root, contract.Symbol, tradeDate);
+        const string check = "Held contract";
+
+        foreach (var tape in tapes)
+        {
+            if (tape is not null && tape.Header.InstrumentId != contract.InstrumentId)
+                return Fail(contract, check, $"a {tape.Header.Kind} tape holds {tape.Header.Symbol}, and the day's contract is {contract.Symbol}");
+        }
+
+        return Pass(contract, check);
+    }
+
+    private async Task<Tape?> LoadAsync(TapeKind kind, DateOnly tradeDate, CancellationToken cancel)
+    {
+        var path = TapePaths.For(tapeRoot, catalog.Dataset, kind, catalog.Root, tradeDate);
 
         if (!File.Exists(path))
             return null;
@@ -142,6 +159,18 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
     }
 
     /// <summary>A date the catalog has no session for must have had no trading either.</summary>
+    /// <summary>A date that is not a full ETH day has no tapes, so any found there was left by something else.</summary>
+    private IEnumerable<ProofResult> NotFullDay(DateOnly tradeDate, string reason)
+    {
+        const string check = "Full ETH day";
+
+        foreach (var kind in Enum.GetValues<TapeKind>())
+        {
+            if (File.Exists(TapePaths.For(tapeRoot, catalog.Dataset, kind, catalog.Root, tradeDate)))
+                yield return new ProofResult(catalog.Root, check, false, $"it has a {kind} tape, but the date has none, because {reason}");
+        }
+    }
+
     private IEnumerable<ProofResult> NoSession(DateOnly tradeDate, Dictionary<uint, List<SecondBar>> bars)
     {
         const string check = "Date has a session";
@@ -575,6 +604,7 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
     private async Task<IReadOnlyList<ProofResult>> AgainstMboAsync(DateOnly tradeDate, List<TickSubject> subjects, CancellationToken cancel)
     {
         var checks = subjects.ToDictionary(s => s.Contract.InstrumentId, s => new MboCheck(s));
+        var heldId = catalog.HeldOn(tradeDate)?.InstrumentId;
         var filesHolding = new Dictionary<uint, int>();
         var presence = new Dictionary<uint, SessionPresence?>();
 
@@ -609,7 +639,7 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
                     {
                         check.Feed((MboRecord)DbnRecord.Decode(raw.Span));
                     }
-                    else
+                    else if (id == heldId)
                     {
                         if (!presence.TryGetValue(id, out var watch))
                             presence[id] = watch = TapeSession(id, tradeDate) is { } session ? new SessionPresence(session) : null;
@@ -622,6 +652,9 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
             foreach (var id in seen)
                 filesHolding[id] = filesHolding.GetValueOrDefault(id) + 1;
         }
+
+        // Only the day's contract is meant to have a tape, so only it can be missing one.
+        filesHolding = filesHolding.Where(f => f.Key == heldId).ToDictionary();
 
         return [.. checks.Values.SelectMany(c => c.Results()), .. MissingTapes(filesHolding, checks, presence)];
     }
@@ -636,8 +669,8 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
             : null;
 
     /// <summary>
-    /// A contract mbo holds for the whole date, and that had a record in its session outside
-    /// a snapshot, must have its tape, or a refusal would go unnoticed. One seen only in
+    /// The day's contract, when mbo holds it for the whole date and it had a record in its session
+    /// outside a snapshot, must have its tape, or a refusal would go unnoticed. One seen only in
     /// snapshots, resting orders and no activity, rightly has none.
     /// </summary>
     private IEnumerable<ProofResult> MissingTapes(Dictionary<uint, int> filesHolding, Dictionary<uint, MboCheck> checks,

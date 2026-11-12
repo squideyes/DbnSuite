@@ -238,6 +238,51 @@ public sealed class SessionRulesTests
 
     private static TradingSpan Span(long start, long end) => new(start, end);
 
+    [Fact]
+    public void ASessionFrom1700To1600IsAFullEthDay()
+    {
+        SessionRules.NotFullEth(new DateOnly(2026, 10, 29), At(2026, 10, 28, 17), At(2026, 10, 29, 16)).ShouldBeNull();
+    }
+
+    [Fact]
+    public void AMondayIsFullFromItsSundayOpen()
+    {
+        SessionRules.NotFullEth(new DateOnly(2026, 10, 26), At(2026, 10, 25, 17), At(2026, 10, 26, 16)).ShouldBeNull();
+    }
+
+    [Fact]
+    public void TheDayClocksGoBackIsStillFull()
+    {
+        SessionRules.NotFullEth(new DateOnly(2026, 11, 2), At(2026, 11, 1, 17), At(2026, 11, 2, 16)).ShouldBeNull();
+    }
+
+    [Fact]
+    public void AnOpenUpToFiveMinutesLateIsStillFull()
+    {
+        SessionRules.NotFullEth(new DateOnly(2026, 10, 29), At(2026, 10, 28, 17, 5), At(2026, 10, 29, 16)).ShouldBeNull();
+    }
+
+    [Fact]
+    public void AnOpenMoreThanFiveMinutesLateIsNotFull()
+    {
+        SessionRules.NotFullEth(new DateOnly(2026, 10, 29), At(2026, 10, 28, 17, 6), At(2026, 10, 29, 16))
+            .ShouldBe("its session opened Wed 17:06, not 17:00");
+    }
+
+    [Fact]
+    public void AnEarlyCloseIsNotFull()
+    {
+        SessionRules.NotFullEth(new DateOnly(2026, 11, 27), At(2026, 11, 26, 17), At(2026, 11, 27, 12, 15))
+            .ShouldBe("its session closed Fri 12:15, not 16:00");
+    }
+
+    [Fact]
+    public void ASessionThatHasNotClosedIsNotFull()
+    {
+        SessionRules.NotFullEth(new DateOnly(2026, 10, 29), At(2026, 10, 28, 17), At(2026, 10, 28, 17))
+            .ShouldBe("its session has not closed");
+    }
+
     private static long At(int year, int month, int day, int hour, int minute = 0)
     {
         var local = new DateTime(year, month, day, hour, minute, 0, DateTimeKind.Unspecified);

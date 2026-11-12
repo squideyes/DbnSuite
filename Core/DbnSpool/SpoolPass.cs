@@ -25,6 +25,18 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
     /// <summary>Dates in a row that may throw before the pass gives up: by then it is the archive or the disk, not the dates.</summary>
     public const int MostThrowsInARow = 3;
 
+    /// <summary>
+    /// The largest share of a root's shelved dates one pass may remove as not full ETH days. Short days
+    /// are about 3.5% of trade dates, so more than this points at a broken catalog, not at the rules.
+    /// </summary>
+    public const double MostRemovedShare = 0.1;
+
+    /// <summary>
+    /// Names the rules the shelf is kept to. Changing it makes every root's next pass run, and so
+    /// enforce them, even when the archive itself has not changed.
+    /// </summary>
+    private const string Rules = "full-eth";
+
     private const string MboSchema = "mbo";
     private const string DayFormat = "yyyy-MM-dd";
 
@@ -61,7 +73,7 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
 
         var key = SpoolLedger.KeyOf(engine.Dataset, root);
         var ledger = SpoolLedger.From(await shelf.ReadAsync(key, cancel).ConfigureAwait(false));
-        var seen = $"{through.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}/{mbo.Count}";
+        var seen = $"{through.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}/{mbo.Count}/{Rules}";
 
         if (ledger.Seen == seen)
         {
@@ -80,9 +92,17 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
             return new RootResult(root, 0, 1, Skipped: false);
         }
 
-        var pending = SpoolPlan.Pending(catalog.Value.Days.Select(d => d.TradeDate), ledger, mbo, through);
         var spooled = 0;
         var failed = 0;
+        var removal = await RemoveExcludedAsync(catalog.Value, ledger, cancel).ConfigureAwait(false);
+
+        if (removal is not null)
+            failed++;
+
+        await shelf.PutBytesAsync(key, ledger.ToBytes(), cancel).ConfigureAwait(false);
+
+        // Only full ETH days get tapes, so holidays and early closes are never pending.
+        var pending = SpoolPlan.Pending(catalog.Value.FullDays.Select(d => d.TradeDate), ledger, mbo, through);
         var threw = 0;
         var throwsInARow = 0;
         string? trouble = null;
@@ -179,7 +199,69 @@ public sealed class SpoolPass(ISpoolEngine engine, ITapeShelf shelf, SpoolOption
 
         await shelf.PutBytesAsync(key, ledger.ToBytes(), cancel).ConfigureAwait(false);
 
-        return new RootResult(root, spooled, failed, Skipped: false, SetAsideProblem(root, setAside), setAside.Count, trouble);
+        var problem = string.Join("; ", new[] { removal, SetAsideProblem(root, setAside) }.OfType<string>());
+
+        return new RootResult(root, spooled, failed, Skipped: false, problem.Length == 0 ? null : problem, setAside.Count, trouble);
+    }
+
+    /// <summary>
+    /// Takes off the shelf every tape, and out of the ledger every date, that the catalog says is not
+    /// a full ETH day, so the shelf holds only what the rules allow, whatever an older version put there.
+    /// A catalog that would remove more than <see cref="MostRemovedShare"/> of the shelf's dates is not
+    /// trusted: nothing is removed, and the pass says so.
+    /// </summary>
+    /// <returns>Null, or the problem that stopped the removal.</returns>
+    private async Task<string?> RemoveExcludedAsync(Catalog catalog, SpoolLedger ledger, CancellationToken cancel)
+    {
+        var keys = new List<string>();
+        var dates = new SortedSet<DateOnly>();
+        var shelved = new HashSet<DateOnly>();
+
+        foreach (var kind in TapePaths.Kinds)
+        {
+            await foreach (var key in shelf.KeysAsync(TapePaths.KindFolder("", engine.Dataset, kind, catalog.Root), cancel).ConfigureAwait(false))
+            {
+                if (TapePaths.TradeDateOf(key) is not { } date)
+                    continue;
+
+                shelved.Add(date);
+
+                if (catalog.Judges(date) && !catalog.IsFullDay(date))
+                {
+                    keys.Add(key);
+                    dates.Add(date);
+                }
+            }
+        }
+
+        foreach (var spooled in ledger.Dates.Where(d => catalog.Judges(d.Date) && !catalog.IsFullDay(d.Date)))
+            dates.Add(spooled.Date);
+
+        if (dates.Count == 0)
+            return null;
+
+        if (dates.Count > Math.Max(1, shelved.Count * MostRemovedShare))
+        {
+            var problem = $"{catalog.Root}: the catalog would take {dates.Count} of the shelf's {shelved.Count} dates off it as not full ETH days, " +
+                "which is more than a catalog should; nothing was removed";
+
+            logger.LogError("{Problem}", problem);
+
+            return problem;
+        }
+
+        foreach (var key in keys)
+            await shelf.DeleteAsync(key, cancel).ConfigureAwait(false);
+
+        foreach (var date in dates)
+        {
+            ledger.Remove(date);
+            logger.LogInformation("{Root} {Date}: tapes removed, because {Reason}", catalog.Root, date, catalog.Excluded(date));
+        }
+
+        logger.LogInformation("{Root}: {Tapes} tapes of {Dates} dates that are not full ETH days removed from the shelf", catalog.Root, keys.Count, dates.Count);
+
+        return null;
     }
 
     private string? SetAsideProblem(string root, IReadOnlyList<DateOnly> dates) =>

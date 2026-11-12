@@ -56,7 +56,10 @@ public sealed record CatalogDay
 {
     public required DateOnly TradeDate { get; init; }
 
-    /// <summary>The contract the roll rule holds, or null when it holds none.</summary>
+    /// <summary>
+    /// The day's one tape contract: the one that traded the most in the previous session, never
+    /// going back to an earlier one. Null when there is none.
+    /// </summary>
     public string? Held { get; init; }
 
     /// <summary>The day's distinct sessions, the most common first.</summary>
@@ -83,6 +86,7 @@ public sealed class Catalog
     private readonly ILookup<string, CatalogContract> bySymbol;
     private readonly Dictionary<DateOnly, CatalogDay> byDate;
     private readonly HashSet<uint> everHeld;
+    private readonly Dictionary<DateOnly, string?> excluded;
 
     [JsonConstructor]
     public Catalog(string dataset, string root, IReadOnlyList<CatalogContract> contracts, IReadOnlyList<CatalogDay> days)
@@ -96,6 +100,51 @@ public sealed class Catalog
         bySymbol = contracts.ToLookup(c => c.Symbol);
         byDate = days.ToDictionary(d => d.TradeDate);
         everHeld = [.. days.SelectMany(d => d.Contracts).Select(c => c.InstrumentId)];
+        excluded = days.ToDictionary(d => d.TradeDate, NotFullEth);
+        FullDays = [.. days.Where(d => excluded[d.TradeDate] is null)];
+    }
+
+    /// <summary>
+    /// The days that are full ETH days, the only ones tapes are made for: see <see cref="Excluded"/>.
+    /// The catalog keeps the others, whose settlements and rolls still count.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<CatalogDay> FullDays { get; }
+
+    /// <summary>
+    /// Why a trade date has no tapes, or null when it is a full ETH day: a session that opened at 17:00
+    /// Chicago time the evening before and closed at 16:00, each within five minutes, halts inside it allowed.
+    /// Short sessions, such as holidays and early closes, are left out whole, so every tape day is alike.
+    /// </summary>
+    public string? Excluded(DateOnly tradeDate) =>
+        excluded.TryGetValue(tradeDate, out var reason) ? reason : "it has no session";
+
+    /// <summary>True when the date is a full ETH day, so it has tapes.</summary>
+    public bool IsFullDay(DateOnly tradeDate) => Excluded(tradeDate) is null;
+
+    /// <summary>True when the date lies within the catalog's days, so its absence means no session rather than not yet known.</summary>
+    public bool Judges(DateOnly tradeDate) => Days.Count > 0 && tradeDate >= Days[0].TradeDate && tradeDate <= Days[^1].TradeDate;
+
+    /// <summary>
+    /// Judges the session the day's contracts traded: the held contract's, else the one most of them
+    /// share. The day's first session is the most common across every instrument, spreads included,
+    /// which can be a stray.
+    /// </summary>
+    private string? NotFullEth(CatalogDay day)
+    {
+        if (day.Sessions.Count == 0)
+            return "it has no session";
+
+        var held = day.Held is { } symbol && Contract(symbol, day.TradeDate) is { } contract
+            ? day.Contracts.FirstOrDefault(c => c.InstrumentId == contract.InstrumentId)
+            : null;
+
+        var index = held?.Session
+            ?? day.Contracts.GroupBy(c => c.Session).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).Select(g => g.Key).FirstOrDefault();
+
+        var session = day.Sessions[Math.Clamp(index, 0, day.Sessions.Count - 1)];
+
+        return SessionRules.NotFullEth(day.TradeDate, session.Open, session.Close);
     }
 
     public string Dataset { get; }
@@ -110,6 +159,10 @@ public sealed class Catalog
         Path.Combine(tapeRoot, dataset, "catalog", $"{root}.catalog.json");
 
     public CatalogContract? Contract(uint instrumentId) => byId.GetValueOrDefault(instrumentId);
+
+    /// <summary>The one contract a trade date's tapes hold, or null when the date has none.</summary>
+    public CatalogContract? HeldOn(DateOnly tradeDate) =>
+        Day(tradeDate)?.Held is { } symbol ? Contract(symbol, tradeDate) : null;
 
     /// <summary>The contract of that name. Names repeat every ten years, so a date picks between them.</summary>
     /// <param name="on">A day it was listed on. Without one, the latest of the name.</param>
@@ -418,9 +471,10 @@ public sealed class Catalog
         return days;
     }
 
+    /// <summary>Each date's most traded contract, by the previous session's volume (<c>.v.0</c>).</summary>
     private static async Task<Result<Func<DateOnly, string?>>> HeldAsync(DbnArchive archive, string root, DateSpan span, CancellationToken cancel)
     {
-        var series = SymbolSpec.Parse($"{root}.n.0");
+        var series = SymbolSpec.Parse($"{root}.v.0");
 
         if (!series.IsSuccess)
             return series.Error!;

@@ -20,8 +20,7 @@
         <li><a href="docs/dbntape#replay">Replay in C#</a></li>
         <li><a href="docs/dbntape#sessions">Sessions, ETH and RTH</a></li>
         <li><a href="docs/dbntape#bars">Bars</a></li>
-        <li><a href="docs/dbntape#rolls">Continuous series</a></li>
-        <li><a href="docs/dbntape#proof">Prove them</a></li>
+        <li><a href="docs/dbntape#monte-carlo">Monte Carlo runs</a></li>        <li><a href="docs/dbntape#proof">Prove them</a></li>
         <li><a href="docs/dbntape#storage">Storage and licensing</a></li>
         <li><a href="docs/dbntape#format">File format</a></li>
     </ul>
@@ -30,16 +29,17 @@
 <h2 id="kinds">The three kinds</h2>
 <div class="table">
     <table>
-        <thead><tr><th>Kind</th><th>What it holds</th><th>Source</th><th>Size</th><th>Contracts</th></tr></thead>
+        <thead><tr><th>Kind</th><th>What it holds</th><th>Source</th><th>Size</th></tr></thead>
         <tbody>
-            <tr><td><strong>S1</strong></td><td>One-second OHLCV bars</td><td><code>ohlcv-1s</code></td><td>About 2.8 bytes a bar, against 56</td><td>Every contract</td></tr>
-            <tr><td><strong>Trade</strong></td><td>Every trade with its aggressor</td><td><code>mbo</code></td><td>About 3.3 bytes a trade, against 48</td><td>Those <code>mbo</code> holds</td></tr>
-            <tr><td><strong>L1</strong></td><td>Best bid and offer, every trade and every change of trading state, in order</td><td><code>mbo</code>, <code>status</code></td><td>About 3.3 bytes an event, against 80</td><td>Those <code>mbo</code> holds</td></tr>
+            <tr><td><strong>S1</strong></td><td>One-second OHLCV bars</td><td><code>ohlcv-1s</code></td><td>About 2.8 bytes a bar, against 56</td></tr>
+            <tr><td><strong>Trade</strong></td><td>Every trade with its aggressor</td><td><code>mbo</code></td><td>About 3.3 bytes a trade, against 48</td></tr>
+            <tr><td><strong>L1</strong></td><td>Best bid and offer, every trade and every change of trading state, in order</td><td><code>mbo</code>, <code>status</code></td><td>About 3.3 bytes an event, against 80</td></tr>
         </tbody>
     </table>
 </div>
 <p>
-    A tape is one contract, one trade date and one kind, and it stands alone: one file replays without any other.
+    A trade date has one tape of each kind, and each holds the same one contract: the one that traded the most in
+    the previous session. A tape stands alone: one file replays without any other.
     Prices and sizes are exact, and times are kept to the microsecond on <code>ts_event</code>. Tapes are never merged
     or appended to, and a tape can't be sought: the only ways in are its start and its RTH mark. Spreads, options and
     equities are out of scope, and version 1 covers <code>GLBX.MDP3</code> outright futures only.
@@ -58,7 +58,7 @@
         <thead><tr><th>Command</th><th>What it does</th></tr></thead>
         <tbody>
             <tr><td><code>tape catalog &lt;root&gt;</code></td><td>Build a root's catalog: its contracts, and each trade date's sessions, settlements, open interest and cleared volume.</td></tr>
-            <tr><td><code>tape build &lt;root&gt;</code></td><td>Build tapes for <code>--from</code> to <code>--to</code>. <code>--symbol ESZ26</code> (or <code>ESZ6</code>) limits it to some contracts, and <code>--zstd</code> compresses the bodies. Dates the catalog doesn't reach are an error, so run <code>tape catalog</code> first.</td></tr>
+            <tr><td><code>tape build &lt;root&gt;</code></td><td>Build tapes for <code>--from</code> to <code>--to</code>. <code>--zstd</code> compresses the bodies. Dates the catalog doesn't reach are an error, so run <code>tape catalog</code> first.</td></tr>
             <tr><td><code>tape verify &lt;root&gt;</code></td><td>Prove built tapes against the archive, over the same span. See <a href="docs/dbntape#proof">Prove them</a>.</td></tr>
             <tr><td><code>tape pull &lt;root&gt;</code></td><td>Copy a root's tapes and catalog down from a tape store. See <a href="docs/dbnspool#read">DbnSpool</a>.</td></tr>
             <tr><td><code>tape info &lt;file&gt;</code></td><td>Show a tape's header.</td></tr>
@@ -68,9 +68,11 @@
     </table>
 </div>
 <p>
-    A tape's contract is named as the exchange writes it, with a one-digit year: <code>ESZ6</code>. Trade and L1 tapes
-    exist only for a contract <code>mbo</code> holds for the whole trade date, and the build reports any other as not
-    held. A date with no trading writes no tape.
+    A date's contract is chosen by the previous session's volume, never going back to an earlier one, so nothing is
+    decided with hindsight. The catalog records it as the day's <code>Held</code>, and a tape's header names it as the
+    exchange writes it, with a one-digit year: <code>ESZ6</code>. A file is named by root, kind and date, so the date
+    alone finds it. Trade and L1 tapes exist only when <code>mbo</code> holds that contract for the whole trade date,
+    and the build reports it as not held otherwise. A date with no trading writes no tape.
 </p>
 <p>
     The builder writes a whole, checked file or nothing. It refuses a tape, with a clear error and no file left behind,
@@ -98,6 +100,20 @@
     hours are built into the format. A tape runs from the first moment that status says the contract traded for the
     date to its last close, and a break inside the session shows as state events and a gap in time.
 </p>
+<p id="full-days">
+    <strong>Only full ETH days have tapes.</strong> A full ETH day's session opens at 17:00 Chicago time the evening
+    before the trade date and closes at 16:00 on it, each within five minutes. Halts inside the session, such as a
+    limit halt, don't count against it. Holidays, early closes and late opens are left out whole, for every contract of
+    the root, so every tape day is alike and any session a run deals is a whole one. About one trade date in thirty is
+    left out, and the rule is the same for every root, though their holiday hours differ.
+</p>
+<p>
+    The catalog keeps the dates left out, since their settlements still count for rolls. <code>Catalog.FullDays</code>
+    lists the dates that have tapes, and <code>Catalog.Excluded(date)</code> says why any other has none, such as
+    <em>its session closed Fri 12:15, not 16:00</em>. <code>tape build</code> lists the dates it leaves out.
+    <code>tape build</code>, <code>tape pull</code> and DbnSpool also delete any tape an older version left for such a
+    date, so a tape folder or store holds only what the rule allows.
+</p>
 <p>
     RTH is a marked stretch of the same file, because <code>status</code> has no RTH event. The hours come from
     <code>Sessions.RegularHours</code> for each root, and RTH ends at the session's close on an early close. A date with
@@ -124,22 +140,31 @@
 <ul>
     <li><strong>Time bars</strong> count from the window's open, so the first 5-minute RTH ES bar opens at 08:30.</li>
     <li><strong>No look-ahead:</strong> a bar is delivered at its end time. <code>Forming</code> shows the bar so far, and <code>Step</code> moves one second at a time.</li>
-    <li><strong>No bar spans two trade dates,</strong> except weekly and monthly bars, and none spans two contracts.</li>
+    <li><strong>No bar spans two tapes:</strong> a tape's bars end with it, so none spans two trade dates or two contracts.</li>
     <li><strong>The last bar can be short,</strong> when a session ends part way through it. <code>IsShort</code> says so.</li>
     <li><strong>Empty periods</strong> give no bar, unless you pass <code>fillGaps: true</code>.</li>
 </ul>
 
-<h2 id="rolls">Continuous series</h2>
+<h2 id="monte-carlo">Monte Carlo runs</h2>
 <p>
-    A tape always holds one real contract as it traded, and a continuous series is a list of tapes. Nothing about a
-    roll is written into a file, so changing your roll rule never means a rebuild. <code>TapeSeries</code> asks the
-    catalog which contract is held each day, then opens its tape.
+    A run replays whole sessions in a random order. <code>SessionSampler</code> deals each run's dates from a seed:
+    some warm-up sessions first, drawn at random, then the trading sessions. <code>Sampling.Permutation</code>, the
+    default, trades every date once in a random order, so only the path changes from run to run.
+    <code>Sampling.Bootstrap</code> draws dates with replacement, so a date can come twice or not at all, and totals
+    change too. The same dates, seed and run always deal the same sessions, on any machine and .NET version, so a run
+    can be replayed alone, in a test, or in parallel with others. <code>Fingerprint</code> changes when the dates do,
+    such as when new tapes arrive, so keep it with a seed.
 </p>
-<CodeBlock Title="C#" Text="@Series" />
+<CodeBlock Title="C#" Text="@MonteCarlo" />
 <p>
-    Fills stay on real prices. A cursor reports as-traded ticks, and <code>SeriesDay.Offset</code> is the back-adjustment
-    for that day, in DBN's 10<sup>-9</sup> units, for indicators that span a roll. <code>TapeSeries</code> has been
-    tested on generated tapes only, not on real history.
+    <code>SessionStream</code> loads each session's tape while the one before replays, and stitches the run into one
+    unbroken series: a session's <code>Offset</code>, in ticks, puts its first trade where the previous session's last
+    trade stood. Sessions in a run are unrelated days, so there is no real gap to keep. Add the offset to prices for
+    indicators and stats that span sessions; fills stay on the as-traded prices. It is back-adjustment done going
+    forward, so it costs nothing per event and needs no history rewritten. Every comparison made with adjusted prices
+    gives what back-adjustment would, and moves stay in ticks as traded, so a stitched series can drift a long way, or
+    below zero, over a long run. A missing tape, or a run whose tapes don't share one tick size, ends the run with a
+    failed result.
 </p>
 
 <h2 id="proof">Prove them</h2>
@@ -161,7 +186,9 @@
             <tr><td>Sessions</td><td>Every tape's events fall inside its session, and no trade falls in a stated break.</td></tr>
             <tr><td>RTH marks</td><td>Starting at the mark gives exactly the events of decoding from the start and filtering by time.</td></tr>
             <tr><td>Bar streams</td><td>Every spec equals what <code>BarBuilder</code> makes from the same bars.</td></tr>
-            <tr><td>Tape exists</td><td>Every contract <code>mbo</code> holds all day, and that was active in its session outside a snapshot, has its L1 tape. One with resting orders and no activity rightly has none.</td></tr>
+            <tr><td>Held contract</td><td>Every tape of the date holds the contract the catalog holds that day.</td></tr>
+            <tr><td>Tape exists</td><td>If <code>mbo</code> holds the day.s contract all day, and it was active in its session outside a snapshot, it has its L1 tape. One with resting orders and no activity rightly has none.</td></tr>
+            <tr><td>Full ETH day</td><td>A date that is not a <a href="docs/dbntape#full-days">full ETH day</a> has no tapes at all.</td></tr>
         </tbody>
     </table>
 </div>
@@ -325,13 +352,13 @@
     private const string BuildCommands = """
         dbnf tape catalog ES --tapes D:\Tapes
         dbnf tape build ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30
-        dbnf tape info D:\Tapes\GLBX.MDP3\l1\ES\2026\ESZ6.l1.20261029.tape
+        dbnf tape info D:\Tapes\GLBX.MDP3\l1\ES\2026\ES.l1.20261029.tape
         """;
 
     private const string Replay = """
         using DbnClient.Tape;
 
-        var loaded = await Tape.LoadAsync(@"D:\Tapes\GLBX.MDP3\l1\ES\2026\ESZ6.l1.20261029.tape", cancel);
+        var loaded = await Tape.LoadAsync(@"D:\Tapes\GLBX.MDP3\l1\ES\2026\ES.l1.20261029.tape", cancel);
 
         if (!loaded.IsSuccess)
             return;
@@ -367,25 +394,35 @@
             strategy.OnBar(bars.End, bars.Open, bars.High, bars.Low, bars.Close, bars.Volume);
         """;
 
-    private const string Series = """
+    private const string MonteCarlo = """
         using DbnClient.Tape;
-        using DbnClient.Time;
 
-        var catalog = await Catalog.LoadAsync(Catalog.PathOf(folder, "GLBX.MDP3", "ES"), cancel);
-        var span = new DateSpan(new DateOnly(2026, 1, 2), new DateOnly(2026, 10, 30));
-        var series = new TapeSeries(catalog.Value, folder, TapeKind.S1, span);
+        var stream = new SessionStream(@"D:\Tapes", "GLBX.MDP3", "ES", TapeKind.L1);
+        var sampler = new SessionSampler(stream.Days(), seed: 42, Sampling.Permutation, warmup: 5);
 
-        await foreach (var day in series.DaysAsync(cancel))
+        for (var run = 0; run < 1_000; run++)
         {
-            if (!day.IsSuccess)
-                return;
+            var strategy = new Strategy();
 
-            Replay(day.Value.Tape, day.Value.Offset);
+            await foreach (var session in stream.RunAsync(sampler, run, cancel))
+            {
+                if (!session.IsSuccess)
+                    return;
+
+                var day = session.Value;
+                var cursor = day.Tape.L1Cursor();
+
+                while (cursor.MoveNext())
+                {
+                    if (cursor.Kind == L1Kind.Trade)
+                        strategy.OnTrade(cursor.TradePrice, cursor.TradePrice + day.Offset, canTrade: !day.IsWarmup);
+                }
+            }
         }
         """;
 
     private const string Paths = """
-        {dataset}/{kind}/{root}/{year}/{symbol}.{kind}.{yyyymmdd}.tape
+        {dataset}/{kind}/{root}/{year}/{root}.{kind}.{yyyymmdd}.tape
         {dataset}/catalog/{root}.catalog.json
         """;
 }

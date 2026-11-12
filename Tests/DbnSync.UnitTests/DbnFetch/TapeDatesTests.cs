@@ -2,6 +2,7 @@ using DbnClient;
 using DbnClient.Tape;
 using DbnClient.Time;
 using DbnFetch.Commands;
+using DbnSync.UnitTests.TapeFormatTests;
 using Shouldly;
 
 namespace DbnSync.UnitTests.FetchTests;
@@ -32,7 +33,7 @@ public sealed class TapeDatesTests
 
     private static Catalog CatalogOf(params DateOnly[] dates) => new(Dataset, Root,
         [Contract(1, December, 2026), Contract(2, March, 2027)],
-        [.. dates.Select(d => new CatalogDay { TradeDate = d, Sessions = [], Contracts = [] })]);
+        [.. dates.Select(d => TapeFixture.FullDay(d))]);
 
     private static readonly Catalog ThreeDays = CatalogOf(Thursday, Friday, Monday);
 
@@ -101,39 +102,5 @@ public sealed class TapeDatesTests
     public void Every_date_of_a_span_is_proved()
     {
         TapeDates.Between(new DateSpan(Friday, Monday)).Count().ShouldBe(4);
-    }
-
-    [Fact]
-    public void No_symbol_named_means_every_contract()
-    {
-        TapeDates.Symbols(null, ThreeDays).Value.ShouldBeNull();
-        TapeDates.Symbols([], ThreeDays).Value.ShouldBeNull();
-    }
-
-    [Theory]
-    [InlineData("ESZ6")]
-    [InlineData("ESZ26")]
-    [InlineData("esz26")]
-    [InlineData(" esz6 ")]
-    public void A_contract_is_named_in_either_form_and_any_case(string name)
-    {
-        TapeDates.Symbols([name], ThreeDays).Value.ShouldBe([December]);
-    }
-
-    [Fact]
-    public void Several_contracts_can_be_named()
-    {
-        TapeDates.Symbols(["ESZ26", "ESH7"], ThreeDays).Value.ShouldBe([December, March], ignoreOrder: true);
-    }
-
-    [Theory]
-    [InlineData("ESZ16")]
-    [InlineData("NQZ6")]
-    public void A_contract_the_catalog_lacks_is_an_error(string name)
-    {
-        var symbols = TapeDates.Symbols([December, name], ThreeDays);
-
-        symbols.Error!.Code.ShouldBe(Errors.BadSymbol);
-        symbols.Error.Message.ShouldContain(name);
     }
 }

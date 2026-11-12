@@ -26,6 +26,40 @@ internal static class TapeFixture
 
     public static readonly DateOnly TradeDate = new(2026, 10, 29);
 
+    /// <summary>A full ETH session: 17:00 Chicago the evening before, to 16:00 on the date.</summary>
+    public static CatalogSession FullSession(DateOnly tradeDate) =>
+        new(Nanos(DbnClient.Time.Sessions.SessionStart(tradeDate)), Nanos(DbnClient.Time.Sessions.SessionEnd(tradeDate)), []);
+
+    /// <summary>A catalog day with one full ETH session, so it is a day tapes are made for.</summary>
+    public static CatalogDay FullDay(DateOnly tradeDate, IReadOnlyList<CatalogEntry>? contracts = null) =>
+        new() { TradeDate = tradeDate, Sessions = [FullSession(tradeDate)], Contracts = contracts ?? [] };
+
+    /// <summary>A catalog day whose session closed at 12:00, as on a holiday, so it has no tapes.</summary>
+    public static CatalogDay ShortDay(DateOnly tradeDate) => FullDay(tradeDate) with
+    {
+        Sessions = [FullSession(tradeDate) with { Close = Nanos(DbnClient.Time.Sessions.SessionEnd(tradeDate).AddHours(-4)) }]
+    };
+
+    /// <summary>A catalog's JSON, as a store holds it.</summary>
+    public static async Task<byte[]> JsonOfAsync(Catalog catalog)
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"catalog-{Guid.NewGuid():N}");
+
+        try
+        {
+            var saved = await catalog.SaveAsync(folder, CancellationToken.None);
+
+            return await File.ReadAllBytesAsync(saved.Value);
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    public static long Nanos(DateTimeOffset time) => (time - DateTimeOffset.UnixEpoch).Ticks * 100;
+
     public static TapeInfo Info(bool compress = false, int basePrice = BasePrice) => new()
     {
         Dataset = Dataset,

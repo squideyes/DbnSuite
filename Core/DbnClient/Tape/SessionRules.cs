@@ -19,6 +19,36 @@ internal static class SessionRules
 {
     private const long RepairSlack = 60_000_000_000;
 
+    /// <summary>How late a session may open, or how early it may close, and still be a full ETH day.</summary>
+    public static readonly TimeSpan FullEthAllowance = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Why a session is not a full ETH day, or null when it is. A full ETH day opens at 17:00 Chicago time
+    /// the evening before its trade date and closes at 16:00 on it, each within <see cref="FullEthAllowance"/>.
+    /// Halts inside the session do not count against it: they are part of the market a backtest must see.
+    /// </summary>
+    public static string? NotFullEth(DateOnly tradeDate, long open, long close)
+    {
+        var start = Nanos(Sessions.SessionStart(tradeDate));
+        var end = Nanos(Sessions.SessionEnd(tradeDate));
+        var allowance = FullEthAllowance.Ticks * 100;
+
+        if (close <= open)
+            return "its session has not closed";
+
+        if (open < start || open > start + allowance)
+            return $"its session opened {Clock(open)}, not 17:00";
+
+        if (close < end - allowance || close > end + allowance)
+            return $"its session closed {Clock(close)}, not 16:00";
+
+        return null;
+    }
+
+    /// <summary>A time as Chicago's day and clock, such as <c>Fri 12:15</c>.</summary>
+    private static string Clock(long nanos) =>
+        Sessions.Local((ulong)nanos).ToString("ddd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+
     /// <summary>
     /// Follows one instrument's status through time. Each UTC file repeats the state it
     /// opens in, stamped with the older event's time, which a repeat of the same state ignores.

@@ -353,10 +353,16 @@ dbnf export ohlcv-1s ES.v.0 --bars 5m --session rth --since 2026-01-01 --adjust 
 ### DbnTape
 
 DbnTape's tapes are compact, stream-only files for backtesting CME futures,
-built from the archive: one contract, one trade date and one kind each. S1 holds
+built from the archive: one tape of each kind a trade date, holding the contract
+that traded the most in the previous session. S1 holds
 one-second bars at about 2.8 bytes a bar, Trade holds every trade at about 3.3
 bytes, and L1 holds best bid and offer, trades and state changes at about 3.3
 bytes an event.
+
+Only full ETH days have tapes: a session from 17:00 Chicago time the evening
+before to 16:00, each within five minutes, with halts inside it allowed.
+Holidays, early closes and late opens are left out whole, so every tape day is
+alike, and any tape an older version left for such a date is deleted.
 
 ```bash
 dbnf tape catalog ES --tapes D:\Tapes

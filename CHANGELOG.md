@@ -9,6 +9,23 @@ versions follow [Semantic Versioning](https://semver.org).
 
 ### Breaking
 
+- **A trade date has one tape of each kind, for one contract:** the one that
+  traded the most in the previous session (`ES.v.0`; it was open interest,
+  `ES.n.0`). Tapes used to be made for every contract. Files are named by root,
+  kind and date, as `ES.s1.20261029.tape`, and the header names the contract.
+  `TapePaths.For` takes no symbol, `TapeBuilder.BuildAsync` takes no list of
+  symbols, `dbnf tape build` has no `--symbol`, and `Catalog.HeldOn` gives a
+  date's contract. Delete your tape folder and build again.
+- **`TapeSeries`, `SeriesDay` and `SeriesBars` are gone.** Tapes are replayed
+  as Monte Carlo runs of whole sessions in a random order, with `SessionSampler`
+  and `SessionStream`, which stitches each run into one series as it streams.
+  Nothing replays tapes in date order with catalog back-adjustment any more.
+- **Tapes are made only for full ETH days:** a session that opened at 17:00
+  Chicago time the evening before and closed at 16:00, each within five
+  minutes; halts inside it are allowed. Holidays, early closes and late opens
+  are left out whole, so every tape day is alike. `SessionCalendar.For` has no
+  session for those dates, and `dbnf tape build`,
+  `dbnf tape pull` and DbnSpool delete any tape an older version left for one.
 - **.NET 11 is required.** DbnClient and DbnFetch target .NET 11 only. Projects
   still on .NET 10 can stay on 0.2.0. ([#45](https://github.com/squideyes/DbnSuite/pull/45))
 - **`DbnRecord` is closed:** code outside DbnClient can no longer derive its own
@@ -30,6 +47,21 @@ versions follow [Semantic Versioning](https://semver.org).
 
 ### Added
 
+- `SessionStream` replays a Monte Carlo run's sessions, whole, in the order a
+  `SessionSampler` deals them, loading the next tape while one replays. Each
+  `StreamSession.Offset` stitches the run into one unbroken series in ticks,
+  for indicators and stats that span sessions, while fills stay on as-traded
+  prices. `SessionStream.Days` and `TapePaths.Dates` list the dates a tape
+  folder holds.
+- `SessionSampler` deals the trade dates of Monte Carlo runs: seeded warm-up
+  sessions, then every date once in a random order (`Sampling.Permutation`,
+  the default) or dates drawn with replacement (`Sampling.Bootstrap`). The
+  same dates, seed and run give the same order on any machine and .NET
+  version, and `Fingerprint` tells you when the dates behind a seed changed.
+- `Catalog.FullDays`, `Catalog.IsFullDay`, `Catalog.Excluded` (why a date has
+  no tapes, such as "its session closed Fri 12:15, not 16:00") and
+  `TapePaths.RemoveExcluded`. The proof's new "Full ETH day" check fails any
+  tape on a date that isn't one.
 - `CalendarRule`: the months a root holds and what its roll counts back from.
   Gold (`GC`, `MGC`) holds February, April, June, August and December and rolls
   8 days before the delivery month begins; other roots roll 8 days before

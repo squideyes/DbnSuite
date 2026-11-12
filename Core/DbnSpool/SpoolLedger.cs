@@ -50,6 +50,13 @@ public sealed class SpoolLedger
 
     public void Add(SpooledDate date) => dates[date.Date] = date;
 
+    /// <summary>Forgets a date whose tapes have left the shelf.</summary>
+    public void Remove(DateOnly date)
+    {
+        dates.Remove(date);
+        attempts.Remove(date);
+    }
+
     public SpoolAttempt? Attempt(DateOnly date) => attempts.GetValueOrDefault(date);
 
     /// <summary>Notes that a date is starting. A start under the same build adds to the count; a new build starts it afresh.</summary>

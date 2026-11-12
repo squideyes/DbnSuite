@@ -146,6 +146,85 @@ public sealed class CatalogTests : IDisposable
     }
 
     [Fact]
+    public void AFullSessionIsAFullDay()
+    {
+        var catalog = Sample();
+
+        catalog.IsFullDay(TapeFixture.TradeDate).ShouldBeTrue();
+        catalog.FullDays.Select(d => d.TradeDate).ShouldBe([TapeFixture.TradeDate]);
+    }
+
+    [Fact]
+    public void AnEarlyCloseLeavesTheDateOutWhole()
+    {
+        var catalog = WithSession(new CatalogSession(Open, Close - 4 * OneHour, []));
+
+        catalog.Excluded(TapeFixture.TradeDate).ShouldBe("its session closed Thu 12:00, not 16:00");
+        catalog.FullDays.ShouldBeEmpty();
+        new SessionCalendar(catalog).For(FrontSymbol, TapeFixture.TradeDate).ShouldBeNull();
+    }
+
+    [Fact]
+    public void AHaltInsideTheSessionStillLeavesAFullDay()
+    {
+        var catalog = WithSession(new CatalogSession(Open, Close, [new SessionBreak(Close - OneHour, Close - OneHour / 4)]));
+
+        catalog.IsFullDay(TapeFixture.TradeDate).ShouldBeTrue();
+        new SessionCalendar(catalog).For(FrontSymbol, TapeFixture.TradeDate).ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void ADayIsJudgedByTheSessionItsHeldContractTraded()
+    {
+        var stray = new CatalogSession(Close - OneHour / 2, Close, []);
+        var full = new CatalogSession(Open, Close, []);
+        var catalog = Catalogue(new CatalogDay
+        {
+            TradeDate = TapeFixture.TradeDate,
+            Held = FrontSymbol,
+            Sessions = [stray, full],
+            Contracts = [new CatalogEntry { InstrumentId = Front, Session = 1 }]
+        });
+
+        catalog.IsFullDay(TapeFixture.TradeDate).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void ADateWithNoSessionIsNotAFullDay()
+    {
+        Sample().Excluded(TapeFixture.TradeDate.AddDays(1)).ShouldBe("it has no session");
+    }
+
+    [Fact]
+    public void OnlyTheTapesOfAShortDayInsideTheCatalogAreRemoved()
+    {
+        var shortDate = TapeFixture.TradeDate.AddDays(1);
+        var later = TapeFixture.TradeDate.AddDays(7);
+        var shortSession = new CatalogSession(Open + 24 * OneHour, Close + 20 * OneHour, []);
+        var catalog = Catalogue(
+            new CatalogDay { TradeDate = TapeFixture.TradeDate, Held = FrontSymbol, Sessions = [new CatalogSession(Open, Close, [])], Contracts = [] },
+            new CatalogDay { TradeDate = shortDate, Held = FrontSymbol, Sessions = [shortSession], Contracts = [] });
+
+        var kept = Tape(TapeKind.S1, TapeFixture.TradeDate);
+        var removed = Tape(TapeKind.L1, shortDate);
+        var unjudged = Tape(TapeKind.S1, later);
+
+        TapePaths.RemoveExcluded(folder, catalog).ShouldBe([removed]);
+        File.Exists(kept).ShouldBeTrue();
+        File.Exists(removed).ShouldBeFalse();
+        File.Exists(unjudged).ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData("GLBX.MDP3/s1/ES/2026/ESZ6.s1.20261029.tape", "2026-10-29")]
+    [InlineData(@"C:\Tapes\GLBX.MDP3\l1\ES\2026\ESZ6.l1.20261029.tape", "2026-10-29")]
+    [InlineData("GLBX.MDP3/catalog/ES.catalog.json", null)]
+    public void ATapesNameCarriesItsTradeDate(string key, string? date)
+    {
+        TapePaths.TradeDateOf(key).ShouldBe(date is null ? null : DateOnly.Parse(date, System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
     public async Task ACatalogRoundTrips()
     {
         var catalog = Sample();
@@ -180,6 +259,22 @@ public sealed class CatalogTests : IDisposable
 
         loaded.Error!.Code.ShouldBe(TapeErrors.Corrupt);
     }
+
+    private string Tape(TapeKind kind, DateOnly date)
+    {
+        var path = TapePaths.For(folder, TapeFixture.Dataset, kind, TapeFixture.Root, date);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, [1, 2, 3]);
+
+        return path;
+    }
+
+    private static Catalog WithSession(CatalogSession session) =>
+        Catalogue(new CatalogDay { TradeDate = TapeFixture.TradeDate, Held = FrontSymbol, Sessions = [session], Contracts = [] });
+
+    private static Catalog Catalogue(params CatalogDay[] days) => new(TapeFixture.Dataset, TapeFixture.Root,
+        [Contract(Front, FrontSymbol, Open - 1_000 * OneHour, Close + 1_000 * OneHour)], days);
 
     private static IReadOnlyList<CatalogDay> DaysOf(Dictionary<uint, List<TradingSpan>> spans) =>
         Catalog.DaysFrom(TapeFixture.Root, spans, new Dictionary<(DateOnly, uint), DayStatistics>(), _ => null);
