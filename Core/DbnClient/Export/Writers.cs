@@ -2,7 +2,6 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using DbnClient.Export.Parquet;
-using ZstdSharp;
 
 namespace DbnClient.Export;
 
@@ -103,7 +102,7 @@ public static class Writers
         return compression switch
         {
             Compression.Gzip => new GZipStream(file, CompressionLevel.Optimal),
-            Compression.Zstd => new CompressionStream(file, level: 3, leaveOpen: false),
+            Compression.Zstd => Zstd.Compressing(file),
             _ => file
         };
     }

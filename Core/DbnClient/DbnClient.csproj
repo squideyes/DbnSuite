@@ -21,7 +21,6 @@
   <ItemGroup>
     <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="System.IO.Hashing" />
-    <PackageReference Include="ZstdSharp.Port" />
   </ItemGroup>
 
 </Project>

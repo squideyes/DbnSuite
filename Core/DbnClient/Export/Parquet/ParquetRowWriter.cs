@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using System.Text;
-using ZstdSharp;
 
 namespace DbnClient.Export.Parquet;
 
@@ -34,7 +33,6 @@ internal sealed class ParquetRowWriter : IRowWriter
     private readonly IReadOnlyList<Column> columns;
     private readonly ColumnBuffer[] buffers;
     private readonly List<RowGroup> groups = [];
-    private readonly Compressor compressor = new(3);
     private long position;
     private long rows;
     private int buffered;
@@ -97,7 +95,6 @@ internal sealed class ParquetRowWriter : IRowWriter
         {
             // A write that fails, as on a full disk, must still let go of the file, or it could not be deleted.
             await stream.DisposeAsync().ConfigureAwait(false);
-            compressor.Dispose();
         }
     }
 
@@ -141,7 +138,7 @@ internal sealed class ParquetRowWriter : IRowWriter
     /// <summary>Writes a page header and its zstd-compressed body; returns the uncompressed size, header included.</summary>
     private int WritePage(int type, byte[] body, int count, int encoding)
     {
-        var compressed = compressor.Wrap(body).ToArray();
+        var compressed = DbnClient.Zstd.Compress(body);
         var header = new Thrift().BeginStruct()
             .Int(1, type)
             .Int(2, body.Length)
