@@ -70,6 +70,28 @@ internal sealed class L1Match
         Advance(opening: false);
     }
 
+    /// <summary>
+    /// After a snapshot in mid-session, the tape quotes the book's top at the next event even
+    /// when that event moved nothing, since the snapshot itself moved it. The transform compares
+    /// with the book as the snapshot left it, so it gives no row. That quote is accepted when it
+    /// is the tape's next event, at <paramref name="top"/>'s time, with the book's top.
+    /// </summary>
+    /// <param name="top">The book's top after the event, as a quote row.</param>
+    public void AfterSnapshot(in L1Row top)
+    {
+        if (failure is not null || !pending)
+            return;
+
+        var at = place!.Value;
+
+        if (at.Kind != L1Kind.Quote || at.Time != top.Time || !SameTop(top, at.BidPrice, at.BidSize, at.AskPrice, at.AskSize))
+            return;
+
+        (bid, bidSize, ask, askSize) = (at.BidPrice, at.BidSize, at.AskPrice, at.AskSize);
+
+        Advance(opening: false);
+    }
+
     /// <summary>Why the tape and the rows part, or null when they agree to the end.</summary>
     public string? Finish()
     {
