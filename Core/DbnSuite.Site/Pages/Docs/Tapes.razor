@@ -98,6 +98,21 @@
     hours are built into the format. A tape runs from the first moment that status says the contract traded for the
     date to its last close, and a break inside the session shows as state events and a gap in time.
 </p>
+<p id="full-days">
+    <strong>Only full ETH days have tapes.</strong> A full ETH day's session opens at 17:00 Chicago time the evening
+    before the trade date and closes at 16:00 on it, each within five minutes. Halts inside the session, such as a
+    limit halt, don't count against it. Holidays, early closes and late opens are left out whole, for every contract of
+    the root, so every tape day is alike and a lookback of three days always means three whole sessions. It also means
+    the days around a holiday sit next to each other, with a gap in time between them. About one trade date in thirty
+    is left out, and the rule is the same for every root, though their holiday hours differ.
+</p>
+<p>
+    The catalog keeps the dates left out, since their settlements still count for rolls. <code>Catalog.FullDays</code>
+    lists the dates that have tapes, and <code>Catalog.Excluded(date)</code> says why any other has none, such as
+    <em>its session closed Fri 12:15, not 16:00</em>. <code>tape build</code> lists the dates it leaves out.
+    <code>tape build</code>, <code>tape pull</code> and DbnSpool also delete any tape an older version left for such a
+    date, so a tape folder or store holds only what the rule allows.
+</p>
 <p>
     RTH is a marked stretch of the same file, because <code>status</code> has no RTH event. The hours come from
     <code>Sessions.RegularHours</code> for each root, and RTH ends at the session's close on an early close. A date with
@@ -162,6 +177,7 @@
             <tr><td>RTH marks</td><td>Starting at the mark gives exactly the events of decoding from the start and filtering by time.</td></tr>
             <tr><td>Bar streams</td><td>Every spec equals what <code>BarBuilder</code> makes from the same bars.</td></tr>
             <tr><td>Tape exists</td><td>Every contract <code>mbo</code> holds all day, and that was active in its session outside a snapshot, has its L1 tape. One with resting orders and no activity rightly has none.</td></tr>
+            <tr><td>Full ETH day</td><td>A date that is not a <a href="docs/dbntape#full-days">full ETH day</a> has no tapes at all.</td></tr>
         </tbody>
     </table>
 </div>

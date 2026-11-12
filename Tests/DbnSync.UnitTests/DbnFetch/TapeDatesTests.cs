@@ -2,6 +2,7 @@ using DbnClient;
 using DbnClient.Tape;
 using DbnClient.Time;
 using DbnFetch.Commands;
+using DbnSync.UnitTests.TapeFormatTests;
 using Shouldly;
 
 namespace DbnSync.UnitTests.FetchTests;
@@ -32,7 +33,7 @@ public sealed class TapeDatesTests
 
     private static Catalog CatalogOf(params DateOnly[] dates) => new(Dataset, Root,
         [Contract(1, December, 2026), Contract(2, March, 2027)],
-        [.. dates.Select(d => new CatalogDay { TradeDate = d, Sessions = [], Contracts = [] })]);
+        [.. dates.Select(d => TapeFixture.FullDay(d))]);
 
     private static readonly Catalog ThreeDays = CatalogOf(Thursday, Friday, Monday);
 

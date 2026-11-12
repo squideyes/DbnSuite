@@ -2,6 +2,7 @@ using DbnClient;
 using DbnClient.Archive;
 using DbnClient.Tape;
 using DbnSpool;
+using DbnSync.UnitTests.TapeFormatTests;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Shouldly;
@@ -60,7 +61,7 @@ public sealed class SpoolPassTests : IDisposable
 
     private static Catalog TestCatalog() => new(Dataset, Root, [],
     [
-        new CatalogDay { TradeDate = Tuesday, Sessions = [], Contracts = [] }
+        TapeFixture.FullDay(Tuesday)
     ]);
 
     private BuildReport Built(DateOnly date)
@@ -442,8 +443,60 @@ public sealed class SpoolPassTests : IDisposable
     {
         Archived(dates);
         engine.CatalogAsync(Root, Arg.Any<CancellationToken>()).Returns((Result<Catalog>)new Catalog(Dataset, Root, [],
-            [.. dates.Select(d => new CatalogDay { TradeDate = d, Sessions = [], Contracts = [] })]));
+            [.. dates.Select(d => TapeFixture.FullDay(d))]));
     }
+
+    [Fact]
+    public async Task A_date_that_is_not_a_full_ETH_day_is_never_spooled()
+    {
+        Archived(Monday, Tuesday);
+        Catalogued(TapeFixture.FullDay(Monday), TapeFixture.ShortDay(Tuesday));
+
+        var result = await Pass().RunAsync(Root, CancellationToken.None);
+
+        result.Spooled.ShouldBe(1);
+        (await LedgerAsync()).Spooled(Tuesday).ShouldBeNull();
+        await engine.DidNotReceive().BuildAsync(Arg.Any<Catalog>(), Tuesday, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Tapes_of_a_date_that_is_not_a_full_ETH_day_leave_the_shelf_and_the_ledger()
+    {
+        await Pass().RunAsync(Root, CancellationToken.None);
+        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldNotBeNull();
+
+        Archived(Monday, Tuesday, Wednesday);
+        Mbos(Monday, Tuesday, Wednesday);
+        Catalogued(TapeFixture.FullDay(Monday), TapeFixture.ShortDay(Tuesday), TapeFixture.FullDay(Wednesday));
+
+        var result = await Pass().RunAsync(Root, CancellationToken.None);
+
+        result.Problem.ShouldBeNull();
+        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldBeNull();
+        (await LedgerAsync()).Spooled(Tuesday).ShouldBeNull();
+        (await LedgerAsync()).Spooled(Wednesday).ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task A_catalog_that_would_empty_the_shelf_takes_nothing_off_it()
+    {
+        Days(Monday, Tuesday, Wednesday);
+        await Pass().RunAsync(Root, CancellationToken.None);
+
+        Archived(Monday, Tuesday, Wednesday, Wednesday.AddDays(1));
+        Mbos(Monday, Tuesday, Wednesday, Wednesday.AddDays(1));
+        Catalogued(TapeFixture.ShortDay(Monday), TapeFixture.ShortDay(Tuesday), TapeFixture.ShortDay(Wednesday));
+
+        var result = await Pass().RunAsync(Root, CancellationToken.None);
+
+        result.Problem.ShouldNotBeNull().ShouldContain("nothing was removed");
+        result.Failed.ShouldBeGreaterThan(0);
+        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldNotBeNull();
+        (await LedgerAsync()).Spooled(Tuesday).ShouldNotBeNull();
+    }
+
+    private void Catalogued(params CatalogDay[] days) =>
+        engine.CatalogAsync(Root, Arg.Any<CancellationToken>()).Returns((Result<Catalog>)new Catalog(Dataset, Root, [], days));
 
     private async Task StoppedAsync(int count, string build) =>
         await shelf.PutBytesAsync(LedgerKey, new SpoolLedger { Attempts = [new SpoolAttempt(Tuesday, count, build)] }.ToBytes(), CancellationToken.None);

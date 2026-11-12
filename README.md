@@ -358,6 +358,11 @@ one-second bars at about 2.8 bytes a bar, Trade holds every trade at about 3.3
 bytes, and L1 holds best bid and offer, trades and state changes at about 3.3
 bytes an event.
 
+Only full ETH days have tapes: a session from 17:00 Chicago time the evening
+before to 16:00, each within five minutes, with halts inside it allowed.
+Holidays, early closes and late opens are left out whole, so every tape day is
+alike, and any tape an older version left for such a date is deleted.
+
 ```bash
 dbnf tape catalog ES --tapes D:\Tapes
 dbnf tape build ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30

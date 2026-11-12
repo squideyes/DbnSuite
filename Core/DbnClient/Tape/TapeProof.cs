@@ -42,6 +42,13 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
             return results;
         }
 
+        if (catalog.Excluded(tradeDate) is { } reason)
+        {
+            results.AddRange(NotFullDay(tradeDate, reason));
+
+            return results;
+        }
+
         var lead = await StatusLog.ClockLeadAsync(archive, catalog.Root, tradeDate, cancel).ConfigureAwait(false);
 
         foreach (var contract in catalog.Contracts)
@@ -142,6 +149,24 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
     }
 
     /// <summary>A date the catalog has no session for must have had no trading either.</summary>
+    /// <summary>A date that is not a full ETH day has no tapes, so any found there was left by something else.</summary>
+    private IEnumerable<ProofResult> NotFullDay(DateOnly tradeDate, string reason)
+    {
+        const string check = "Full ETH day";
+
+        foreach (var contract in catalog.Contracts)
+        {
+            if (catalog.Contract(contract.Symbol, tradeDate)?.InstrumentId != contract.InstrumentId)
+                continue;
+
+            foreach (var kind in Enum.GetValues<TapeKind>())
+            {
+                if (File.Exists(TapePaths.For(tapeRoot, catalog.Dataset, kind, catalog.Root, contract.Symbol, tradeDate)))
+                    yield return Fail(contract, check, $"it has a {kind} tape, but the date has none, because {reason}");
+            }
+        }
+    }
+
     private IEnumerable<ProofResult> NoSession(DateOnly tradeDate, Dictionary<uint, List<SecondBar>> bars)
     {
         const string check = "Date has a session";

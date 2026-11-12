@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Globalization;
 using DbnClient.Archive;
+using DbnClient.Tape;
 
 namespace DbnFetch.Commands;
 
@@ -40,12 +41,22 @@ internal static class TapePullCommand
             var copied = await CopyAsync(archive.Store, catalog, folder, cancel).ConfigureAwait(false) ? 1 : 0;
             var skipped = 1 - copied;
             var bytes = copied * catalog.Size;
+            var rules = await Catalog.LoadAsync(TargetOf(folder, catalog.Key), cancel).ConfigureAwait(false);
+
+            if (!rules.IsSuccess)
+                return await session.FailAsync(rules.Error!).ConfigureAwait(false);
+
+            // Only full ETH days have tapes: anything else here, or still in the store, is left out.
+            var removed = TapePaths.RemoveExcluded(folder, rules.Value).Count;
 
             foreach (var kind in wanted)
             {
                 await foreach (var stored in archive.Store.ObjectsAsync($"{archive.Dataset}/{kind}/{root}/", cancel).ConfigureAwait(false))
                 {
                     if (!InSpan(stored.Key, parse.GetValue(from), parse.GetValue(to)))
+                        continue;
+
+                    if (TapePaths.TradeDateOf(stored.Key) is { } date && rules.Value.Judges(date) && !rules.Value.IsFullDay(date))
                         continue;
 
                     if (await CopyAsync(archive.Store, stored, folder, cancel).ConfigureAwait(false))
@@ -61,6 +72,9 @@ internal static class TapePullCommand
             }
 
             await session.Out.WriteLineAsync($"{root}: {Text.Count(copied)} files copied, {Text.Bytes(bytes)}, {Text.Count(skipped)} already here").ConfigureAwait(false);
+
+            if (removed > 0)
+                await session.Out.WriteLineAsync($"{root}: {Text.Count(removed)} tapes removed here, because their dates are not full ETH days").ConfigureAwait(false);
 
             return Session.Ok;
         }, cancel));

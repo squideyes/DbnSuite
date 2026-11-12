@@ -1,4 +1,5 @@
 using DbnFetch.Commands;
+using DbnSync.UnitTests.TapeFormatTests;
 using Shouldly;
 
 namespace DbnSync.UnitTests.FetchTests;
@@ -17,16 +18,46 @@ public sealed class TapePullCommandTests : IDisposable
 
     private string Tapes => $"--tapes \"{dbnf.Output}\"";
 
-    private void Put(params string[] keys)
+    private static readonly DateOnly EarlyDate = new(2026, 10, 28);
+    private static readonly DateOnly LateDate = new(2026, 10, 29);
+
+    /// <summary>Puts objects in the store: tapes as placeholder bytes, the catalog as a real one whose days are full.</summary>
+    private async Task PutAsync(params string[] keys)
     {
         foreach (var key in keys)
-            dbnf.Archive.Write(key, [1, 2, 3]);
+            dbnf.Archive.Write(key, key == Catalog ? await TapeFixture.JsonOfAsync(CatalogOf(TapeFixture.FullDay(EarlyDate), TapeFixture.FullDay(LateDate))) : [1, 2, 3]);
+    }
+
+    private static DbnClient.Tape.Catalog CatalogOf(params DbnClient.Tape.CatalogDay[] days) => new(TapeFixture.Dataset, TapeFixture.Root, [], days);
+
+    [Fact]
+    public async Task A_date_that_is_not_a_full_ETH_day_neither_comes_down_nor_stays()
+    {
+        var shortDay = TapeFixture.FullDay(LateDate) with
+        {
+            Sessions = [TapeFixture.FullSession(LateDate) with { Close = TapeFixture.Nanos(DbnClient.Time.Sessions.SessionEnd(LateDate).AddHours(-4)) }]
+        };
+
+        dbnf.Archive.Write(Catalog, await TapeFixture.JsonOfAsync(CatalogOf(TapeFixture.FullDay(EarlyDate), shortDay)));
+        dbnf.Archive.Write(Early, [1, 2, 3]);
+        dbnf.Archive.Write(Late, [1, 2, 3]);
+
+        var stale = Path.Combine(dbnf.Output, Tick.Replace('/', Path.DirectorySeparatorChar));
+
+        Directory.CreateDirectory(Path.GetDirectoryName(stale)!);
+        await File.WriteAllBytesAsync(stale, [1, 2, 3]);
+
+        var run = await dbnf.OnArchiveAsync($"tape pull ES {Tapes}");
+
+        run.ExitCode.ShouldBe(DbnFetch.Session.Ok);
+        dbnf.Written().ShouldBe([Catalog, Early], ignoreOrder: true);
+        run.Out.ShouldContain("1 tapes removed here");
     }
 
     [Fact]
     public async Task A_roots_tapes_and_catalog_come_down_in_the_same_layout()
     {
-        Put(Catalog, Early, Late, Tick);
+        await PutAsync(Catalog, Early, Late, Tick);
 
         var run = await dbnf.OnArchiveAsync($"tape pull ES {Tapes}");
 
@@ -37,7 +68,7 @@ public sealed class TapePullCommandTests : IDisposable
     [Fact]
     public async Task Dates_and_kinds_narrow_what_comes_down()
     {
-        Put(Catalog, Early, Late, Tick);
+        await PutAsync(Catalog, Early, Late, Tick);
 
         await dbnf.OnArchiveAsync($"tape pull ES {Tapes} --from 2026-10-29 --kind s1");
 
@@ -63,7 +94,7 @@ public sealed class TapePullCommandTests : IDisposable
     [Fact]
     public async Task A_date_in_another_format_is_bad_usage()
     {
-        Put(Catalog, Late);
+        await PutAsync(Catalog, Late);
 
         var run = await dbnf.OnArchiveAsync($"tape pull ES {Tapes} --from 10/29/2026");
 
@@ -75,7 +106,7 @@ public sealed class TapePullCommandTests : IDisposable
     [Fact]
     public async Task A_file_already_here_is_left_alone()
     {
-        Put(Catalog, Late);
+        await PutAsync(Catalog, Late);
 
         await dbnf.OnArchiveAsync($"tape pull ES {Tapes}");
 
@@ -97,7 +128,7 @@ public sealed class TapePullCommandTests : IDisposable
     [Fact]
     public async Task An_unknown_kind_is_bad_usage()
     {
-        Put(Catalog);
+        await PutAsync(Catalog);
 
         var run = await dbnf.OnArchiveAsync($"tape pull ES {Tapes} --kind order");
 

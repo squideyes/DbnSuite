@@ -19,10 +19,13 @@ public sealed class TapeSeries(Catalog catalog, string tapeRoot, TapeKind kind, 
 {
     private readonly IReadOnlyDictionary<DateOnly, long?> offsets = Offsets(catalog);
 
-    /// <summary>Each day's tape, oldest first. A missing or damaged tape is a failed result, and ends the series.</summary>
+    /// <summary>
+    /// Each full ETH day's tape, oldest first; holidays and early closes have none, and are skipped.
+    /// A missing or damaged tape is a failed result, and ends the series.
+    /// </summary>
     public async IAsyncEnumerable<Result<SeriesDay>> DaysAsync([EnumeratorCancellation] CancellationToken cancel)
     {
-        var days = catalog.Days.Where(d => tradeDates.Contains(d.TradeDate)).ToList();
+        var days = catalog.FullDays.Where(d => tradeDates.Contains(d.TradeDate)).ToList();
 
         if (days.Count == 0)
             yield break;

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Runtime.CompilerServices;
 using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
@@ -19,6 +20,12 @@ public interface ITapeShelf
 
     /// <summary>An object's bytes, or null when there is none.</summary>
     Task<byte[]?> ReadAsync(string key, CancellationToken cancel);
+
+    /// <summary>Every key under a prefix, however deep.</summary>
+    IAsyncEnumerable<string> KeysAsync(string prefix, CancellationToken cancel);
+
+    /// <summary>Deletes an object; one already gone is not an error.</summary>
+    Task DeleteAsync(string key, CancellationToken cancel);
 }
 
 /// <summary>A shelf in an S3 bucket, spoken to the way DbnSync speaks to stores that aren't AWS.</summary>
@@ -73,6 +80,25 @@ public sealed class S3TapeShelf(ArchiveOptions options) : ITapeShelf, IDisposabl
         }
     }
 
+    public async IAsyncEnumerable<string> KeysAsync(string prefix, [EnumeratorCancellation] CancellationToken cancel)
+    {
+        var request = new ListObjectsV2Request { BucketName = options.Bucket, Prefix = this.prefix + prefix };
+
+        do
+        {
+            var page = await s3.ListObjectsV2Async(request, cancel).ConfigureAwait(false);
+
+            foreach (var stored in page.S3Objects ?? [])
+                yield return stored.Key[this.prefix.Length..];
+
+            request.ContinuationToken = page.NextContinuationToken;
+        }
+        while (request.ContinuationToken is not null);
+    }
+
+    public Task DeleteAsync(string key, CancellationToken cancel) =>
+        s3.DeleteObjectAsync(options.Bucket, prefix + key, cancel);
+
     public void Dispose() => s3.Dispose();
 }
 
@@ -109,6 +135,30 @@ public sealed class FolderTapeShelf(string folder) : ITapeShelf
         var path = PathOf(key);
 
         return File.Exists(path) ? await File.ReadAllBytesAsync(path, cancel).ConfigureAwait(false) : null;
+    }
+
+    public async IAsyncEnumerable<string> KeysAsync(string prefix, [EnumeratorCancellation] CancellationToken cancel)
+    {
+        await Task.CompletedTask.ConfigureAwait(false);
+
+        var under = PathOf(prefix);
+
+        if (!Directory.Exists(under))
+            yield break;
+
+        foreach (var file in Directory.EnumerateFiles(under, "*", SearchOption.AllDirectories))
+        {
+            cancel.ThrowIfCancellationRequested();
+
+            yield return Path.GetRelativePath(folder, file).Replace(Path.DirectorySeparatorChar, '/');
+        }
+    }
+
+    public Task DeleteAsync(string key, CancellationToken cancel)
+    {
+        File.Delete(PathOf(key));
+
+        return Task.CompletedTask;
     }
 
     private string PathOf(string key) => Path.Combine(folder, key.Replace('/', Path.DirectorySeparatorChar));

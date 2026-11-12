@@ -91,8 +91,14 @@ public static class TapeCommand
             var failed = 0;
             var days = TapeDates.In(span.Value, loaded.Value).ToList();
 
+            foreach (var removed in TapePaths.RemoveExcluded(folder, loaded.Value))
+                await session.Out.WriteLineAsync($"Removed {removed}: its date is not a full ETH day").ConfigureAwait(false);
+
+            foreach (var day in loaded.Value.Days.Where(d => span.Value.Contains(d.TradeDate) && !loaded.Value.IsFullDay(d.TradeDate)))
+                await session.Out.WriteLineAsync($"{Text.Day(day.TradeDate)}: no tapes, because {loaded.Value.Excluded(day.TradeDate)}").ConfigureAwait(false);
+
             if (days.Count == 0)
-                await session.Out.WriteLineAsync($"No trade date from {Text.Day(span.Value.From)} to {Text.Day(span.Value.To)}, so there was nothing to build.").ConfigureAwait(false);
+                await session.Out.WriteLineAsync($"No full ETH day from {Text.Day(span.Value.From)} to {Text.Day(span.Value.To)}, so there was nothing to build.").ConfigureAwait(false);
 
             foreach (var date in days)
             {
@@ -318,9 +324,9 @@ internal sealed class TapeDates
         return new DateSpan(from < first ? first : from, to > last ? last : to);
     }
 
-    /// <summary>The span's dates that have a session.</summary>
+    /// <summary>The span's full ETH days, the only dates that get tapes.</summary>
     public static IEnumerable<DateOnly> In(DateSpan span, Catalog catalog) =>
-        catalog.Days.Select(d => d.TradeDate).Where(span.Contains);
+        catalog.FullDays.Select(d => d.TradeDate).Where(span.Contains);
 
     /// <summary>Every date in the span, because a date the catalog lacks must have had no trading.</summary>
     public static IEnumerable<DateOnly> Between(DateSpan span)

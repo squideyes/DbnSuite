@@ -27,6 +27,58 @@ public static class TapePaths
             $"{symbol}.{name}.{tradeDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}.tape");
     }
 
+    /// <summary>The folder names of the tape kinds, as paths and store keys use them.</summary>
+    public static IReadOnlyList<string> Kinds { get; } = ["s1", "trade", "l1"];
+
+    /// <summary>A root's folder of one kind, or its key prefix in a store when <paramref name="tapeRoot"/> is empty.</summary>
+    public static string KindFolder(string tapeRoot, string dataset, string kind, string root) =>
+        tapeRoot.Length == 0 ? $"{dataset}/{kind}/{root}/" : Path.Combine(tapeRoot, dataset, kind, root);
+
+    /// <summary>The trade date a tape's file name or store key carries, or null when it is not a tape's.</summary>
+    public static DateOnly? TradeDateOf(string pathOrKey)
+    {
+        var name = pathOrKey[(pathOrKey.LastIndexOfAny(['/', '\\']) + 1)..];
+        var parts = name.Split('.');
+
+        return parts.Length == 4 && parts[3] == "tape"
+            && DateOnly.TryParseExact(parts[2], "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+                ? date
+                : null;
+    }
+
+    /// <summary>
+    /// Deletes a root's tapes under a folder whose dates the catalog says are not full ETH days, so
+    /// the folder holds only what the rules allow, whatever an older version left there. A date
+    /// outside the catalog's span is left alone: an older catalog can't judge it.
+    /// </summary>
+    /// <returns>The files deleted.</returns>
+    public static IReadOnlyList<string> RemoveExcluded(string tapeRoot, Catalog catalog)
+    {
+        var removed = new List<string>();
+
+        if (catalog.Days.Count == 0)
+            return removed;
+
+        foreach (var kind in Kinds)
+        {
+            var folder = KindFolder(tapeRoot, catalog.Dataset, kind, catalog.Root);
+
+            if (!Directory.Exists(folder))
+                continue;
+
+            foreach (var file in Directory.EnumerateFiles(folder, "*.tape", SearchOption.AllDirectories))
+            {
+                if (TradeDateOf(file) is { } date && catalog.Judges(date) && !catalog.IsFullDay(date))
+                {
+                    File.Delete(file);
+                    removed.Add(file);
+                }
+            }
+        }
+
+        return removed;
+    }
+
     private static string Name(TapeKind kind) => kind switch
     {
         TapeKind.S1 => "s1",

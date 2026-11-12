@@ -26,7 +26,7 @@
 </nav>
 
 <h2 id="how">How it works</h2>
-<p>Every hour it compares the archive with the tape store, a root at a time. When the archive has moved on, it takes each trade date the store lacks and:</p>
+<p>Every hour it compares the archive with the tape store, a root at a time. When the archive has moved on, it takes each <a href="docs/dbntape#full-days">full ETH day</a> the store lacks and:</p>
 <ol class="steps-list">
     <li><strong>Waits for the whole date.</strong> Only days every schema has reached are used, so a half-collected day never becomes a tape.</li>
     <li><strong>Builds</strong> the date's S1, Trade and L1 tapes, compressed with zstd.</li>
@@ -39,6 +39,11 @@
     on. When <code>mbo</code> arrives for a date that was spooled without it, that date is built again with its tick
     tapes. If no <code>mbo</code> has arrived for more than a week, later dates stop waiting for it and get bar tapes
     only. Each root's catalog goes up at the end of its pass.
+</p>
+<p>
+    Holidays, early closes and late opens get no tapes. Each pass also takes off the store, and out of the ledger, any
+    tape for such a date that an older version put there, and logs each date with its reason. A catalog that would take
+    off more than a tenth of a root's dates is not trusted: nothing is removed, and the pass reports it as a problem.
 </p>
 <p>
     A date that stops DbnSpool itself, as running out of memory does, is noted in the ledger before its work starts.
