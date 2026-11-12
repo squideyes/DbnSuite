@@ -53,6 +53,9 @@ WebAssembly app.
 - **Documented.** If behaviour changes, change the docs in the same pull request:
   the site, the README and, for deployment, the `dbnsync-deploy` skill. The data
   layout is a versioned promise, so changing it needs an issue first.
+- **In the changelog,** if it changes what DbnClient or DbnFetch does: add a line
+  under `## Unreleased` in [CHANGELOG.md](CHANGELOG.md), written for the
+  package's users, with breaking changes first.
 - **In the style around it.** File-scoped namespaces, nullable reference types,
   async with a `CancellationToken` for all I/O, and expected failures returned as
   results with stable codes, not thrown.
