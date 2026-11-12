@@ -158,8 +158,7 @@ public struct SpecRule : IBarRule
 }
 
 /// <summary>
-/// Rolls events up into bars. It holds one bar forming and at most one finished, so it
-/// allocates nothing as it runs, and it can carry a bar from one tape to the next.
+/// Rolls events up into bars. It holds one bar forming, so it allocates nothing as it runs.
 /// </summary>
 public sealed class BarRoller<TRule>(TRule rule, bool fillGaps = false)
     where TRule : struct, IBarRule
@@ -167,10 +166,8 @@ public sealed class BarRoller<TRule>(TRule rule, bool fillGaps = false)
     private TRule rule = rule;
     private TapeBar forming;
     private TapeBar last;
-    private TapeBar finished;
     private bool isForming;
     private bool hasLast;
-    private bool hasFinished;
     private bool hasHeld;
     private long heldTime;
     private int heldOpen;
@@ -184,9 +181,7 @@ public sealed class BarRoller<TRule>(TRule rule, bool fillGaps = false)
 
     internal ref TRule Rule => ref rule;
 
-    internal bool Busy => hasHeld || hasFinished;
-
-    internal bool SpansDates => rule.SpansDates;
+    internal bool Busy => hasHeld;
 
     /// <summary>Hands in the next event. Call <see cref="Take"/> until it says false before the next.</summary>
     internal void Offer(long time, int open, int high, int low, int close, uint volume)
@@ -203,14 +198,6 @@ public sealed class BarRoller<TRule>(TRule rule, bool fillGaps = false)
     /// <summary>Gives the next finished bar, if the event handed in finished one.</summary>
     internal bool Take(out TapeBar bar)
     {
-        if (hasFinished)
-        {
-            hasFinished = false;
-            bar = finished;
-
-            return true;
-        }
-
         if (!hasHeld)
         {
             bar = default;
@@ -257,17 +244,6 @@ public sealed class BarRoller<TRule>(TRule rule, bool fillGaps = false)
         bar = default;
 
         return false;
-    }
-
-    /// <summary>Finishes the bar forming, to be given by the next <see cref="Take"/>.</summary>
-    internal void Seal()
-    {
-        if (!isForming)
-            return;
-
-        finished = Finish();
-        hasFinished = true;
-        hasLast = false;
     }
 
     private bool Filler(out TapeBar bar)

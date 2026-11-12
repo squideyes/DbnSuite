@@ -103,38 +103,4 @@ public sealed class TapeDatesTests
     {
         TapeDates.Between(new DateSpan(Friday, Monday)).Count().ShouldBe(4);
     }
-
-    [Fact]
-    public void No_symbol_named_means_every_contract()
-    {
-        TapeDates.Symbols(null, ThreeDays).Value.ShouldBeNull();
-        TapeDates.Symbols([], ThreeDays).Value.ShouldBeNull();
-    }
-
-    [Theory]
-    [InlineData("ESZ6")]
-    [InlineData("ESZ26")]
-    [InlineData("esz26")]
-    [InlineData(" esz6 ")]
-    public void A_contract_is_named_in_either_form_and_any_case(string name)
-    {
-        TapeDates.Symbols([name], ThreeDays).Value.ShouldBe([December]);
-    }
-
-    [Fact]
-    public void Several_contracts_can_be_named()
-    {
-        TapeDates.Symbols(["ESZ26", "ESH7"], ThreeDays).Value.ShouldBe([December, March], ignoreOrder: true);
-    }
-
-    [Theory]
-    [InlineData("ESZ16")]
-    [InlineData("NQZ6")]
-    public void A_contract_the_catalog_lacks_is_an_error(string name)
-    {
-        var symbols = TapeDates.Symbols([December, name], ThreeDays);
-
-        symbols.Error!.Code.ShouldBe(Errors.BadSymbol);
-        symbols.Error.Message.ShouldContain(name);
-    }
 }

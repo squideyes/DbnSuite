@@ -15,7 +15,7 @@ public sealed class SpoolPassTests : IDisposable
     private const string Root = "ES";
     private const string Symbol = "ESZ6";
     private const string Mbo = "mbo";
-    private const string TapeKey = "GLBX.MDP3/s1/ES/2026/ESZ6.s1.20261027.tape";
+    private const string TapeKey = "GLBX.MDP3/s1/ES/2026/ES.s1.20261027.tape";
     private const string CatalogKey = "GLBX.MDP3/catalog/ES.catalog.json";
     private const string LedgerKey = "GLBX.MDP3/spool/ES.json";
     private const string Build = "build-2";
@@ -66,7 +66,7 @@ public sealed class SpoolPassTests : IDisposable
 
     private BuildReport Built(DateOnly date)
     {
-        var path = TapePaths.For(options.TapeFolder, Dataset, TapeKind.S1, Root, Symbol, date);
+        var path = TapePaths.For(options.TapeFolder, Dataset, TapeKind.S1, Root, date);
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, [1, 2, 3]);

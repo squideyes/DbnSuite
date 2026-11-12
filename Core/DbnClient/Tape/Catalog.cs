@@ -56,7 +56,10 @@ public sealed record CatalogDay
 {
     public required DateOnly TradeDate { get; init; }
 
-    /// <summary>The contract the roll rule holds, or null when it holds none.</summary>
+    /// <summary>
+    /// The day's one tape contract: the one that traded the most in the previous session, never
+    /// going back to an earlier one. Null when there is none.
+    /// </summary>
     public string? Held { get; init; }
 
     /// <summary>The day's distinct sessions, the most common first.</summary>
@@ -156,6 +159,10 @@ public sealed class Catalog
         Path.Combine(tapeRoot, dataset, "catalog", $"{root}.catalog.json");
 
     public CatalogContract? Contract(uint instrumentId) => byId.GetValueOrDefault(instrumentId);
+
+    /// <summary>The one contract a trade date's tapes hold, or null when the date has none.</summary>
+    public CatalogContract? HeldOn(DateOnly tradeDate) =>
+        Day(tradeDate)?.Held is { } symbol ? Contract(symbol, tradeDate) : null;
 
     /// <summary>The contract of that name. Names repeat every ten years, so a date picks between them.</summary>
     /// <param name="on">A day it was listed on. Without one, the latest of the name.</param>
@@ -464,9 +471,10 @@ public sealed class Catalog
         return days;
     }
 
+    /// <summary>Each date's most traded contract, by the previous session's volume (<c>.v.0</c>).</summary>
     private static async Task<Result<Func<DateOnly, string?>>> HeldAsync(DbnArchive archive, string root, DateSpan span, CancellationToken cancel)
     {
-        var series = SymbolSpec.Parse($"{root}.n.0");
+        var series = SymbolSpec.Parse($"{root}.v.0");
 
         if (!series.IsSuccess)
             return series.Error!;

@@ -262,7 +262,7 @@ public sealed class CatalogTests : IDisposable
 
     private string Tape(TapeKind kind, DateOnly date)
     {
-        var path = TapePaths.For(folder, TapeFixture.Dataset, kind, TapeFixture.Root, FrontSymbol, date);
+        var path = TapePaths.For(folder, TapeFixture.Dataset, kind, TapeFixture.Root, date);
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, [1, 2, 3]);

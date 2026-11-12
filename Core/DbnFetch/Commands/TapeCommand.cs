@@ -60,9 +60,8 @@ public static class TapeCommand
     {
         var options = new TapeOptions();
         var dates = new TapeDates();
-        var symbols = new Option<string[]>("--symbol") { Description = "Only these contracts.", AllowMultipleArgumentsPerToken = true };
         var zstd = new Option<bool>("--zstd") { Description = "Compress the bodies, for storage. Replay is fastest without it." };
-        var command = new Command("build", "Build tapes for a span of trade dates: S1 for every contract, Trade and L1 for those mbo holds.") { symbols, zstd };
+        var command = new Command("build", "Build tapes for a span of trade dates: one contract a day, the one that traded the most the session before.") { zstd };
 
         options.AddTo(command);
         dates.AddTo(command);
@@ -82,11 +81,6 @@ public static class TapeCommand
             if (!span.IsSuccess)
                 return await session.FailAsync(span.Error!).ConfigureAwait(false);
 
-            var only = TapeDates.Symbols(parse.GetValue(symbols), loaded.Value);
-
-            if (!only.IsSuccess)
-                return await session.FailAsync(only.Error!).ConfigureAwait(false);
-
             var builder = new TapeBuilder(archive, loaded.Value, folder);
             var failed = 0;
             var days = TapeDates.In(span.Value, loaded.Value).ToList();
@@ -103,7 +97,7 @@ public static class TapeCommand
             foreach (var date in days)
             {
                 var started = Stopwatch.GetTimestamp();
-                var built = await builder.BuildAsync(date, parse.GetValue(zstd), only.Value, cancel).ConfigureAwait(false);
+                var built = await builder.BuildAsync(date, parse.GetValue(zstd), cancel).ConfigureAwait(false);
 
                 if (!built.IsSuccess)
                 {
@@ -114,12 +108,13 @@ public static class TapeCommand
 
                 await session.WriteAsync(Report(date, built.Value)).ConfigureAwait(false);
 
-                var bars = built.Value.Tapes.Count(t => t.Kind == TapeKind.S1 && t.Error is null);
+                var made = built.Value.Tapes.Where(t => t.Error is null).ToList();
+                var what = made.Count == 0 ? "no tapes" : $"{made[0].Symbol} {string.Join(", ", made.Select(t => t.Kind))}";
 
                 failed += built.Value.Tapes.Count(t => t.Error is { Code: not TapeErrors.NotHeld });
 
                 await session.Out.WriteLineAsync(Text.Invariant(
-                    $"{Text.Day(date)}: {Text.Count(bars)} S1 tapes, {Stopwatch.GetElapsedTime(started).TotalSeconds:F1} s")).ConfigureAwait(false);
+                    $"{Text.Day(date)}: {what}, {Stopwatch.GetElapsedTime(started).TotalSeconds:F1} s")).ConfigureAwait(false);
             }
 
             return failed == 0 ? Session.Ok : Session.Failed;
@@ -333,30 +328,5 @@ internal sealed class TapeDates
     {
         for (var date = span.From; date <= span.To; date = date.AddDays(1))
             yield return date;
-    }
-
-    /// <summary>
-    /// The CME names of the contracts <paramref name="named"/> picks, each given as ESZ6 or ESZ26 in
-    /// either case; null when none was named, which means every contract. A name the catalog lacks is
-    /// an error, since building nothing for it would look like success.
-    /// </summary>
-    internal static Result<HashSet<string>?> Symbols(string[]? named, Catalog catalog)
-    {
-        if (named is not { Length: > 0 })
-            return (HashSet<string>?)null;
-
-        HashSet<string> symbols = [with(StringComparer.Ordinal)];
-
-        foreach (var name in named.Select(n => n.Trim()))
-        {
-            var matched = catalog.Contracts.Where(c => ContractSymbol.Matches(name, c.Symbol, c.Year)).Select(c => c.Symbol).ToList();
-
-            if (matched.Count == 0)
-                return new Error(Errors.BadSymbol, $"The catalog for {catalog.Root} has no contract {name}. dbnf contracts {catalog.Root} lists them.");
-
-            symbols.UnionWith(matched);
-        }
-
-        return symbols;
     }
 }

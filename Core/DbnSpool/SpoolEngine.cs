@@ -49,7 +49,7 @@ public sealed class SpoolEngine(DbnArchive archive, SpoolOptions options) : ISpo
         Catalog.BuildAsync(archive, root, null, cancel);
 
     public Task<Result<BuildReport>> BuildAsync(Catalog catalog, DateOnly date, CancellationToken cancel) =>
-        new TapeBuilder(archive, catalog, options.TapeFolder).BuildAsync(date, options.Compress, null, cancel);
+        new TapeBuilder(archive, catalog, options.TapeFolder).BuildAsync(date, options.Compress, cancel);
 
     public Task<IReadOnlyList<ProofResult>> ProveAsync(Catalog catalog, DateOnly date, CancellationToken cancel) =>
         new TapeProof(archive, catalog, options.TapeFolder).RunAsync(date, cancel);
