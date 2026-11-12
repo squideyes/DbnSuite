@@ -108,7 +108,7 @@ services:
   # router forwards the internet's port 443 to HTTPS_PORT here, since UGOS
   # keeps 80 and 443 for its own web page.
   https:
-    image: caddy:2.10.2
+    image: caddy:2.11
     profiles: [internet]
     restart: unless-stopped
     logging: *logging
