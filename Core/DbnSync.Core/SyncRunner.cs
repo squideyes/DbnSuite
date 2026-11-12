@@ -389,10 +389,13 @@ public sealed class SyncRunner(
     /// Submits one job within the spend policy. A perishable job quoted above
     /// it is assumed to straddle the window's edge and sheds its oldest day,
     /// at most <see cref="MaxTrims"/> times; anything else quoted above it is
-    /// refused outright.
+    /// refused outright. Days Databento has nothing for are marked empty only
+    /// when asked for one at a time; given <paramref name="emptied"/>, such a
+    /// day is added to it rather than warned about on its own.
     /// </summary>
     private async Task<Submission> SubmitOneAsync(JobRequest request, List<PendingJob> pending,
-        PassTally tally, Budget budget, EarlierPurchases earlier, CancellationToken cancel)
+        PassTally tally, Budget budget, EarlierPurchases earlier, CancellationToken cancel,
+        List<DateOnly>? emptied = null)
     {
         var trims = request.Schema.Level == Level.L0 || request.BeyondPlan ? 0 : MaxTrims;
 
@@ -432,7 +435,21 @@ public sealed class SyncRunner(
 
             if (id.Error!.Code is Errors.NoSymbols or Errors.NoData)
             {
+                // One answer is trusted to settle one day only: a wrong one must not empty a week.
+                if (current.Days > 1)
+                {
+                    return await AskEachDayAsync(request with { Range = current }, id.Error.Code, pending, tally,
+                        budget, earlier, cancel).ConfigureAwait(false);
+                }
+
                 await MarkEmptyAsync(request, current, tally, cancel).ConfigureAwait(false);
+
+                if (emptied is not null)
+                {
+                    emptied.Add(current.From);
+
+                    return Submission.NothingToFetch;
+                }
 
                 logger.LogWarning("{Schema} {Root} {Range}: Databento has nothing for it ({Code}), so its days hold no data",
                     request.Schema.Name, request.Root, current, id.Error.Code);
@@ -473,6 +490,50 @@ public sealed class SyncRunner(
         }
 
         return Submission.NotSubmitted;
+    }
+
+    /// <summary>
+    /// After Databento said it has nothing for several days, asks for each day
+    /// alone, so only a day it says so for on its own is marked empty; a day it
+    /// does have is submitted as a job of its own. The days marked empty are one
+    /// warning. Days not reached, because enough jobs are pending, stay owed.
+    /// </summary>
+    private async Task<Submission> AskEachDayAsync(JobRequest request, string code, List<PendingJob> pending,
+        PassTally tally, Budget budget, EarlierPurchases earlier, CancellationToken cancel)
+    {
+        var emptied = new List<DateOnly>();
+        var outcomes = new List<Submission>();
+
+        foreach (var day in request.Range.Each())
+        {
+            if (pending.Count >= options.MaxPendingJobs)
+                break;
+
+            outcomes.Add(await SubmitOneAsync(request with { Range = new DayRange(day, day) }, pending, tally,
+                budget, earlier, cancel, emptied).ConfigureAwait(false));
+        }
+
+        if (emptied.Count > 0)
+        {
+            var range = new DayRange(emptied[0], emptied[^1]);
+
+            logger.LogWarning("{Schema} {Root} {Range}: Databento has nothing for {Days} days asked for one at a time " +
+                "({Code}), so they hold no data", request.Schema.Name, request.Root, range, emptied.Count, code);
+            tally.Issue(IssueLevel.Warning, code, code == Errors.NoSymbols
+                    ? $"No {request.Root} instruments existed on {emptied.Count} of these days, each asked for alone, so they are marked as having no data."
+                    : $"Databento has no {request.Schema.Name} records for {request.Root} on {emptied.Count} of these days, each asked for alone, so they are marked as having no data.",
+                request, range);
+        }
+
+        if (outcomes.Contains(Submission.Submitted))
+            return Submission.Submitted;
+
+        if (outcomes.Contains(Submission.Adopted))
+            return Submission.Adopted;
+
+        return outcomes.Count == request.Range.Days && outcomes.TrueForAll(o => o == Submission.NothingToFetch)
+            ? Submission.NothingToFetch
+            : Submission.NotSubmitted;
     }
 
     /// <summary>

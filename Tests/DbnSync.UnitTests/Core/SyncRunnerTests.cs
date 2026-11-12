@@ -752,6 +752,47 @@ public sealed class SyncRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task A_no_data_answer_for_several_days_is_asked_again_one_day_at_a_time()
+    {
+        options.Schemas = Definition;
+        options.HistoryStart = Day(10, 1);
+        var traded = Day(10, 15);
+        databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<BatchRequest>().Range == new DayRange(traded, traded) ? (Result<string>)JobId : NoData());
+
+        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+
+        var october = new DayRange(Day(10, 1), Day(10, 31));
+        foreach (var day in october.Each().Where(d => d != traded))
+            await store.Received(1).PutEmptyAsync(Definition, Root, day, Arg.Any<CancellationToken>());
+        await store.DidNotReceive().PutEmptyAsync(Definition, Root, traded, Arg.Any<CancellationToken>());
+        await store.Received(1).SavePendingAsync(Arg.Is<PendingJob>(j => j.Id == JobId && j.Range == new DayRange(traded, traded)),
+            Arg.Any<CancellationToken>());
+        pass.EmptyDays.ShouldBe(october.Days - 1);
+        pass.JobsSubmitted.ShouldBe(1);
+        var issue = pass.Issues.ShouldHaveSingleItem();
+        issue.Code.ShouldBe(Errors.NoData);
+        issue.Level.ShouldBe(IssueLevel.Warning);
+    }
+
+    [Fact]
+    public async Task Days_not_asked_about_alone_are_not_marked_empty()
+    {
+        options.Schemas = Definition;
+        options.HistoryStart = Day(10, 1);
+        options.MaxPendingJobs = 1;
+        databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<BatchRequest>().Range == new DayRange(Day(10, 1), Day(10, 1)) ? (Result<string>)JobId : NoData());
+
+        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+
+        await store.DidNotReceive().PutEmptyAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(),
+            Arg.Any<CancellationToken>());
+        pass.EmptyDays.ShouldBe(0);
+        pass.JobsSubmitted.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task A_quiet_pass_is_not_eventful()
     {
         options.HistoryStart = Today;
