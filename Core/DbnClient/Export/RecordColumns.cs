@@ -123,11 +123,11 @@ public static class RecordColumns
                 cells[i++] = d.Expiration is 0 or DbnTime.Undefined ? Cell.Empty : Cell.Of(d.Expiration);
                 break;
 
-            default:
-                cells[i++] = Cell.Of(record.TsEvent);
+            case OtherRecord o:
+                cells[i++] = Cell.Of(o.TsEvent);
                 cells[i++] = Cell.Of(symbol);
-                cells[i++] = Cell.Of(record.InstrumentId);
-                cells[i++] = Cell.Of(record.RType);
+                cells[i++] = Cell.Of(o.InstrumentId);
+                cells[i++] = Cell.Of(o.RType);
                 break;
         }
 

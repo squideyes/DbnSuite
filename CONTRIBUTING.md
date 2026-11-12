@@ -26,7 +26,7 @@ agree that your work is licensed under the [MIT licence](LICENSE).
 
 ## Building and testing
 
-You need the .NET 10 SDK, and Docker running for the tests that use real S3.
+You need the .NET 11 SDK, and Docker running for the tests that use real S3.
 
 ```bash
 dotnet build DbnSuite.slnx

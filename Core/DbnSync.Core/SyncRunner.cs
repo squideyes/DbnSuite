@@ -280,7 +280,7 @@ public sealed class SyncRunner(
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
 
         var coverage = new List<Coverage>();
-        var unranged = new HashSet<string>(StringComparer.Ordinal);
+        HashSet<string> unranged = [with(StringComparer.Ordinal)];
 
         foreach (var (root, schema) in options.Wanted())
         {

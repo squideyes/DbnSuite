@@ -8,7 +8,7 @@ namespace DbnClient.Dbn;
 /// length in 32-bit words, a type, the publisher, the instrument id, and the
 /// exchange's event time in nanoseconds since the UNIX epoch.
 /// </summary>
-public abstract record DbnRecord(byte RType, ushort PublisherId, uint InstrumentId, ulong TsEvent)
+public closed record DbnRecord(byte RType, ushort PublisherId, uint InstrumentId, ulong TsEvent)
 {
     public const int HeaderSize = 16;
 

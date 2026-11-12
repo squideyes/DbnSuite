@@ -339,7 +339,7 @@ internal sealed class TapeDates
         if (named is not { Length: > 0 })
             return (HashSet<string>?)null;
 
-        var symbols = new HashSet<string>(StringComparer.Ordinal);
+        HashSet<string> symbols = [with(StringComparer.Ordinal)];
 
         foreach (var name in named.Select(n => n.Trim()))
         {

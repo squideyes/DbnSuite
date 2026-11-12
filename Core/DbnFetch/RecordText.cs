@@ -34,8 +34,7 @@ public static class RecordText
             DefinitionRecord d => Invariant($"{head} {d.RawSymbol,-24} tick {Price(d.TickSize)}  expires {Expiry(d.Expiration)}"),
             StatRecord s => Invariant($"{head} {Name(StatTypes, s.StatType),-24} {StatValue(s)}"),
             StatusRecord s => Invariant($"{head} {Name(StatusActions, s.Action),-20} trading {s.IsTrading}"),
-            OtherRecord o => Invariant($"{head} rtype 0x{o.RType:X2}, {o.Length} bytes"),
-            _ => head
+            OtherRecord o => Invariant($"{head} rtype 0x{o.RType:X2}, {o.Length} bytes")
         };
     }
 

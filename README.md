@@ -33,7 +33,7 @@ through anyone else.
 
 **Install.** DbnClient and DbnFetch are published on NuGet as
 [DbnClient](https://www.nuget.org/packages/DbnClient) and
-[DbnFetch](https://www.nuget.org/packages/DbnFetch), and need the .NET 10 SDK.
+[DbnFetch](https://www.nuget.org/packages/DbnFetch), and need the .NET 11 SDK.
 Update an earlier DbnFetch with `dotnet tool update -g DbnFetch`, and an earlier
 DbnClient by running `dotnet add package DbnClient` again. Native `dbnf`
 binaries that need no .NET are attached to each
@@ -467,7 +467,7 @@ as JSON.
 
 ## Run locally
 
-Requires the .NET 10 SDK and Docker.
+Requires the .NET 11 SDK and Docker.
 
 ```bash
 dotnet user-secrets set "Parameters:databento-api-key" "<key>" --project Aspire/AppHost
