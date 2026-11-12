@@ -1,7 +1,7 @@
 # DbnSpool worker. Build from the repository root:
 #   docker build -f Dockerfile.spool -t dbnspool .
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props nuget.config .editorconfig ./
@@ -10,7 +10,7 @@ COPY Core/ Core/
 
 RUN dotnet publish Core/DbnSpool/DbnSpool.csproj -c Release -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS final
 WORKDIR /app
 
 # Owned by the app user, so a named volume mounted here starts writable.

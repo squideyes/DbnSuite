@@ -145,7 +145,7 @@ public sealed record DbnMetadata(
     private static List<string> Strings(ReadOnlySpan<byte> block, ref int at, int width)
     {
         var count = Count(block, ref at);
-        var strings = new List<string>(count);
+        List<string> strings = [with(capacity: count)];
 
         for (var i = 0; i < count; i++, at += width)
             strings.Add(Text(block.Slice(at, width)));

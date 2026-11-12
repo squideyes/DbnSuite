@@ -57,7 +57,7 @@ public sealed class DatabentoClient(HttpClient http, IOptions<DatabentoOptions> 
                 return new Error(Errors.Malformed, "get_dataset_range has no per-schema ranges.");
             }
 
-            var ends = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
+            Dictionary<string, DateTimeOffset> ends = [with(StringComparer.Ordinal)];
 
             foreach (var schema in schemas.EnumerateObject())
             {

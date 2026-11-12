@@ -1,3 +1,4 @@
+using MailKit;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Options;
@@ -34,7 +35,7 @@ public sealed class SmtpAlertSender(IOptions<AlertOptions> options) : IAlertSend
         if (settings.User.Length > 0)
             await client.AuthenticateAsync(settings.User, settings.Password, cancel).ConfigureAwait(false);
 
-        await client.SendAsync(message, cancel).ConfigureAwait(false);
+        await client.SendAsync(new SendRequest(message), cancel).ConfigureAwait(false);
 
         try
         {

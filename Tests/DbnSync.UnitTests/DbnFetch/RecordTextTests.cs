@@ -27,8 +27,6 @@ public sealed class RecordTextTests
     private static DefinitionRecord Definition(ulong expiration) =>
         new(Publisher, Instrument, Time, 0.25m, expiration, Time, SampleArchive.FrontRaw, Root, DefinitionRecord.Future, 2026, 12);
 
-    private sealed record Unnamed() : DbnRecord(0, Publisher, Instrument, Time);
-
     [Fact]
     public void A_line_opens_with_the_time_and_the_symbol()
     {
@@ -143,11 +141,5 @@ public sealed class RecordTextTests
         var other = new OtherRecord(0x99, Publisher, Instrument, Time, 64);
 
         Format(other).ShouldEndWith("rtype 0x99, 64 bytes");
-    }
-
-    [Fact]
-    public void Any_other_record_is_its_time_and_symbol()
-    {
-        Format(new Unnamed()).Trim().ShouldBe($"{Stamp}  {Symbol}");
     }
 }

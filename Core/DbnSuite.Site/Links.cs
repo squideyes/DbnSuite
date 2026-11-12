@@ -16,7 +16,7 @@ public static class Links
     /// <summary>The raw files in Deploy/, for downloading with curl.</summary>
     public const string Deploy = "https://raw.githubusercontent.com/squideyes/DbnSuite/main/Deploy";
 
-    public const string DotNet = "https://dotnet.microsoft.com/download/dotnet/10.0";
+    public const string DotNet = "https://dotnet.microsoft.com/download/dotnet/11.0";
     public const string Docker = "https://docs.docker.com/engine/install/";
     public const string DbnFormat = "https://github.com/databento/dbn";
 }
