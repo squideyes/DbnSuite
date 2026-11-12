@@ -17,6 +17,7 @@
     <RepositoryUrl>https://github.com/squideyes/DbnSuite</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>https://github.com/squideyes/DbnSuite/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageTags>databento;dbn;market-data;order-book;futures;cme;parquet;ninjatrader</PackageTags>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
