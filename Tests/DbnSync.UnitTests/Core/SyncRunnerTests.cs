@@ -752,6 +752,47 @@ public sealed class SyncRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task A_no_data_answer_for_several_days_is_asked_again_one_day_at_a_time()
+    {
+        options.Schemas = Definition;
+        options.HistoryStart = Day(10, 1);
+        var traded = Day(10, 15);
+        databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<BatchRequest>().Range == new DayRange(traded, traded) ? (Result<string>)JobId : NoData());
+
+        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+
+        var october = new DayRange(Day(10, 1), Day(10, 31));
+        foreach (var day in october.Each().Where(d => d != traded))
+            await store.Received(1).PutEmptyAsync(Definition, Root, day, Arg.Any<CancellationToken>());
+        await store.DidNotReceive().PutEmptyAsync(Definition, Root, traded, Arg.Any<CancellationToken>());
+        await store.Received(1).SavePendingAsync(Arg.Is<PendingJob>(j => j.Id == JobId && j.Range == new DayRange(traded, traded)),
+            Arg.Any<CancellationToken>());
+        pass.EmptyDays.ShouldBe(october.Days - 1);
+        pass.JobsSubmitted.ShouldBe(1);
+        var issue = pass.Issues.ShouldHaveSingleItem();
+        issue.Code.ShouldBe(Errors.NoData);
+        issue.Level.ShouldBe(IssueLevel.Warning);
+    }
+
+    [Fact]
+    public async Task Days_not_asked_about_alone_are_not_marked_empty()
+    {
+        options.Schemas = Definition;
+        options.HistoryStart = Day(10, 1);
+        options.MaxPendingJobs = 1;
+        databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<BatchRequest>().Range == new DayRange(Day(10, 1), Day(10, 1)) ? (Result<string>)JobId : NoData());
+
+        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+
+        await store.DidNotReceive().PutEmptyAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(),
+            Arg.Any<CancellationToken>());
+        pass.EmptyDays.ShouldBe(0);
+        pass.JobsSubmitted.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task A_quiet_pass_is_not_eventful()
     {
         options.HistoryStart = Today;
@@ -923,22 +964,54 @@ public sealed class SyncRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task A_job_whose_files_are_unavailable_stays_pending_until_it_is_a_week_old()
+    public async Task A_job_whose_files_are_unavailable_stays_pending_until_it_has_failed_for_a_week()
     {
         var job = Pending(new DayRange(Day(10, 30), Day(10, 30)));
-        store.ListPendingAsync(Arg.Any<CancellationToken>()).Returns([job]);
+        KeepPendingAsSaved(job);
         databento.GetStateAsync(JobId, job.SubmittedAt, Arg.Any<CancellationToken>()).Returns(JobState.Done);
         databento.ListFilesAsync(JobId, Arg.Any<CancellationToken>()).Returns(new Error(Errors.Unreachable, "timed out"));
 
         await Runner().RunOnceAsync(CancellationToken.None);
+        clock.Advance(TimeSpan.FromDays(6));
+        await Runner().RunOnceAsync(CancellationToken.None);
         var kept = store.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IArchiveStore.DeletePendingAsync));
-        clock.Advance(TimeSpan.FromDays(8));
+        clock.Advance(TimeSpan.FromDays(2));
         var abandoned = await Runner().RunOnceAsync(CancellationToken.None);
 
         kept.ShouldBe(0);
         abandoned.JobsCollected.ShouldBe(1);
         abandoned.Issues.ShouldContain(i => i.Code == IssueCodes.JobAbandoned && i.Level == IssueLevel.Error);
         await store.Received(1).DeletePendingAsync(JobId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_job_left_waiting_while_the_worker_was_down_is_not_given_up_at_its_first_failure()
+    {
+        var job = Pending(new DayRange(Day(10, 30), Day(10, 30))) with { SubmittedAt = Now.AddDays(-10) };
+        KeepPendingAsSaved(job);
+        databento.GetStateAsync(JobId, job.SubmittedAt, Arg.Any<CancellationToken>()).Returns(JobState.Done);
+        databento.ListFilesAsync(JobId, Arg.Any<CancellationToken>()).Returns(new Error(Errors.Unreachable, "timed out"));
+
+        var summary = await Runner().RunOnceAsync(CancellationToken.None);
+
+        summary.Issues.ShouldNotContain(i => i.Code == IssueCodes.JobAbandoned);
+        await store.DidNotReceive().DeletePendingAsync(JobId, Arg.Any<CancellationToken>());
+        await store.Received(1).SavePendingAsync(Arg.Is<PendingJob>(j => j.Id == JobId && j.FailingSince == Now),
+            Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>The store lists a pending job as it was last saved, as the real one does.</summary>
+    private void KeepPendingAsSaved(PendingJob job)
+    {
+        var current = job;
+        store.ListPendingAsync(Arg.Any<CancellationToken>()).Returns(_ => [current]);
+        store.SavePendingAsync(Arg.Any<PendingJob>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask)
+            .AndDoes(call =>
+            {
+                if (call.Arg<PendingJob>().Id == job.Id)
+                    current = call.Arg<PendingJob>();
+            });
     }
 
     [Theory]

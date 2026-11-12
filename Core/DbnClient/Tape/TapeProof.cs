@@ -82,7 +82,7 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
                 results.Add(L1Marks(contract, l1, session));
                 results.Add(SessionBounds(contract, TapeKind.L1, l1, session, lead));
 
-                ticks.Add(new TickSubject(contract, session, l1, trade, bars.GetValueOrDefault(contract.InstrumentId) ?? []));
+                ticks.Add(new TickSubject(contract, session, l1, trade, bars.GetValueOrDefault(contract.InstrumentId) ?? [], lead));
             }
         }
 
@@ -103,9 +103,9 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
         return loaded.IsSuccess ? loaded.Value : throw new InvalidDataException($"{path}: {loaded.Error}");
     }
 
-    private async Task<Dictionary<uint, List<SourceBar>>> BarsAsync(DateOnly tradeDate, CancellationToken cancel)
+    private async Task<Dictionary<uint, List<SecondBar>>> BarsAsync(DateOnly tradeDate, CancellationToken cancel)
     {
-        var bars = new Dictionary<uint, List<SourceBar>>();
+        var bars = new Dictionary<uint, List<SecondBar>>();
 
         foreach (var day in new[] { tradeDate.AddDays(-1), tradeDate })
         {
@@ -133,7 +133,7 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
                     if (!bars.TryGetValue(id, out var list))
                         bars[id] = list = [];
 
-                    list.Add(SourceBar.Read(raw.Span));
+                    list.Add(ReadBar(raw.Span));
                 }
             }
         }
@@ -142,7 +142,7 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
     }
 
     /// <summary>A date the catalog has no session for must have had no trading either.</summary>
-    private IEnumerable<ProofResult> NoSession(DateOnly tradeDate, Dictionary<uint, List<SourceBar>> bars)
+    private IEnumerable<ProofResult> NoSession(DateOnly tradeDate, Dictionary<uint, List<SecondBar>> bars)
     {
         const string check = "Date has a session";
 
@@ -163,7 +163,7 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
     /// The only allowance is the receive clock's lead, which can put a session's first
     /// seconds before its open. Those bars are reported, because the tape does not hold them.
     /// </summary>
-    private static ProofResult SourceCovered(CatalogContract contract, DateOnly tradeDate, SessionDay session, Tape? tape, List<SourceBar> bars, long lead)
+    private static ProofResult SourceCovered(CatalogContract contract, DateOnly tradeDate, SessionDay session, Tape? tape, List<SecondBar> bars, long lead)
     {
         const string check = "Source inside session";
 
@@ -199,7 +199,7 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
             : new ProofResult(contract.Symbol, check, true, $"{early:N0} bars precede the open by the receive clock's lead of {lead:N0} ns");
     }
 
-    private static ProofResult S1AgainstSource(CatalogContract contract, SessionDay session, Tape tape, List<SourceBar> bars)
+    private static ProofResult S1AgainstSource(CatalogContract contract, SessionDay session, Tape tape, List<SecondBar> bars)
     {
         const string check = "S1 against source";
 
@@ -576,6 +576,7 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
     {
         var checks = subjects.ToDictionary(s => s.Contract.InstrumentId, s => new MboCheck(s));
         var filesHolding = new Dictionary<uint, int>();
+        var presence = new Dictionary<uint, SessionPresence?>();
 
         foreach (var day in new[] { tradeDate.AddDays(-1), tradeDate })
         {
@@ -605,7 +606,16 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
                     seen.Add(id);
 
                     if (checks.TryGetValue(id, out var check))
+                    {
                         check.Feed((MboRecord)DbnRecord.Decode(raw.Span));
+                    }
+                    else
+                    {
+                        if (!presence.TryGetValue(id, out var watch))
+                            presence[id] = watch = TapeSession(id, tradeDate) is { } session ? new SessionPresence(session) : null;
+
+                        watch?.Feed(raw.Span);
+                    }
                 }
             }
 
@@ -613,25 +623,37 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
                 filesHolding[id] = filesHolding.GetValueOrDefault(id) + 1;
         }
 
-        return [.. checks.Values.SelectMany(c => c.Results()), .. MissingTapes(tradeDate, filesHolding, checks)];
+        return [.. checks.Values.SelectMany(c => c.Results()), .. MissingTapes(filesHolding, checks, presence)];
     }
 
-    /// <summary>A contract mbo holds for the whole date must have its tape, or a refusal would go unnoticed.</summary>
-    private IEnumerable<ProofResult> MissingTapes(DateOnly tradeDate, Dictionary<uint, int> filesHolding, Dictionary<uint, MboCheck> checks)
+    /// <summary>
+    /// The session of a contract that may have a tape on the date, or null: as the builder
+    /// decides, only one contract of a name may, and only on a date it has a session.
+    /// </summary>
+    private SessionDay? TapeSession(uint id, DateOnly tradeDate) =>
+        catalog.Contract(id) is { } contract && catalog.Contract(contract.Symbol, tradeDate)?.InstrumentId == id
+            ? calendar.For(contract.Symbol, tradeDate)
+            : null;
+
+    /// <summary>
+    /// A contract mbo holds for the whole date, and that had a record in its session outside
+    /// a snapshot, must have its tape, or a refusal would go unnoticed. One seen only in
+    /// snapshots, resting orders and no activity, rightly has none.
+    /// </summary>
+    private IEnumerable<ProofResult> MissingTapes(Dictionary<uint, int> filesHolding, Dictionary<uint, MboCheck> checks,
+        Dictionary<uint, SessionPresence?> presence)
     {
         const string check = "Tape exists";
 
         foreach (var (id, files) in filesHolding)
         {
-            if (catalog.Contract(id) is not { } contract || calendar.For(contract.Symbol, tradeDate) is null)
+            if (files != 2 || catalog.Contract(id) is not { } contract)
                 continue;
 
-            if (files == 2)
-            {
-                yield return checks.ContainsKey(id)
-                    ? Pass(contract, check)
-                    : Fail(contract, check, "mbo holds this contract all day, and it has no L1 tape");
-            }
+            if (checks.ContainsKey(id))
+                yield return Pass(contract, check);
+            else if (presence.GetValueOrDefault(id) is { Opened: true })
+                yield return Fail(contract, check, "mbo holds this contract all day and it was active in its session, and it has no L1 tape");
         }
     }
 
@@ -639,18 +661,16 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
 
     private static ProofResult Fail(CatalogContract contract, string check, string detail) => new(contract.Symbol, check, false, detail);
 
-    private readonly record struct SourceBar(long Second, long Open, long High, long Low, long Close, ulong Volume)
-    {
-        public static SourceBar Read(ReadOnlySpan<byte> raw) => new(
-            (long)(BinaryPrimitives.ReadUInt64LittleEndian(raw[8..]) / NanosPerSecond),
-            BinaryPrimitives.ReadInt64LittleEndian(raw[16..]),
-            BinaryPrimitives.ReadInt64LittleEndian(raw[24..]),
-            BinaryPrimitives.ReadInt64LittleEndian(raw[32..]),
-            BinaryPrimitives.ReadInt64LittleEndian(raw[40..]),
-            BinaryPrimitives.ReadUInt64LittleEndian(raw[48..]));
-    }
+    private static SecondBar ReadBar(ReadOnlySpan<byte> raw) => new(
+        (long)(BinaryPrimitives.ReadUInt64LittleEndian(raw[8..]) / NanosPerSecond),
+        BinaryPrimitives.ReadInt64LittleEndian(raw[16..]),
+        BinaryPrimitives.ReadInt64LittleEndian(raw[24..]),
+        BinaryPrimitives.ReadInt64LittleEndian(raw[32..]),
+        BinaryPrimitives.ReadInt64LittleEndian(raw[40..]),
+        BinaryPrimitives.ReadUInt64LittleEndian(raw[48..]));
 
-    private sealed record TickSubject(CatalogContract Contract, SessionDay Session, Tape L1, Tape? Trade, List<SourceBar> Bars);
+    /// <param name="Lead">How far the receive clock runs ahead of the exchange's, in nanoseconds.</param>
+    private sealed record TickSubject(CatalogContract Contract, SessionDay Session, Tape L1, Tape? Trade, List<SecondBar> Bars, long Lead);
 
     /// <summary>
     /// Replays a contract's source records through MboTransform and DbnClient's OrderBook,
@@ -670,10 +690,11 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
         private readonly MboTransform transform = MboTransform.Create("mbp-1", series: false).Value;
         private readonly OrderBook book = new();
         private readonly L1Match match;
-        private readonly Dictionary<long, (long O, long H, long L, long C, ulong V)> built = [];
+        private readonly TradeSeconds seconds;
         private readonly long tick;
         private readonly SnapshotWatch boundary = new();
-        private long tradeVolume;
+        private bool inSnapshot;
+        private bool afterSnapshot;
 
         public MboCheck(TickSubject subject)
         {
@@ -681,6 +702,7 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
 
             tick = subject.Contract.TickRaw;
             match = new L1Match(subject.L1);
+            seconds = new TradeSeconds(subject.Session, subject.Lead);
         }
 
         public void Feed(MboRecord record)
@@ -691,12 +713,36 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
 
             boundary.See(record.Action == 'R', snapshot, (long)record.TsEvent >= session.Open, Top());
 
-            if (inside && record.Action == 'T' && record.Price is { } price)
-                Bucket(record, (long)(price * RawUnits));
+            if (snapshot)
+            {
+                inSnapshot = true;
+            }
+            else if (inSnapshot)
+            {
+                inSnapshot = false;
+                afterSnapshot = true;
+            }
+
+            if (!snapshot && record.Action == 'T' && record.Price is { } price)
+                seconds.Trade(record.TsEvent, record.TsRecv, (long)(price * RawUnits), record.Quantity);
 
             transform.Process(record, inside ? session.TradeDate : null, subject.Contract.Symbol, null, p => p, Row);
 
             book.Apply(record);
+
+            // The builder quotes the top at the first event that ends after a snapshot.
+            if (!snapshot && (record.Flags & MboRecord.LastFlag) != 0)
+            {
+                if (afterSnapshot && inside)
+                {
+                    var (bid, bidSize, ask, askSize) = Top();
+
+                    match.AfterSnapshot(new L1Row(false, (long)record.TsEvent / NanosPerMicro, 0, 0, TradeSide.None,
+                        Ticks(bid), (uint)(bidSize ?? 0), Ticks(ask), (uint)(askSize ?? 0)));
+                }
+
+                afterSnapshot = false;
+            }
         }
 
         public IEnumerable<ProofResult> Results()
@@ -729,38 +775,10 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
             return (bid?.Price, bid?.Size, ask?.Price, ask?.Size);
         }
 
-        private void Bucket(MboRecord record, long price)
-        {
-            var second = (long)(record.TsRecv / NanosPerSecond);
-            var size = record.Quantity;
-
-            tradeVolume += size;
-
-            built[second] = built.TryGetValue(second, out var bar)
-                ? (bar.O, Math.Max(bar.H, price), Math.Min(bar.L, price), price, bar.V + size)
-                : (price, price, price, price, size);
-        }
-
         private ProofResult TradesAgainstBars()
         {
-            var open = subject.Session.Open / NanosPerSecond;
-            var close = subject.Session.Close / NanosPerSecond;
-            var bars = subject.Bars.Where(b => b.Second >= open && b.Second <= close).ToList();
-            var barVolume = 0UL;
-
-            foreach (var bar in bars)
-            {
-                barVolume += bar.Volume;
-
-                if (!built.TryGetValue(bar.Second, out var mine))
-                    return Fail(subject.Contract, TradesCheck, $"the source has a bar at {bar.Second} with no trades");
-
-                if (mine != (bar.Open, bar.High, bar.Low, bar.Close, bar.Volume))
-                    return Fail(subject.Contract, TradesCheck, $"the second {bar.Second} differs: trades {mine}, bar {bar}");
-            }
-
-            if (built.Count != bars.Count)
-                return Fail(subject.Contract, TradesCheck, $"trades fill {built.Count:N0} seconds, bars {bars.Count:N0}");
+            if (seconds.Against(subject.Bars) is { } failure)
+                return Fail(subject.Contract, TradesCheck, failure);
 
             var tapeVolume = 0UL;
 
@@ -772,9 +790,9 @@ public sealed class TapeProof(DbnArchive archive, Catalog catalog, string tapeRo
                     tapeVolume += cursor.Size;
             }
 
-            return tapeVolume == barVolume
+            return tapeVolume == seconds.SessionVolume
                 ? Pass(subject.Contract, TradesCheck)
-                : Fail(subject.Contract, TradesCheck, $"the tape's volume is {tapeVolume:N0}, the bars' {barVolume:N0}");
+                : Fail(subject.Contract, TradesCheck, $"the tape's volume is {tapeVolume:N0}, the session's trades {seconds.SessionVolume:N0}");
         }
 
         private ProofResult TapeAgainstTransform() =>

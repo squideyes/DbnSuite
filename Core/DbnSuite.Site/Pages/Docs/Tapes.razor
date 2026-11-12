@@ -153,15 +153,15 @@
         <thead><tr><th>Check</th><th>Passes when</th></tr></thead>
         <tbody>
             <tr><td>S1 against source</td><td>Every bar equals the <code>ohlcv-1s</code> record.</td></tr>
-            <tr><td>Trade against bars</td><td>Source trades bucketed on <code>ts_recv</code> equal <code>ohlcv-1s</code> in every second, and the tape's volume equals the bars'.</td></tr>
+            <tr><td>Trade against bars</td><td>Source trades bucketed on <code>ts_recv</code> equal <code>ohlcv-1s</code> in every second from the open, or from earlier by the receive clock's lead, and the Trade tape's volume equals the session's trades.</td></tr>
             <tr><td>L1 against Trade</td><td>L1's trades are exactly the Trade tape's trades.</td></tr>
-            <tr><td>L1 against DbnClient</td><td>Replaying <code>MboTransform</code> gives the same quotes and trades.</td></tr>
+            <tr><td>L1 against DbnClient</td><td>Replaying <code>MboTransform</code> gives the same quotes and trades. After a mid-session snapshot that moved the top, the tape's quote at the next event is checked against DbnClient's book instead, since the transform has no row for it.</td></tr>
             <tr><td>Crossed book</td><td>No crossed or locked quote appears during trading.</td></tr>
             <tr><td>File boundary</td><td>The top of book is unchanged across the 00:00 UTC snapshot, or the difference is reported.</td></tr>
             <tr><td>Sessions</td><td>Every tape's events fall inside its session, and no trade falls in a stated break.</td></tr>
             <tr><td>RTH marks</td><td>Starting at the mark gives exactly the events of decoding from the start and filtering by time.</td></tr>
             <tr><td>Bar streams</td><td>Every spec equals what <code>BarBuilder</code> makes from the same bars.</td></tr>
-            <tr><td>Tape exists</td><td>Every contract <code>mbo</code> holds all day has its L1 tape.</td></tr>
+            <tr><td>Tape exists</td><td>Every contract <code>mbo</code> holds all day, and that was active in its session outside a snapshot, has its L1 tape. One with resting orders and no activity rightly has none.</td></tr>
         </tbody>
     </table>
 </div>

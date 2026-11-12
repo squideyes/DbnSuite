@@ -16,7 +16,9 @@ public sealed class OrderBook
     private readonly SortedDictionary<decimal, (long Size, int Count)> bids = new(Comparer<decimal>.Create((a, b) => b.CompareTo(a)));
     private readonly SortedDictionary<decimal, (long Size, int Count)> asks = new();
 
-    /// <summary>Applies one event. Trades leave the book as it is; the fills that follow them change it.</summary>
+    /// <summary>Applies one event. Trades leave the book as it is; the fills that follow them change it. A fill
+    /// takes its size off the resting order at once, rather than waiting for the cancel or modify
+    /// that follows as Databento's reference book does, so the book is right between the fills of a sweep.</summary>
     public void Apply(MboRecord m)
     {
         switch (m.Action)
