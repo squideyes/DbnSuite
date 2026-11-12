@@ -116,7 +116,7 @@ public sealed class RollSchedule
 
     private static Error Unadjustable(Roll roll, string measure) => new(Errors.NoSettlement,
         $"The roll on {roll.TradeDate:yyyy-MM-dd} from {roll.From.Symbol} to {roll.To.Symbol} has no {measure}: the archive " +
-        "has no usable settlement for both contracts on the session before it, so earlier prices cannot be adjusted. " +
+        "has no session before it that both contracts settled, so earlier prices cannot be adjusted. " +
         "Export without adjustment, or add that session's statistics to the archive.");
 
     /// <summary>Which contract <paramref name="series"/> holds on each of <paramref name="tradeDates"/>.</summary>
@@ -190,12 +190,10 @@ public sealed class RollSchedule
             // A change on the first date adjusts nothing asked for, so it is no roll of this span.
             if (date > tradeDates.From && current is not null && pick.InstrumentId != current.InstrumentId)
             {
-                var settles = statistics.Latest(SettlementPrice, opens, quantity: false);
+                var (f, t) = statistics.Settlements(current.InstrumentId, pick.InstrumentId, opens);
 
                 // Decided over a weekend, it is first used on the Monday.
-                rolls.Add(new Roll(Sessions.FirstTradeDate(date), current, pick,
-                    settles.TryGetValue(current.InstrumentId, out var f) ? f : null,
-                    settles.TryGetValue(pick.InstrumentId, out var t) ? t : null) { Changed = date });
+                rolls.Add(new Roll(Sessions.FirstTradeDate(date), current, pick, f, t) { Changed = date });
             }
 
             if (asked)
@@ -286,6 +284,53 @@ public sealed class RollSchedule
         private readonly List<StatRecord> records = [];
 
         public void Add(StatRecord record) => records.Add(record);
+
+        /// <summary>
+        /// Two instruments' settlements from one session: the latest, published
+        /// before <paramref name="before"/>, that both settled. Prices from two
+        /// different sessions would make a gap that is no spread at all, so with
+        /// no session in common there are none.
+        /// </summary>
+        public (decimal? From, decimal? To) Settlements(uint from, uint to, DateTimeOffset before)
+        {
+            var cutoff = (ulong)((before - DateTimeOffset.UnixEpoch).Ticks * 100);
+            var sessions = new Dictionary<DateOnly, (Published? From, Published? To)>();
+
+            foreach (var r in records)
+            {
+                if (r.StatType != SettlementPrice || r.TsEvent >= cutoff || r.Price is not { } price
+                    || (r.InstrumentId != from && r.InstrumentId != to))
+                    continue;
+
+                var session = SessionOf(r);
+                var (f, t) = sessions.GetValueOrDefault(session);
+                var value = new Published(r.TsEvent, price);
+
+                // The later of two publications for one session is the one that counts.
+                if (r.InstrumentId == from && (f is null || r.TsEvent >= f.Value.At))
+                    f = value;
+
+                if (r.InstrumentId == to && (t is null || r.TsEvent >= t.Value.At))
+                    t = value;
+
+                sessions[session] = (f, t);
+            }
+
+            foreach (var (_, (f, t)) in sessions.OrderByDescending(s => s.Key))
+            {
+                if (f is { } a && t is { } b)
+                    return (a.Value, b.Value);
+            }
+
+            return (null, null);
+        }
+
+        /// <summary>The session a settlement is for: its reference date, or else the trade date it was published in.</summary>
+        private static DateOnly SessionOf(StatRecord r) => r.TsRef == DbnTime.Undefined
+            ? Sessions.TradeDate(r.TsEvent)
+            : DateOnly.FromDateTime(DbnTime.ToTime(r.TsRef).UtcDateTime);
+
+        private readonly record struct Published(ulong At, decimal Value);
 
         /// <summary>Each instrument's latest value of a statistic published before <paramref name="before"/>.</summary>
         public IReadOnlyDictionary<uint, decimal> Latest(ushort statType, DateTimeOffset before, bool quantity)
