@@ -8,6 +8,7 @@
   <ItemGroup>
     <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="Serilog.Sinks.Seq" />
+    <PackageReference Include="System.IO.Hashing" />
   </ItemGroup>
 
 </Project>
