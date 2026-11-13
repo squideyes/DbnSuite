@@ -31,4 +31,16 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
 
+  <!--
+    Since .NET 11 a pack with no RID also packs every platform package the host can build. The
+    release builds each native package on its own runner, so with -p:PackPortableOnly=true the
+    pack makes the pointer package and only the portable one, "any", beside it. Give it
+    -p:PublishAot=false too: the portable package is plain IL.
+  -->
+  <Target Name="PackPortableOnly" BeforeTargets="ComputeToolPackageRuntimeIdentifiersToPack" Condition="'$(PackPortableOnly)' == 'true'">
+    <ItemGroup>
+      <ToolPackageRuntimeIdentifiersToPack Include="any" />
+    </ItemGroup>
+  </Target>
+
 </Project>
