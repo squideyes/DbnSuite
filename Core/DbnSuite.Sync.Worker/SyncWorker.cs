@@ -18,7 +18,7 @@ public sealed class SyncWorker(
     SyncOptions options,
     SyncStatus status,
     AlertMail alerts,
-    TimeProvider clock,
+    [FromKeyedServices(SyncClock.Key)] TimeProvider clock,
     ILogger<SyncWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -88,7 +88,9 @@ public sealed class SyncWorker(
 
             status.Finished(pass, clock.GetUtcNow() + delay);
 
-            await corpus.RefreshAsync(stoppingToken).ConfigureAwait(false);
+            // Not RefreshAsync: on the first pass the scan begun at startup may
+            // still be running, and joining it would show the archive as it was.
+            await corpus.RescanAsync(stoppingToken).ConfigureAwait(false);
 
             try
             {

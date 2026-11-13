@@ -170,6 +170,34 @@ public sealed class CorpusIndexTests
     }
 
     [Fact]
+    public async Task A_rescan_waits_for_the_scan_already_running_and_then_sees_what_changed_since()
+    {
+        var slow = new TaskCompletionSource<IReadOnlyList<PendingJob>>();
+        store.ListPendingAsync(Arg.Any<CancellationToken>()).Returns(slow.Task,
+            Task.FromResult<IReadOnlyList<PendingJob>>([new PendingJob(JobId, Root, Mbo, Range, Now)]));
+
+        var startup = ScanAsync();
+        var rescan = index.RescanAsync(CancellationToken.None);
+        var rescanWaited = !rescan.IsCompleted;
+        slow.SetResult([]);
+        await Task.WhenAll(startup, rescan);
+
+        rescanWaited.ShouldBeTrue();
+        await store.Received(2).ListPendingAsync(Arg.Any<CancellationToken>());
+        index.Snapshot!.Pending.ShouldHaveSingleItem().Id.ShouldBe(JobId);
+        index.Scanning.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_rescan_with_nothing_running_scans_at_once()
+    {
+        await index.RescanAsync(CancellationToken.None);
+
+        index.Snapshot.ShouldNotBeNull();
+        await store.Received(1).ListPendingAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Listeners_hear_a_scan_start_and_finish()
     {
         var heard = new List<bool>();

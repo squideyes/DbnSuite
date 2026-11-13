@@ -23,7 +23,7 @@ public sealed class CorpusIndex(
     IServiceScopeFactory scopes,
     IArchiveStore store,
     SyncOptions options,
-    TimeProvider clock,
+    [FromKeyedServices(SyncClock.Key)] TimeProvider clock,
     ILogger<CorpusIndex> logger)
 {
     private readonly SemaphoreSlim gate = new(1, 1);
@@ -48,6 +48,23 @@ public sealed class CorpusIndex(
             return;
         }
 
+        await ScanHoldingGateAsync(cancel).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Scans once any scan already running has finished. A scan that began
+    /// before a pass cannot show what the pass changed, so the worker uses
+    /// this, not <see cref="RefreshAsync"/>, after each pass.
+    /// </summary>
+    public async Task RescanAsync(CancellationToken cancel)
+    {
+        await gate.WaitAsync(cancel).ConfigureAwait(false);
+
+        await ScanHoldingGateAsync(cancel).ConfigureAwait(false);
+    }
+
+    private async Task ScanHoldingGateAsync(CancellationToken cancel)
+    {
         try
         {
             // Inside the try: a listener that throws must not leave the gate held, or no scan would ever run again.

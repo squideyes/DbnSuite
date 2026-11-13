@@ -228,10 +228,10 @@ public sealed class GapsTests(RustFs s3)
         issue.Code.ShouldBe(IssueCodes.UnexpectedFile);
         issue.Level.ShouldBe(IssueLevel.Error);
         keysAfterRefusal.ShouldBeEmpty();
-        // A crash failed this once in CI with nothing to say why, so a failure shows each issue's message.
+        abandoned.Failure.ShouldBeNull(sync.Explain(abandoned));
         abandoned.Issues.Select(i => i.Code).ShouldBe([IssueCodes.UnexpectedFile, IssueCodes.JobAbandoned], ignoreOrder: true,
-            string.Join("; ", abandoned.Issues.Select(i => $"{i.Code}: {i.Message}")));
-        abandoned.JobsSubmitted.ShouldBe(1);
+            sync.Explain(abandoned));
+        abandoned.JobsSubmitted.ShouldBe(1, sync.Explain(abandoned));
     }
 
     [Fact]

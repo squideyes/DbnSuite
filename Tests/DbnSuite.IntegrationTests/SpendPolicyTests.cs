@@ -214,8 +214,10 @@ public sealed class SpendPolicyTests(RustFs s3)
         var today = await sync.FirstPassAsync();
         var tomorrow = await sync.PassAfterAsync(OneDay);
 
-        today.JobsSubmitted.ShouldBe(1);
-        tomorrow.JobsSubmitted.ShouldBe(1);
+        today.Failure.ShouldBeNull(sync.Explain(today));
+        today.JobsSubmitted.ShouldBe(1, sync.Explain(today));
+        tomorrow.Failure.ShouldBeNull(sync.Explain(tomorrow));
+        tomorrow.JobsSubmitted.ShouldBe(1, sync.Explain(tomorrow));
         (await sync.Archive.SpendAsync()).Select(e => e.Root).ShouldBe([Es, Mnq], ignoreOrder: true);
     }
 

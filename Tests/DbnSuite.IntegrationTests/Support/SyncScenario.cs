@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using DbnSuite.Sync.Core;
 using DbnSuite.Sync.Data;
 using DbnSuite.Sync.Worker;
@@ -124,7 +125,7 @@ public sealed class SyncScenario : IAsyncDisposable
 
             Host = new WorkerHost(Environment, settings, s =>
             {
-                s.AddSingleton<TimeProvider>(Clock);
+                s.AddKeyedSingleton<TimeProvider>(SyncClock.Key, Clock);
                 s.AddSingleton<ILoggerProvider>(sink);
                 services(s);
             });
@@ -193,13 +194,60 @@ public sealed class SyncScenario : IAsyncDisposable
             Directory.Delete(scratch, recursive: true);
     }
 
+    /// <summary>A pass's failure and issues, and what the worker warned of, for an assertion to say why it failed.</summary>
+    public string Explain(PassSummary? pass)
+    {
+        var text = new StringBuilder();
+
+        if (pass is not null)
+        {
+            text.AppendLine(CultureInfo.InvariantCulture, $"Pass {pass.StartedAt:O}: failure {pass.Failure ?? "none"}");
+
+            foreach (var issue in pass.Issues)
+                text.AppendLine(CultureInfo.InvariantCulture, $"  {issue.Level} {issue.Code}: {issue.Message}");
+        }
+
+        text.AppendLine("Worker warnings and errors:");
+
+        foreach (var (level, line, exception) in Logs.Lines.Where(l => l.Level >= LogLevel.Warning))
+            text.AppendLine(CultureInfo.InvariantCulture, $"  {level}: {line}{(exception is null ? "" : $"{System.Environment.NewLine}{exception}")}");
+
+        return text.ToString();
+    }
+
     private async Task<PassSummary> PassAsync()
     {
         using var timeout = new CancellationTokenSource(PassTimeout);
 
-        Delay = await Clock.PassDelayAsync(timeout.Token);
+        try
+        {
+            Delay = await Clock.PassDelayAsync(timeout.Token);
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            throw new TimeoutException($"No pass finished within {PassTimeout}.{System.Environment.NewLine}" +
+                Explain(Status.Snapshot.LastPass));
+        }
 
-        return Status.Snapshot.LastPass!;
+        if (Clock.Strangers.Count > 0)
+        {
+            throw new InvalidOperationException("Something besides the worker's delay set a timer on the test clock. " +
+                "A jump of the clock would fire it beside the pass it wakes, so scenarios would race it:" +
+                $"{System.Environment.NewLine}{string.Join(System.Environment.NewLine, Clock.Strangers)}");
+        }
+
+        // The worker records a pass, with when the next one starts, just before it waits;
+        // the clock cannot move in between. A delay that matches no recorded pass is not the worker's.
+        var status = Status.Snapshot;
+
+        if (status.Running || status.LastPass is null || status.NextPassAt != Clock.GetUtcNow() + Delay)
+        {
+            throw new InvalidOperationException($"A {Delay} timer was taken for the end of a pass, but the worker " +
+                $"says running {status.Running}, next pass at {status.NextPassAt:O}, at {Clock.GetUtcNow():O}." +
+                $"{System.Environment.NewLine}{Explain(status.LastPass)}");
+        }
+
+        return status.LastPass;
     }
 
     private static string Text(DateOnly day) => day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);

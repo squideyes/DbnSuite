@@ -28,7 +28,7 @@ public abstract class DashboardContext : BunitContext
 
         Services.AddSingleton(Store);
         Services.AddSingleton(Databento);
-        Services.AddSingleton<TimeProvider>(Clock);
+        Services.AddKeyedSingleton<TimeProvider>(SyncClock.Key, Clock);
         Services.AddSingleton(Microsoft.Extensions.Options.Options.Create(new DashboardOptions()));
         Services.AddSingleton(Index);
         Services.AddSingleton(Options);

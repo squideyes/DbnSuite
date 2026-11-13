@@ -11,7 +11,7 @@ public sealed partial class CorpusPage : IDisposable
 
     [Inject] private SyncOptions Options { get; set; } = null!;
 
-    [Inject] private TimeProvider Clock { get; set; } = null!;
+    [Inject(Key = SyncClock.Key)] private TimeProvider Clock { get; set; } = null!;
 
     [Inject] private ILogger<CorpusPage> Logger { get; set; } = null!;
 

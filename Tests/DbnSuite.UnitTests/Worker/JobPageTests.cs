@@ -35,7 +35,7 @@ public sealed class JobPageTests : BunitContext
 
         Services.AddSingleton(store);
         Services.AddSingleton(databento);
-        Services.AddSingleton<TimeProvider>(clock);
+        Services.AddKeyedSingleton<TimeProvider>(SyncClock.Key, clock);
         Services.AddSingleton(Options.Create(new DashboardOptions()));
         Services.AddSingleton(index);
         Services.AddSingleton(options);

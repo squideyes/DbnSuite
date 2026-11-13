@@ -1,7 +1,6 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject SyncStatus Status
-@inject TimeProvider Clock
 
 <header class="bar">
     <div class="bar-inner">
@@ -38,6 +37,8 @@
 </footer>
 
 @code {
+    [Inject(Key = SyncClock.Key)] private TimeProvider Clock { get; set; } = null!;
+
     protected override void OnInitialized() => Status.Changed += Refresh;
 
     private void Refresh() => InvokeAsync(StateHasChanged);

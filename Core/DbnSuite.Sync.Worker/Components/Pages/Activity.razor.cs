@@ -12,7 +12,7 @@ public sealed partial class Activity : IDisposable
 
     [Inject] private SyncStatus Status { get; set; } = null!;
 
-    [Inject] private TimeProvider Clock { get; set; } = null!;
+    [Inject(Key = SyncClock.Key)] private TimeProvider Clock { get; set; } = null!;
 
     private int Days { get; set; } = 7;
 

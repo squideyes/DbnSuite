@@ -60,7 +60,7 @@ builder.Services.AddOptions<DashboardOptions>()
     .ValidateOnStart();
 
 builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<SyncOptions>>().Value);
-builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddKeyedSingleton(SyncClock.Key, TimeProvider.System);
 
 // A download is a file of up to a few GB, not a request: no resilience
 // pipeline with its 30-second total timeout, and a failed file is retried by
@@ -76,7 +76,9 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddSingleton<S3ArchiveStore>();
 builder.Services.AddSingleton<IArchiveStore>(sp => sp.GetRequiredService<S3ArchiveStore>());
 
-builder.Services.AddScoped<SyncRunner>();
+// Core stays free of DI attributes, so the runner is handed the sync's clock here.
+builder.Services.AddScoped(sp => ActivatorUtilities.CreateInstance<SyncRunner>(sp,
+    sp.GetRequiredKeyedService<TimeProvider>(SyncClock.Key)));
 builder.Services.AddSingleton<SyncStatus>();
 builder.Services.AddSingleton<CorpusIndex>();
 builder.Services.AddHostedService<SyncWorker>();
