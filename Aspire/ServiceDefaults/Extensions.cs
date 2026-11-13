@@ -3,14 +3,13 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
 namespace Microsoft.Extensions.Hosting;
 
-// Adds common Aspire services: service discovery, resilience, health checks, and OpenTelemetry.
+// Adds common Aspire services: resilience, health checks, and OpenTelemetry.
 // This project should be referenced by each service project in your solution.
 // To learn more about using this project, see https://aka.ms/aspire/service-defaults
 public static class Extensions
@@ -24,22 +23,14 @@ public static class Extensions
 
         builder.AddDefaultHealthChecks();
 
-        builder.Services.AddServiceDiscovery();
+        // Turn on resilience by default
+        builder.Services.ConfigureHttpClientDefaults(http => http.AddStandardResilienceHandler());
 
-        builder.Services.ConfigureHttpClientDefaults(http =>
-        {
-            // Turn on resilience by default
-            http.AddStandardResilienceHandler();
-
-            // Turn on service discovery by default
-            http.AddServiceDiscovery();
-        });
-
-        // Uncomment the following to restrict the allowed schemes for service discovery.
-        // builder.Services.Configure<ServiceDiscoveryOptions>(options =>
-        // {
-        //     options.AllowedSchemes = ["https"];
-        // });
+        // No service discovery: nothing here calls another service by name, and
+        // the only HTTP client goes to Databento's fixed address. Its resolver
+        // also kept a 10-second cleanup timer on the app's TimeProvider, and a
+        // cleanup that disposes an entry as a request picks it up can complete
+        // the entry twice, failing that request with InvalidOperationException.
 
         return builder;
     }
