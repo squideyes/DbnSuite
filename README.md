@@ -378,6 +378,74 @@ control and never commit one. See the [DbnTape docs](https://dbnsuite.squideyes.
 for the format. To keep tapes up to date in a cloud store, see
 [DbnSpool](#dbnspool-optional).
 
+### Session calendars
+
+`ISessionCalendar.For(symbol, tradeDate)` gives a symbol's `SessionDay`: its
+open, close and breaks, and RTH, the root's regular hours cut to the session,
+all in nanoseconds since the UNIX epoch. It is null when there is no session.
+DbnClient has two calendars:
+
+| Calendar | Knows | For |
+|---|---|---|
+| `SessionCalendar` (`DbnSuite.Client.Tape`) | The full ETH days a root's catalog has seen | Backtests on tapes |
+| `RuleCalendar` (`DbnSuite.Client.Calendars`) | Any date, from rules: holidays, early closes and late opens too | Live hosts, which need tomorrow's hours |
+
+`RuleCalendar.CmeUsEquityIndex` is CME Globex's calendar for ES, MES, NQ, MNQ,
+YM, MYM, RTY and M2K: 17:00 Chicago time the evening before to 16:00, RTH from
+08:30 to 15:00. Its holiday rules, such as "the fourth Thursday of November
+closes at 12:00", project the schedule into any year. Run against the tapes,
+they reproduce every closure and early close from 2020-01-02 to 2026-11-02.
+Dated changes hold what no rule could know: the March 2020 circuit breakers,
+the 2025-01-09 day of mourning and the 2025-11-28 outage. A product's own short
+pauses, such as velocity-logic halts, aren't listed.
+
+```csharp
+var cme = RuleCalendar.CmeUsEquityIndex;
+var friday = cme.Find("MNQ", new DateOnly(2025, 11, 28));
+
+if (friday.IsSuccess)
+{
+    // Closes at 12:15 Chicago time, the day after Thanksgiving, with the outage as a break.
+}
+else
+{
+    // friday.Error.Code is CalendarErrors.NoSession, and the message says why: "2025-04-18 is closed: Good Friday."
+}
+```
+
+On an early close, RTH ends with the session; on one before 08:30, as on a Good
+Friday with a jobs report, there is none. RTH follows the futures, not the
+stock market's own holidays, as in `SessionCalendar`.
+
+**CME's announcements.** The rules are a projection. When CME announces a
+change, such as a Good Friday that opens for a jobs report, a live host records
+it in an announcements file and applies it. An announced closure, early close,
+late open or `regular` day replaces the projection for its date; an announced
+halt adds to it. Times are Chicago's.
+
+```json
+{
+  "changes": [
+    { "tradeDate": "2027-03-26", "kind": "earlyClose", "at": "2027-03-26T08:15", "note": "Good Friday: jobs report", "source": "CME notice" }
+  ]
+}
+```
+
+```csharp
+var announced = await RuleCalendar.LoadAnnouncementsAsync(path, cancellationToken);
+
+if (announced.IsSuccess && RuleCalendar.CmeUsEquityIndex.With(announced.Value) is { IsSuccess: true } updated)
+{
+    // updated.Value.ChangesOn(date) says whether a day comes from a rule or an announcement.
+}
+```
+
+A host can load a calendar of its own with `RuleCalendar.LoadAsync`;
+[`cme-us-equity-index.json`](Core/DbnSuite.Client/Calendars/cme-us-equity-index.json)
+shows the format. To check the CME rules against your own tapes, set
+`DBNSUITE_TAPES` to the folder `dbnf tape --tapes` uses and run
+`RuleCalendarOnTapesTests`; it reads only each root's catalog.
+
 ### Other clients
 
 **AWS CLI:**
@@ -775,7 +843,7 @@ Logs go to Seq when `ConnectionStrings__seq` is set.
 Core/DbnSuite.Sync.Core           planning, windows, keys, the sync pass, issue explanations; no I/O
 Core/DbnSuite.Sync.Data           Databento HTTP client, S3 store
 Core/DbnSuite.Sync.Worker         host: background loop, Blazor dashboard, /status, /health
-Core/DbnSuite.Client              library: the archive, DBN files, contracts, rolls, sessions, bars, export, Parquet, tapes
+Core/DbnSuite.Client              library: the archive, DBN files, contracts, rolls, sessions, calendars, bars, export, Parquet, tapes
 Core/DbnSuite.Fetch               the dbnf tool, a Native AOT .NET tool
 Core/DbnSuite.Spool               optional worker: keeps tapes up to date in a second store
 Core/DbnSuite.Site                The website: Blazor WebAssembly, published to GitHub Pages

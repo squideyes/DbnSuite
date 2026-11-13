@@ -18,6 +18,11 @@
     <InternalsVisibleTo Include="DbnSuite.UnitTests" />
   </ItemGroup>
 
+  <!-- The calendars RuleCalendar carries, such as RuleCalendar.CmeUsEquityIndex. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Calendars\*.json" LogicalName="DbnSuite.Client.Calendars.%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="System.IO.Hashing" />

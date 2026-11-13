@@ -6,6 +6,23 @@ What changed in each release of the **DbnClient** library and the **DbnFetch**
 release. The format follows [Keep a Changelog](https://keepachangelog.com), and
 versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+
+- **`RuleCalendar`, a session calendar that knows the future.** A second
+  `ISessionCalendar`, in `DbnSuite.Client.Calendars`, beside the catalog-backed
+  `SessionCalendar`. It holds an exchange's schedule as rules: the session's
+  usual hours, holiday rules that project them into any year, and dated changes
+  for what no rule could know. It answers for any date, holidays, early closes
+  and late opens included, so a live host can ask about tomorrow.
+  `RuleCalendar.CmeUsEquityIndex` is CME's, for ES, MES, NQ, MNQ, YM, MYM, RTY
+  and M2K, and reproduces every closure and early close on the tapes from
+  2020-01-02 to 2026-11-02. A host loads CME's announcements with
+  `RuleCalendar.LoadAnnouncementsAsync` and applies them with `With`, where each
+  replaces the projection for its date. RTH is the root's regular hours cut to
+  the session, as in `SessionCalendar`. Ported from AlgoSpec.
+
 ## 0.3.0 (2026-11-12)
 
 ### Breaking
