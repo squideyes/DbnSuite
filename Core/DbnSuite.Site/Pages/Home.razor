@@ -151,7 +151,7 @@
                 new("Errors you can branch on", "Expected failures, such as a day never stored or a key refused, come back as results with stable codes rather than exceptions."),
             ]),
         new("dbntape", "Backtest tapes", "DbnTape",
-            "Compact tapes of each futures contract's trade date, for fast and exact backtests.",
+            "Compact tapes of each trade date, for its most traded contract, for fast and exact backtests.",
             "Small, stream-only files built from your archive by dbnf tape and DbnClient: one tape of each kind a CME trade date, for its most traded contract, replayed from start to finish.",
             [
                 new("Three kinds", "S1 holds one-second bars, Trade holds every trade with its aggressor, and L1 holds the best bid and offer, every trade and every change of trading state, in order."),

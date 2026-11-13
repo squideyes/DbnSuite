@@ -92,6 +92,39 @@ public sealed class SessionStreamTests : IDisposable
     }
 
     [Fact]
+    public async Task CancellingARunStopsItBeforeTheNextSession()
+    {
+        var sampler = new SessionSampler(await WriteDaysAsync(), Seed);
+        using var cancel = new CancellationTokenSource();
+        var seen = 0;
+
+        var run = async () =>
+        {
+            await foreach (var session in Stream().RunAsync(sampler, 0, cancel.Token))
+            {
+                seen++;
+                await cancel.CancelAsync();
+            }
+        };
+
+        await run.ShouldThrowAsync<OperationCanceledException>();
+        seen.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task LeavingARunEarlyLeavesNoTapeOpen()
+    {
+        var sampler = new SessionSampler(await WriteDaysAsync(), Seed);
+
+        await foreach (var session in Stream().RunAsync(sampler, 0, CancellationToken.None))
+            break;
+
+        var delete = () => Directory.Delete(folder, recursive: true);
+
+        delete.ShouldNotThrow();
+    }
+
+    [Fact]
     public async Task ARunOfTwoTickSizesIsRefused()
     {
         await WriteS1Async(Monday, FirstPrice);

@@ -20,15 +20,20 @@ public static class SpoolPlan
         mboDays.Count > 0 && mboDays.Max() >= reached.AddDays(-MboPatience);
 
     /// <summary>
-    /// The trade dates to spool, oldest first: those the shelf lacks, and those it holds
-    /// without tick tapes whose <c>mbo</c> files have arrived since. A trade date ends in
-    /// the UTC day of its own name, so a later one can't be complete yet.
+    /// The trade dates to spool, oldest first: those the shelf lacks, and those it holds without
+    /// tick tapes whose <c>mbo</c> files have arrived, or changed, since. A trade date ends in the
+    /// UTC day of its own name, so a later one can't be complete yet.
     /// </summary>
+    /// <param name="mboStamp">
+    /// A stamp of a date's two <c>mbo</c> files, so a date whose <c>mbo</c> held no tape of its
+    /// contract is tried again once those files are fetched again, and not on every pass.
+    /// </param>
     public static IReadOnlyList<DateOnly> Pending(IEnumerable<DateOnly> sessions, SpoolLedger ledger,
-        IReadOnlySet<DateOnly> mboDays, DateOnly through) =>
+        IReadOnlySet<DateOnly> mboDays, DateOnly through, Func<DateOnly, string?>? mboStamp = null) =>
         [.. sessions
             .Where(d => d <= through)
-            .Where(d => ledger.Spooled(d) is not { } done || !done.Ticks && HasTicks(d, mboDays))
+            .Where(d => ledger.Spooled(d) is not { } done
+                || !done.Ticks && HasTicks(d, mboDays) && (done.Mbo is null || mboStamp?.Invoke(d) != done.Mbo))
             .Order()];
 
     /// <summary>True when <c>mbo</c> covers the whole trade date, which spans two UTC files.</summary>

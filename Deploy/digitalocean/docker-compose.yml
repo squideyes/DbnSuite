@@ -41,7 +41,7 @@ services:
       - seq:/data
 
   dbnsync:
-    image: ${DBNSYNC_IMAGE:-ghcr.io/squideyes/dbnsync-worker:latest}
+    image: ghcr.io/squideyes/dbnsync-worker:${DBNSUITE_VERSION:?Set DBNSUITE_VERSION in .env to the commit id of a build that passed CI}
     restart: unless-stopped
     logging: *logging
     security_opt:
@@ -80,7 +80,7 @@ services:
   # Optional. Off unless started with --profile spool. It only reads the archive,
   # and it is held to one CPU and 2 GB, so it can't get in DbnSync's way.
   dbnspool:
-    image: ${DBNSPOOL_IMAGE:-ghcr.io/squideyes/dbnspool-worker:latest}
+    image: ghcr.io/squideyes/dbnspool-worker:${DBNSUITE_VERSION:?Set DBNSUITE_VERSION in .env to the commit id of a build that passed CI}
     profiles: [spool]
     restart: unless-stopped
     logging: *logging

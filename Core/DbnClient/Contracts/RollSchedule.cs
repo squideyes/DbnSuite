@@ -158,7 +158,9 @@ public sealed class RollSchedule
 
         var held = new SortedDictionary<DateOnly, Contract>();
         var rolls = new List<Roll>();
-        Contract? current = null;
+
+        // What each rank up to the one asked for holds: a rank above 0 follows from the ranks below it.
+        var currents = new Contract?[series.Rank + 1];
 
         for (var date = walkFrom; date <= tradeDates.To; date = date.AddDays(1))
         {
@@ -178,14 +180,13 @@ public sealed class RollSchedule
                 _ => Rank(live, statistics.Latest(OpenInterest, opens, quantity: true))
             };
 
-            if (ranked.Count <= series.Rank)
+            if (Picks(ranked, currents, opens) is not { } picks)
                 continue;
 
-            var pick = ranked[series.Rank];
+            var current = currents[series.Rank];
+            var pick = picks[series.Rank];
 
-            // Never back to an earlier contract while the one held still trades.
-            if (current is not null && pick.Expiration < current.Expiration && current.Expiration > opens)
-                pick = current;
+            picks.CopyTo(currents, 0);
 
             // A change on the first date adjusts nothing asked for, so it is no roll of this span.
             if (date > tradeDates.From && current is not null && pick.InstrumentId != current.InstrumentId)
@@ -198,11 +199,41 @@ public sealed class RollSchedule
 
             if (asked)
                 held[date] = pick;
-
-            current = pick;
         }
 
         return new RollSchedule(series, held, rolls);
+    }
+
+    /// <summary>
+    /// What each rank holds on a date, or null when there aren't enough contracts. Rank 0 takes the
+    /// best by the rule; each rank after takes the best of those expiring after the rank below's.
+    /// None goes back to an earlier contract while the one it holds still trades and still comes
+    /// after the rank below, so a rank above 0 never copies a lower one after a roll.
+    /// </summary>
+    private static Contract[]? Picks(List<Contract> ranked, Contract?[] currents, DateTimeOffset opens)
+    {
+        var picks = new Contract[currents.Length];
+
+        for (var r = 0; r < picks.Length; r++)
+        {
+            var after = r == 0 ? null : picks[r - 1].Expiration;
+            var candidates = ranked.Where(c => after is null || c.Expiration > after).ToList();
+
+            if (candidates.Count == 0)
+                return null;
+
+            var pick = candidates[0];
+
+            if (currents[r] is { } current && pick.Expiration < current.Expiration && current.Expiration > opens
+                && (after is null || current.Expiration > after))
+            {
+                pick = current;
+            }
+
+            picks[r] = pick;
+        }
+
+        return picks;
     }
 
     /// <summary>Contracts by a measure, largest first; a contract with none comes last, by expiry.</summary>

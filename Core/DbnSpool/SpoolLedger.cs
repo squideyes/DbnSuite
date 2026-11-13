@@ -3,8 +3,12 @@ using System.Text.Json;
 namespace DbnSpool;
 
 /// <summary>One trade date on the shelf.</summary>
-/// <param name="Ticks">True when <c>mbo</c> covered the date, so its tick tapes were built.</param>
-public sealed record SpooledDate(DateOnly Date, int Tapes, bool Ticks);
+/// <param name="Ticks">The date's tick tapes (L1 and Trade) were made.</param>
+/// <param name="Mbo">
+/// When <c>mbo</c> covered the date but held no tape of its contract, a stamp of those <c>mbo</c> files,
+/// so the date is tried again once they change, and not before. Null otherwise.
+/// </param>
+public sealed record SpooledDate(DateOnly Date, int Tapes, bool Ticks, string? Mbo = null);
 
 /// <summary>A trade date that was started and never finished: DbnSpool stopped while working on it.</summary>
 /// <param name="Count">Starts that never finished, under this build.</param>

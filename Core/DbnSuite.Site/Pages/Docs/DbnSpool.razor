@@ -66,6 +66,13 @@
 <ol class="steps-list">
     <li><strong>Create a second Space</strong> for tapes, such as <code>dbn-tapes</code>, in the same region. Keep it private, with no CDN.</li>
     <li>
+        <strong>Empty a tape Space an older DbnSpool filled.</strong> Tapes used to be one per contract, named like
+        <code>ESZ6.s1.20261029.tape</code>; now a date has one of each kind, named like <code>ES.s1.20261029.tape</code>.
+        DbnSpool refuses a Space that still holds the old ones, and says so in its log and an alert. With DbnSpool
+        stopped, delete everything under <code>GLBX.MDP3/</code> in that Space: the tapes, <code>catalog/</code> and
+        <code>spool/</code>. It then builds every date again, which takes days for the full history.
+    </li>
+    <li>
         <strong>Create a Spaces key</strong> with Limited Access: <em>Read</em> on the archive's Space and
         <em>Read/Write/Delete</em> on the tapes' Space. DbnSpool can never change the archive with it.
     </li>

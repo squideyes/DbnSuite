@@ -143,13 +143,14 @@
 <p>A Droplet runs the worker and Seq, and a DigitalOcean Space is the S3 store. These steps replace the ones above.</p>
 <ol class="steps-list">
     <li><strong>Create a Space</strong> (for example <code>dbn</code> in <code>nyc3</code>) and, under API → Spaces Keys, an access key that can read and write it. Keep the Space private. Spaces costs $5 a month for 250 GiB and 1 TiB of downloads, then $0.02 per GiB, and the archive grows about 750 GB a year with the defaults.</li>
-    <li><strong>Create a Droplet</strong> from the Docker image on Ubuntu; start with the 2 GB size. SSH in.</li>
+    <li><strong>Create a Droplet</strong> from the Docker image on Ubuntu: the 2 GB size for DbnSync alone, or 4 GB if <a href="docs/dbnspool">DbnSpool</a> will run there too. SSH in.</li>
     <li>
         <strong>Download the Compose file and settings.</strong>
         <CodeBlock Title="Shell on the Droplet" Text="@SpacesDownload" />
     </li>
     <li>
-        <strong>Fill in <code>.env</code>.</strong>
+        <strong>Fill in <code>.env</code>.</strong> Both workers run the build <code>DBNSUITE_VERSION</code> names, so
+        a new release never changes what runs until you change that line and run <code>docker compose pull</code> again.
         <CodeBlock Title=".env on the Droplet" Text="@SpacesEnv" />
     </li>
     <li>
@@ -254,7 +255,7 @@
     <table>
         <thead><tr><th>Schema</th><th>Level</th><th>Instruments</th><th>Days per job</th></tr></thead>
         <tbody>
-            <tr><td><code>mbo</code></td><td>L3</td><td>The two leading outrights by open interest (<code>MNQ.n.0</code>, <code>MNQ.n.1</code>)</td><td>5</td></tr>
+            <tr><td><code>mbo</code></td><td>L3</td><td>The two leading outrights by open interest (<code>MNQ.n.0</code>, <code>MNQ.n.1</code>), and the volume leader (<code>MNQ.v.0</code>), which tapes follow</td><td>5</td></tr>
             <tr><td><code>ohlcv-1s</code></td><td>L0</td><td>Every instrument of the root (<code>MNQ.FUT</code>)</td><td>92</td></tr>
             <tr><td><code>definition</code>, <code>statistics</code>, <code>status</code></td><td>L0</td><td>Every instrument of the root</td><td>366</td></tr>
         </tbody>
@@ -519,6 +520,7 @@
         """;
 
     private const string SpacesEnv = """
+        DBNSUITE_VERSION=<the full commit id of a build on main whose CI passed>
         DATABENTO_API_KEY=<your Databento key>
         SPACES_URL=https://nyc3.digitaloceanspaces.com
         SPACES_BUCKET=dbn

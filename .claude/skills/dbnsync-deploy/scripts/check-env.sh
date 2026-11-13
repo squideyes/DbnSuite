@@ -32,6 +32,24 @@ if [ -n "$(value SPACES_URL)" ]; then
     ok "SPACES_URL is set, so the archive is in DigitalOcean Spaces"
     need DBNSYNC_ACCESS_KEY
     need DBNSYNC_SECRET_KEY
+
+    version=$(value DBNSUITE_VERSION)
+    case $version in
+        "") fail "DBNSUITE_VERSION is empty: set it to the commit id of a build that passed CI" ;;
+        *[!0-9a-f]*) fail "DBNSUITE_VERSION is not a commit id: use the full 40-character id" ;;
+        *) if [ "${#version}" -eq 40 ]; then ok "DBNSUITE_VERSION pins a build"; else fail "DBNSUITE_VERSION is not 40 characters: use the full commit id"; fi ;;
+    esac
+
+    # DbnSpool's keys are all set or all empty: some of them is a deployment that won't start.
+    spool=0
+    for name in DBNSPOOL_ARCHIVE_ACCESS_KEY DBNSPOOL_ARCHIVE_SECRET_KEY DBNSPOOL_TAPES_ACCESS_KEY DBNSPOOL_TAPES_SECRET_KEY; do
+        [ -z "$(value "$name")" ] || spool=$((spool + 1))
+    done
+    case $spool in
+        0) echo "note the DBNSPOOL_ keys are empty, so --profile spool will not start DbnSpool" ;;
+        4) ok "DbnSpool's four keys are set" ;;
+        *) fail "only $spool of DbnSpool's four DBNSPOOL_ keys are set" ;;
+    esac
 else
     need S3_ROOT_ACCESS_KEY
     need S3_DATA_PATH

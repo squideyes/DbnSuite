@@ -53,11 +53,17 @@ public sealed partial class GlbxMdp3 : IDatasetProfile
 
     public bool IsGroup(string group) => Root().IsMatch(group);
 
+    /// <summary>
+    /// A continuous request names the leading contracts by open interest, and the volume leader too:
+    /// tapes follow the volume leader, and before an expiry it can still be a contract open interest
+    /// has already left, such as CL in the days before its roll. It is almost always one of the
+    /// others, so it adds next to nothing.
+    /// </summary>
     public BatchRequest Request(JobRequest job, int depth) =>
         job.Schema.Selection == Selection.Parent
             ? new BatchRequest(Dataset, job.Schema.Name, [$"{job.Root}.FUT"], "parent", job.Range)
             : new BatchRequest(Dataset, job.Schema.Name,
-                [.. Enumerable.Range(0, depth).Select(i => $"{job.Root}.n.{i}")],
+                [.. Enumerable.Range(0, depth).Select(i => $"{job.Root}.n.{i}"), $"{job.Root}.v.0"],
                 "continuous", job.Range);
 
     [GeneratedRegex("^[A-Z0-9]{1,6}$")]

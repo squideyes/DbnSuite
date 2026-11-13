@@ -26,7 +26,7 @@ public sealed class SpoolStatus
     public void RootDone(RootResult result)
     {
         lock (gate)
-            Snapshot = Snapshot with { ThisPass = [.. Snapshot.ThisPass, result], LastProblem = result.Problem ?? Snapshot.LastProblem };
+            Snapshot = Snapshot with { ThisPass = [.. Snapshot.ThisPass, result], LastProblem = result.Problem ?? result.Shelf ?? Snapshot.LastProblem };
     }
 
     /// <summary>Notes a problem as soon as it happens.</summary>

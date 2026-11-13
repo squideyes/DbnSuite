@@ -30,12 +30,12 @@ public sealed class GlbxMdp3Tests : DatasetProfileConformance
     }
 
     [Fact]
-    public void Asks_for_a_book_schema_by_the_leading_outrights()
+    public void Asks_for_a_book_schema_by_the_leading_outrights_and_the_volume_leader()
     {
         var request = Profile.Request(new JobRequest(Root, Spec(Mbo), Week), depth: 3);
 
         request.StypeIn.ShouldBe("continuous");
-        request.Symbols.ShouldBe([$"{Root}.n.0", $"{Root}.n.1", $"{Root}.n.2"]);
+        request.Symbols.ShouldBe([$"{Root}.n.0", $"{Root}.n.1", $"{Root}.n.2", $"{Root}.v.0"]);
     }
 
     [Fact]

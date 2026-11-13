@@ -6,6 +6,7 @@ namespace DbnSync.UnitTests.SpoolTests;
 public sealed class SpoolAlertsTests
 {
     private const string Problem = "MES: 2026-11-05 set aside after stopping DbnSpool 2 times";
+    private const string ShelfProblem = "MES: the tape store holds tapes in the old format";
 
     [Fact]
     public void A_clean_pass_raises_nothing()
@@ -24,6 +25,18 @@ public sealed class SpoolAlertsTests
 
         alert.Key.ShouldBe("set-aside|MES");
         alert.Detail.ShouldStartWith(Problem);
+    }
+
+    [Fact]
+    public void A_tape_store_problem_is_its_own_alert_and_not_about_memory()
+    {
+        RootResult[] results = [new("MES", 0, 0, false, Shelf: ShelfProblem)];
+
+        var alert = SpoolAlerts.For(results, []).ShouldHaveSingleItem();
+
+        alert.Key.ShouldBe("shelf|MES");
+        alert.Detail.ShouldStartWith(ShelfProblem);
+        alert.Detail.ShouldNotContain("mem_limit");
     }
 
     [Fact]

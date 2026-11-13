@@ -12,6 +12,12 @@ public static class SpoolAlerts
     {
         foreach (var result in results)
         {
+            if (result.Shelf is { } shelf)
+            {
+                yield return new AlertItem($"shelf|{result.Root}", $"Tape store needs attention ({result.Root})",
+                    $"{shelf}. What to do: follow the advice above; nothing more is spooled for {result.Root} until it is done.");
+            }
+
             if (result.Problem is { } problem)
             {
                 yield return new AlertItem($"set-aside|{result.Root}", $"Dates set aside ({result.Root})",

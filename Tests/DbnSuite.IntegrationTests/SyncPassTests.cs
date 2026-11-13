@@ -134,7 +134,7 @@ public sealed class SyncPassTests(RustFs s3)
         await sync.FirstPassAsync();
 
         var jobs = sync.Gateway.Jobs.ToDictionary(j => j.Spec.Schema, j => j.Spec);
-        jobs[Mbo].Symbols.ShouldBe($"{Mnq}.n.0,{Mnq}.n.1");
+        jobs[Mbo].Symbols.ShouldBe($"{Mnq}.n.0,{Mnq}.n.1,{Mnq}.v.0");
         jobs[Mbo].StypeIn.ShouldBe("continuous");
         jobs[Definition].Symbols.ShouldBe($"{Mnq}.FUT");
         jobs[Definition].StypeIn.ShouldBe("parent");

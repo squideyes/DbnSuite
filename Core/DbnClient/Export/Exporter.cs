@@ -105,6 +105,14 @@ public sealed class Exporter(DbnArchive archive)
             return request.Prices switch
             {
                 PriceMode.Ticks when tick is > 0 => p => adjust(p) / tick,
+
+                // Without a tick size a price can't be put in ticks, and writing it as a decimal
+                // would mix units in one column, so the export stops at the first such price.
+                PriceMode.Ticks => p => p is null
+                    ? null
+                    : throw new ArchiveException(new Error(Errors.NoTickSize,
+                        $"{contract?.Symbol ?? "An instrument"} on {tradeDate:yyyy-MM-dd} has no known tick size, so its prices can't be written in ticks. " +
+                        "Its definition is missing for that day; export decimal prices instead.")),
                 PriceMode.Raw => p => adjust(p) * 1_000_000_000m,
                 _ => adjust
             };
@@ -202,6 +210,10 @@ public sealed class Exporter(DbnArchive archive)
                             continue;
 
                         var held = contracts.GetValueOrDefault(id);
+
+                        if (symbol.Kind == SymbolKind.Root && !request.Spreads && held?.IsSpread == true)
+                            continue;
+
                         var named = held?.Symbol ?? reader.Metadata.SymbolOf(id);
 
                         // Files take one trade date at a time, so finish the last one before the next begins.
