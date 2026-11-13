@@ -1,7 +1,8 @@
 # Changelog
 
 What changed in each release of the **DbnClient** library and the **DbnFetch**
-(`dbnf`) tool on NuGet, newest first. Breaking changes come first in each
+(`dbnf`) tool on NuGet, newest first; since 0.3.0 the packages are named
+`DbnSuite.Client` and `DbnSuite.Fetch`. Breaking changes come first in each
 release. The format follows [Keep a Changelog](https://keepachangelog.com), and
 versions follow [Semantic Versioning](https://semver.org).
 
@@ -9,6 +10,13 @@ versions follow [Semantic Versioning](https://semver.org).
 
 ### Breaking
 
+- **New package names.** `DbnClient` is now `DbnSuite.Client` and `DbnFetch` is
+  now `DbnSuite.Fetch`, and the namespaces moved with them (`DbnClient.Tape` is
+  `DbnSuite.Client.Tape`). The old packages get no more releases. Run
+  `dotnet tool uninstall -g DbnFetch`, then `dotnet tool install -g DbnSuite.Fetch`;
+  in a project, swap the package and each `using DbnClient.` for
+  `using DbnSuite.Client.`. The command is still `dbnf`, and its profiles and
+  cache stay where they were.
 - **Prices in ticks need a known tick size.** An export with `Prices = Ticks`
   (`--price ticks`) now stops with `Errors.NoTickSize` at the first price of an
   instrument whose definition is missing that day. It used to write that price

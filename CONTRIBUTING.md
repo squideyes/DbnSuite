@@ -36,7 +36,7 @@ dotnet build DbnSuite.slnx
 dotnet test DbnSuite.slnx
 ```
 
-Warnings are errors. `Tests/DbnSync.UnitTests` holds the unit tests.
+Warnings are errors. `Tests/DbnSuite.UnitTests` holds the unit tests.
 `Tests/DbnSuite.IntegrationTests` runs the real worker against a real S3 server
 and a fake Databento gateway. The site is `Core/DbnSuite.Site`, a Blazor
 WebAssembly app.

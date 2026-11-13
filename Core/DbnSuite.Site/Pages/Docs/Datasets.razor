@@ -54,7 +54,7 @@
 
 <h2 id="profile">What a profile says</h2>
 <p>
-    A profile is a class in <code>Core/DbnSync.Core/Datasets</code> that implements <code>IDatasetProfile</code>.
+    A profile is a class in <code>Core/DbnSuite.Sync.Core/Datasets</code> that implements <code>IDatasetProfile</code>.
     Planning, the spend policy, the ledger, the archive and the dashboard are the same for every dataset; only these
     things come from the profile:
 </p>
@@ -84,9 +84,9 @@
     the following; one that skips a step is not merged.
 </p>
 <ol class="steps-list">
-    <li><strong>Write the profile.</strong> Add a class to <code>Core/DbnSync.Core/Datasets</code> that implements <code>IDatasetProfile</code>, with <code>Status</code> set to <code>Contributed</code> and your name or GitHub handle as <code>Maintainer</code>. Only SquidEyes marks a profile verified.</li>
+    <li><strong>Write the profile.</strong> Add a class to <code>Core/DbnSuite.Sync.Core/Datasets</code> that implements <code>IDatasetProfile</code>, with <code>Status</code> set to <code>Contributed</code> and your name or GitHub handle as <code>Maintainer</code>. Only SquidEyes marks a profile verified.</li>
     <li><strong>Register it</strong> in <code>DatasetProfiles.All</code>.</li>
-    <li><strong>Pass the conformance tests.</strong> Add a test class under <code>Tests/DbnSync.UnitTests/Core/Datasets</code> that derives from <code>DatasetProfileConformance</code> and names a few real groups of the dataset. The tests hold the profile to Databento's schemas and levels, the archive's key grammar and the batch API's limits. Every registered profile must have one, or the suite fails.</li>
+    <li><strong>Pass the conformance tests.</strong> Add a test class under <code>Tests/DbnSuite.UnitTests/Core/Datasets</code> that derives from <code>DatasetProfileConformance</code> and names a few real groups of the dataset. The tests hold the profile to Databento's schemas and levels, the archive's key grammar and the batch API's limits. Every registered profile must have one, or the suite fails.</li>
     <li><strong>Run it against your own subscription</strong> for at least 14 days, with the spend policy left at $0, and put the pass summaries from the dashboard in the pull request: jobs, files, bytes and any issues.</li>
     <li><strong>Write its layout rules.</strong> Add what <code>{root}</code> means for the dataset to <a href="docs/layout">Data layout</a>. Layout version 1 covers a dataset only once its rules are there.</li>
     <li><strong>Commit no data.</strong> Databento's licence does not allow its files to be redistributed, so the pull request must not include any, not even a sample. Tests use generated records.</li>

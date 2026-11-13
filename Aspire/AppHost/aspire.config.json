@@ -1,5 +1,5 @@
 {
   "appHost": {
-    "path": "DbnSync.AppHost.csproj"
+    "path": "DbnSuite.AppHost.csproj"
   }
 }

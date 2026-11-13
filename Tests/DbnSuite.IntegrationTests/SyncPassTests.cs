@@ -1,5 +1,5 @@
 using DbnSuite.IntegrationTests.Support;
-using DbnSync.Core;
+using DbnSuite.Sync.Core;
 using Shouldly;
 using static DbnSuite.IntegrationTests.Support.Sample;
 

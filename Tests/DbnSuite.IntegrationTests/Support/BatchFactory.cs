@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Globalization;
-using DbnClient.Dbn;
-using DbnSync.UnitTests.ClientTests;
+using DbnSuite.Client.Dbn;
+using DbnSuite.UnitTests.ClientTests;
 
 namespace DbnSuite.IntegrationTests.Support;
 

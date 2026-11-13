@@ -42,10 +42,10 @@
         Other systems: <a href="@Links.DotNet">dotnet.microsoft.com</a>.
     </li>
     <li>
-        <strong>Install DbnFetch</strong> from NuGet, where it is published as <a href="@Links.NuGetFetch">DbnFetch</a>.
-        NuGet picks the native build for your system. <code>dbnf tape</code> needs version 0.3.0 or later; update an
-        older install with <code>dotnet tool update -g DbnFetch</code>.
-        <CodeBlock Title="Any terminal" Text="dotnet tool install -g DbnFetch" />
+        <strong>Install DbnFetch</strong> from NuGet, where it is published as <a href="@Links.NuGetFetch">DbnSuite.Fetch</a>.
+        NuGet picks the native build for your system. Before 0.3.0 it was named <code>DbnFetch</code>; remove that
+        first with <code>dotnet tool uninstall -g DbnFetch</code>. Your profiles and cache stay where they are.
+        <CodeBlock Title="Any terminal" Text="dotnet tool install -g DbnSuite.Fetch" />
     </li>
     <li>
         <strong>On macOS and Linux, put .NET tools on your PATH</strong> if this is your first one. Add this line to
@@ -58,7 +58,7 @@
         <CodeBlock Title="Any terminal" Text="dbnf --version" />
     </li>
 </ol>
-<p>Update with <code>dotnet tool update -g DbnFetch</code>; remove with <code>dotnet tool uninstall -g DbnFetch</code>.</p>
+<p>Update with <code>dotnet tool update -g DbnSuite.Fetch</code>; remove with <code>dotnet tool uninstall -g DbnSuite.Fetch</code>.</p>
 
 <h3 id="install-binary">As a standalone binary</h3>
 <p>

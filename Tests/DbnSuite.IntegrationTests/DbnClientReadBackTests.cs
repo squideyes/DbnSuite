@@ -1,8 +1,8 @@
-using DbnClient.Archive;
-using DbnClient.Contracts;
-using DbnClient.Dbn;
-using DbnClient.Export;
-using DbnClient.Time;
+using DbnSuite.Client.Archive;
+using DbnSuite.Client.Contracts;
+using DbnSuite.Client.Dbn;
+using DbnSuite.Client.Export;
+using DbnSuite.Client.Time;
 using DbnSuite.IntegrationTests.Support;
 using Parquet;
 using Shouldly;
@@ -97,8 +97,8 @@ public sealed class DbnClientReadBackTests(RustFs s3) : IDisposable
         var weekend = await archive.FetchAsync(Mbo, Mnq, Saturday, null, CancellationToken.None);
         var unfetched = await archive.FetchAsync(Mbo, Mnq, FirstDay.AddDays(-1), null, CancellationToken.None);
 
-        weekend.Error!.Code.ShouldBe(DbnClient.Errors.NoData);
-        unfetched.Error!.Code.ShouldBe(DbnClient.Errors.NotStored);
+        weekend.Error!.Code.ShouldBe(DbnSuite.Client.Errors.NoData);
+        unfetched.Error!.Code.ShouldBe(DbnSuite.Client.Errors.NotStored);
     }
 
     [Fact]

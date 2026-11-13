@@ -8,7 +8,7 @@ COPY Directory.Build.props Directory.Packages.props nuget.config .editorconfig .
 COPY Aspire/ServiceDefaults/ Aspire/ServiceDefaults/
 COPY Core/ Core/
 
-RUN dotnet publish Core/DbnSync.Worker/DbnSync.Worker.csproj -c Release -o /app
+RUN dotnet publish Core/DbnSuite.Sync.Worker/DbnSuite.Sync.Worker.csproj -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS final
 WORKDIR /app
@@ -25,4 +25,4 @@ USER $APP_UID
 EXPOSE 8080
 VOLUME /scratch
 
-ENTRYPOINT ["dotnet", "DbnSync.Worker.dll"]
+ENTRYPOINT ["dotnet", "DbnSuite.Sync.Worker.dll"]

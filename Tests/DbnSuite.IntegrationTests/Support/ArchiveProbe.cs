@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
-using DbnSync.Core;
+using DbnSuite.Sync.Core;
 
 namespace DbnSuite.IntegrationTests.Support;
 

@@ -25,12 +25,17 @@
 
 <h2 id="install">Install</h2>
 <p>
-    DbnClient is published on NuGet as <a href="@Links.NuGetClient">DbnClient</a>. It targets .NET 11 and is Native AOT
+    DbnClient is published on NuGet as <a href="@Links.NuGetClient">DbnSuite.Client</a>. It targets .NET 11 and is Native AOT
     compatible, and its only dependencies are the AWS S3 SDK, ZstdSharp and System.IO.Hashing. Tapes, in
-    <code>DbnClient.Tape</code>, need version 0.3.0 or later.
+    <code>DbnSuite.Client.Tape</code>, need version 0.3.0 or later.
 </p>
-<CodeBlock Title="In your project's folder" Text="dotnet add package DbnClient" />
+<CodeBlock Title="In your project's folder" Text="dotnet add package DbnSuite.Client" />
 <p>Run the same command again later to move to the newest version.</p>
+<p>
+    Before 0.3.0 the package was named <code>DbnClient</code>, with namespaces such as <code>DbnClient.Tape</code>. To
+    move up, run <code>dotnet remove package DbnClient</code>, add <code>DbnSuite.Client</code> as above, and change
+    each <code>using DbnClient.</code> to <code>using DbnSuite.Client.</code>.
+</p>
 
 <h2 id="open">Open an archive</h2>
 <p>
@@ -121,7 +126,7 @@
 
 <h2 id="tapes">Tapes</h2>
 <p>
-    <code>DbnClient.Tape</code> builds and replays compact files for backtesting: <code>Catalog</code> and
+    <code>DbnSuite.Client.Tape</code> builds and replays compact files for backtesting: <code>Catalog</code> and
     <code>TapeBuilder</code> make them from an archive, and <code>Tape.LoadAsync</code> with a cursor replays them with
     nothing allocated per event. See <a href="docs/dbntape">DbnTape</a>.
 </p>
@@ -158,12 +163,12 @@
     <table>
         <tbody>
             <tr><td><code>DbnClient</code></td><td><code>Result&lt;T&gt;</code>, <code>Error</code>, <code>Errors</code></td></tr>
-            <tr><td><code>DbnClient.Archive</code></td><td><code>DbnArchive</code>, <code>ArchiveOptions</code>, the S3 and folder stores, <code>LocalCache</code></td></tr>
-            <tr><td><code>DbnClient.Dbn</code></td><td><code>DbnReader</code>, the records, <code>DbnPrice</code>, <code>DbnTime</code></td></tr>
-            <tr><td><code>DbnClient.Contracts</code></td><td><code>Contract</code>, <code>SymbolSpec</code>, <code>RollSchedule</code>, <code>Adjustment</code></td></tr>
-            <tr><td><code>DbnClient.Time</code></td><td><code>DateSpan</code>, <code>Sessions</code>, <code>SessionFilter</code>, <code>Zones</code></td></tr>
-            <tr><td><code>DbnClient.Export</code></td><td><code>Exporter</code>, <code>ExportRequest</code>, <code>BarSpec</code>, <code>BarBuilder</code>, <code>OrderBook</code>, <code>MboTransform</code></td></tr>
-            <tr><td><code>DbnClient.Tape</code></td><td><code>Tape</code>, the cursors, <code>Window</code>, <code>Catalog</code>, <code>TapeBuilder</code>, <code>SessionSampler</code>, <code>SessionStream</code>, <code>TapeProof</code></td></tr>
+            <tr><td><code>DbnSuite.Client.Archive</code></td><td><code>DbnArchive</code>, <code>ArchiveOptions</code>, the S3 and folder stores, <code>LocalCache</code></td></tr>
+            <tr><td><code>DbnSuite.Client.Dbn</code></td><td><code>DbnReader</code>, the records, <code>DbnPrice</code>, <code>DbnTime</code></td></tr>
+            <tr><td><code>DbnSuite.Client.Contracts</code></td><td><code>Contract</code>, <code>SymbolSpec</code>, <code>RollSchedule</code>, <code>Adjustment</code></td></tr>
+            <tr><td><code>DbnSuite.Client.Time</code></td><td><code>DateSpan</code>, <code>Sessions</code>, <code>SessionFilter</code>, <code>Zones</code></td></tr>
+            <tr><td><code>DbnSuite.Client.Export</code></td><td><code>Exporter</code>, <code>ExportRequest</code>, <code>BarSpec</code>, <code>BarBuilder</code>, <code>OrderBook</code>, <code>MboTransform</code></td></tr>
+            <tr><td><code>DbnSuite.Client.Tape</code></td><td><code>Tape</code>, the cursors, <code>Window</code>, <code>Catalog</code>, <code>TapeBuilder</code>, <code>SessionSampler</code>, <code>SessionStream</code>, <code>TapeProof</code></td></tr>
         </tbody>
     </table>
 </div>
@@ -172,7 +177,7 @@
 
 @code {
     private const string Open = """
-        using DbnClient.Archive;
+        using DbnSuite.Client.Archive;
 
         using var archive = DbnArchive.Open(new ArchiveOptions
         {
@@ -199,7 +204,7 @@
         """;
 
     private const string Read = """
-        using DbnClient.Dbn;
+        using DbnSuite.Client.Dbn;
 
         var opened = await archive.OpenAsync("mbo", "MES", new DateOnly(2026, 10, 30), cancel);
 
@@ -216,9 +221,9 @@
         """;
 
     private const string Export = """
-        using DbnClient.Contracts;
-        using DbnClient.Export;
-        using DbnClient.Time;
+        using DbnSuite.Client.Contracts;
+        using DbnSuite.Client.Export;
+        using DbnSuite.Client.Time;
 
         var symbol = SymbolSpec.Parse("ES.v.0").Value;
         var dates = new DateSpan(new DateOnly(2026, 1, 2), new DateOnly(2026, 10, 30));
@@ -257,7 +262,7 @@
     private const string Errors = """
         var day = await archive.OpenAsync("mbo", "MES", new DateOnly(2026, 11, 1), cancel);
 
-        if (day.Error?.Code == DbnClient.Errors.NoData)
+        if (day.Error?.Code == DbnSuite.Client.Errors.NoData)
             Console.WriteLine("A day with no trading.");
         """;
 }

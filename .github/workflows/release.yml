@@ -42,12 +42,12 @@ jobs:
 
       - name: Pack DbnFetch for ${{ matrix.rid }}
         shell: bash
-        run: dotnet pack Core/DbnFetch -c Release -r ${{ matrix.rid }} -p:Version=${RELEASE_TAG#v} -o packages
+        run: dotnet pack Core/DbnSuite.Fetch -c Release -r ${{ matrix.rid }} -p:Version=${RELEASE_TAG#v} -o packages
 
       - name: Publish the dbnf binary
         shell: bash
         run: |
-          dotnet publish Core/DbnFetch -c Release -r ${{ matrix.rid }} -p:Version=${RELEASE_TAG#v} -o bin/${{ matrix.rid }}
+          dotnet publish Core/DbnSuite.Fetch -c Release -r ${{ matrix.rid }} -p:Version=${RELEASE_TAG#v} -o bin/${{ matrix.rid }}
           cp NOTICE.md LICENSE bin/${{ matrix.rid }}/
           cd bin/${{ matrix.rid }}
           7z a ../../dbnf-${{ matrix.rid }}.zip dbnf* NOTICE.md LICENSE > /dev/null || zip ../../dbnf-${{ matrix.rid }}.zip dbnf* NOTICE.md LICENSE
@@ -89,9 +89,9 @@ jobs:
       - name: Pack the rest
         run: |
           V=${RELEASE_TAG#v}
-          dotnet pack Core/DbnFetch -c Release -p:Version=$V -o packages
-          dotnet pack Core/DbnFetch -c Release -r any -p:PublishAot=false -p:Version=$V -o packages
-          dotnet pack Core/DbnClient -c Release -p:Version=$V -o packages
+          dotnet pack Core/DbnSuite.Fetch -c Release -p:Version=$V -o packages
+          dotnet pack Core/DbnSuite.Fetch -c Release -r any -p:PublishAot=false -p:Version=$V -o packages
+          dotnet pack Core/DbnSuite.Client -c Release -p:Version=$V -o packages
 
       - uses: actions/download-artifact@v8
         with:

@@ -1,9 +1,9 @@
 # DbnSuite
 
-<img src="Core/DbnSync.Worker/wwwroot/img/squidly.png" alt="Squidly" width="96" align="right" />
+<img src="Core/DbnSuite.Sync.Worker/wwwroot/img/squidly.png" alt="Squidly" width="96" align="right" />
 
-[![DbnClient on NuGet](https://img.shields.io/nuget/v/DbnClient?label=DbnClient%20on%20NuGet)](https://www.nuget.org/packages/DbnClient)
-[![DbnFetch on NuGet](https://img.shields.io/nuget/v/DbnFetch?label=DbnFetch%20on%20NuGet)](https://www.nuget.org/packages/DbnFetch)
+[![DbnClient on NuGet](https://img.shields.io/nuget/v/DbnSuite.Client?label=DbnClient%20on%20NuGet)](https://www.nuget.org/packages/DbnSuite.Client)
+[![DbnFetch on NuGet](https://img.shields.io/nuget/v/DbnSuite.Fetch?label=DbnFetch%20on%20NuGet)](https://www.nuget.org/packages/DbnSuite.Fetch)
 
 Five open-source tools for keeping and using Databento® market data, by
 SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**. MIT licensed.
@@ -23,19 +23,21 @@ SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**
 | Tool | What it does | Get it |
 |---|---|---|
 | **DbnSync** | Keeps a growing archive of Databento data in any S3-compatible store. By default it spends nothing at Databento | `ghcr.io/squideyes/dbnsync-worker` (Docker) |
-| **DbnFetch** (`dbnf`) | Downloads raw files from the archive and exports bars, rebuilt order books and, for futures, sessions and back-adjusted continuous series, as Parquet, CSV or JSON Lines for research tools and trading platforms, DBN, or NinjaTrader 8's own import format | [NuGet](https://www.nuget.org/packages/DbnFetch): `dotnet tool install -g DbnFetch` |
-| **DbnClient** | The engine under DbnFetch, as a C# library | [NuGet](https://www.nuget.org/packages/DbnClient): `dotnet add package DbnClient` |
-| **DbnTape** | Compact tapes of each trade date, for its most traded contract, for fast, exact backtests: one-second bars, every trade, and top of book with trading state, proved against the archive | `dbnf tape` in DbnFetch and `DbnClient.Tape` in DbnClient, 0.2.0 or later |
+| **DbnFetch** (`dbnf`) | Downloads raw files from the archive and exports bars, rebuilt order books and, for futures, sessions and back-adjusted continuous series, as Parquet, CSV or JSON Lines for research tools and trading platforms, DBN, or NinjaTrader 8's own import format | [NuGet](https://www.nuget.org/packages/DbnSuite.Fetch): `dotnet tool install -g DbnSuite.Fetch` |
+| **DbnClient** | The engine under DbnFetch, as a C# library | [NuGet](https://www.nuget.org/packages/DbnSuite.Client): `dotnet add package DbnSuite.Client` |
+| **DbnTape** | Compact tapes of each trade date, for its most traded contract, for fast, exact backtests: one-second bars, every trade, and top of book with trading state, proved against the archive | `dbnf tape` in DbnFetch and `DbnSuite.Client.Tape` in DbnClient, 0.3.0 or later |
 | **DbnSpool** | Optional. A worker that keeps tapes up to date in a second, private S3 store, building, proving and uploading each new trade date | `ghcr.io/squideyes/dbnspool-worker` (Docker) |
 
 Each runs on your own machines with your own Databento account; nothing passes
 through anyone else.
 
 **Install.** DbnClient and DbnFetch are published on NuGet as
-[DbnClient](https://www.nuget.org/packages/DbnClient) and
-[DbnFetch](https://www.nuget.org/packages/DbnFetch), and need the .NET 11 SDK.
-Update an earlier DbnFetch with `dotnet tool update -g DbnFetch`, and an earlier
-DbnClient by running `dotnet add package DbnClient` again. Native `dbnf`
+[DbnSuite.Client](https://www.nuget.org/packages/DbnSuite.Client) and
+[DbnSuite.Fetch](https://www.nuget.org/packages/DbnSuite.Fetch), and need the .NET 11 SDK.
+Before 0.3.0 they were the `DbnClient` and `DbnFetch` packages: move up with
+`dotnet tool uninstall -g DbnFetch`, then `dotnet tool install -g DbnSuite.Fetch`,
+and in a project swap `DbnClient` for `DbnSuite.Client` and each
+`using DbnClient.` for `using DbnSuite.Client.`. Native `dbnf`
 binaries that need no .NET are attached to each
 [release](https://github.com/squideyes/DbnSuite/releases). DbnSync and DbnSpool
 are Docker images on GitHub's container registry.
@@ -44,7 +46,7 @@ are Docker images on GitHub's container registry.
 
 DbnSuite is built for Databento's whole corpus. What differs from one dataset
 to the next is written down in a dataset profile
-(`Core/DbnSync.Core/Datasets`), and a dataset without one is not supported.
+(`Core/DbnSuite.Sync.Core/Datasets`), and a dataset without one is not supported.
 
 | Dataset | Venue | Profile |
 |---|---|---|
@@ -247,8 +249,8 @@ version 3.
 `dbnf` lists the archive, prints a day's records, downloads raw files and
 exports processed ones. It is a .NET tool built as a native binary for Windows
 (x64 and ARM), macOS and Linux. The DbnClient library underneath it does the same in your own C#.
-Install it from [NuGet](https://www.nuget.org/packages/DbnFetch) with
-`dotnet tool install -g DbnFetch` (or `dotnet tool update -g DbnFetch` over an
+Install it from [NuGet](https://www.nuget.org/packages/DbnSuite.Fetch) with
+`dotnet tool install -g DbnSuite.Fetch` (or `dotnet tool update -g DbnSuite.Fetch` over an
 earlier version), or take a native binary from the
 [releases](https://github.com/squideyes/DbnSuite/releases).
 
@@ -370,7 +372,7 @@ dbnf tape build ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30
 dbnf tape verify ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30
 ```
 
-DbnClient replays them in `DbnClient.Tape`, with nothing allocated per event.
+DbnClient replays them in `DbnSuite.Client.Tape`, with nothing allocated per event.
 Tapes are derived from data licensed to you, so keep them in private storage you
 control and never commit one. See the [DbnTape docs](https://dbnsuite.squideyes.com/docs/dbntape)
 for the format. To keep tapes up to date in a cloud store, see
@@ -770,19 +772,19 @@ Logs go to Seq when `ConnectionStrings__seq` is set.
 ## Layout of the code
 
 ```
-Core/DbnSync.Core       planning, windows, keys, the sync pass, issue explanations; no I/O
-Core/DbnSync.Data       Databento HTTP client, S3 store
-Core/DbnSync.Worker     host: background loop, Blazor dashboard, /status, /health
-Core/DbnClient          library: the archive, DBN files, contracts, rolls, sessions, bars, export, Parquet, tapes
-Core/DbnFetch         the dbnf tool, a Native AOT .NET tool
-Core/DbnSpool           optional worker: keeps tapes up to date in a second store
-Core/DbnSuite.Site      The website: Blazor WebAssembly, published to GitHub Pages
-Tests/DbnSync.UnitTests xUnit, Shouldly, NSubstitute, bUnit
-Tests/DbnSuite.IntegrationTests  the worker against a made-up Databento and RustFS through Testcontainers
-Aspire/AppHost          local orchestration: workers, RustFS, Seq
+Core/DbnSuite.Sync.Core           planning, windows, keys, the sync pass, issue explanations; no I/O
+Core/DbnSuite.Sync.Data           Databento HTTP client, S3 store
+Core/DbnSuite.Sync.Worker         host: background loop, Blazor dashboard, /status, /health
+Core/DbnSuite.Client              library: the archive, DBN files, contracts, rolls, sessions, bars, export, Parquet, tapes
+Core/DbnSuite.Fetch               the dbnf tool, a Native AOT .NET tool
+Core/DbnSuite.Spool               optional worker: keeps tapes up to date in a second store
+Core/DbnSuite.Site                The website: Blazor WebAssembly, published to GitHub Pages
+Tests/DbnSuite.UnitTests          xUnit, Shouldly, NSubstitute, bUnit
+Tests/DbnSuite.IntegrationTests   the worker against a made-up Databento and RustFS through Testcontainers
+Aspire/AppHost                    local orchestration: workers, RustFS, Seq
 Aspire/ServiceDefaults
-Deploy/digitalocean     Droplet compose file and .env.example
-Deploy/                 NAS compose file, Caddyfile and .env.example
+Deploy/digitalocean               Droplet compose file and .env.example
+Deploy/                           NAS compose file, Caddyfile and .env.example
 ```
 
 Package versions live in `Directory.Packages.props`, shared build settings in

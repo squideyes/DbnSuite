@@ -1,7 +1,7 @@
 using System.Globalization;
-using DbnSync.Core;
-using DbnSync.Data;
-using DbnSync.Worker;
+using DbnSuite.Sync.Core;
+using DbnSuite.Sync.Data;
+using DbnSuite.Sync.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
