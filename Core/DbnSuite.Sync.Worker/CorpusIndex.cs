@@ -23,7 +23,7 @@ public sealed class CorpusIndex(
     IServiceScopeFactory scopes,
     IArchiveStore store,
     SyncOptions options,
-    TimeProvider clock,
+    [FromKeyedServices(SyncClock.Key)] TimeProvider clock,
     ILogger<CorpusIndex> logger)
 {
     private readonly SemaphoreSlim gate = new(1, 1);

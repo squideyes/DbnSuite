@@ -19,7 +19,7 @@ public sealed partial class JobPage : IDisposable
 
     [Inject] private CorpusIndex Index { get; set; } = null!;
 
-    [Inject] private TimeProvider Clock { get; set; } = null!;
+    [Inject(Key = SyncClock.Key)] private TimeProvider Clock { get; set; } = null!;
 
     [Inject] private IOptions<DashboardOptions> Dashboard { get; set; } = null!;
 

@@ -125,7 +125,7 @@ public sealed class SyncScenario : IAsyncDisposable
 
             Host = new WorkerHost(Environment, settings, s =>
             {
-                s.AddSingleton<TimeProvider>(Clock);
+                s.AddKeyedSingleton<TimeProvider>(SyncClock.Key, Clock);
                 s.AddSingleton<ILoggerProvider>(sink);
                 services(s);
             });

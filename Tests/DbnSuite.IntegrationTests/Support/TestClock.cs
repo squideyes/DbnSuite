@@ -6,18 +6,20 @@ using Microsoft.Extensions.Time.Testing;
 namespace DbnSuite.IntegrationTests.Support;
 
 /// <summary>
-/// The worker's clock, which moves only when a scenario moves it. Its
-/// <c>Task.Delay</c> between passes is how a scenario knows a pass, and the
-/// corpus scan after it, have finished, without sleeping or polling.
+/// The worker's clock (the one keyed <c>SyncClock.Key</c>), which moves only
+/// when a scenario moves it. Its <c>Task.Delay</c> between passes is how a
+/// scenario knows a pass, and the corpus scan after it, have finished, without
+/// sleeping or polling.
 /// </summary>
 /// <remarks>
 /// That delay must be the only timer on this clock. Anything else on it fires
 /// when a scenario jumps a day or a week, once for every period in the jump and
 /// while the pass that jump woke is running, and one due when a pass delay is
 /// would be taken for a pass that has not finished. Service discovery's
-/// 10-second cleanup was such a timer: run thousands of times beside a pass,
-/// it crashed one now and then in CI. So any other timer is recorded, and the
-/// scenario refuses it.
+/// 10-second cleanup was such a timer while this clock replaced the app's
+/// unkeyed one: run thousands of times beside a pass, it crashed one now and
+/// then in CI. The framework now keeps the real clock, and any other timer set
+/// here is recorded and refused by the scenario.
 /// </remarks>
 public sealed class TestClock(DateTimeOffset now) : FakeTimeProvider(now)
 {

@@ -18,7 +18,7 @@ public sealed class SyncWorker(
     SyncOptions options,
     SyncStatus status,
     AlertMail alerts,
-    TimeProvider clock,
+    [FromKeyedServices(SyncClock.Key)] TimeProvider clock,
     ILogger<SyncWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
