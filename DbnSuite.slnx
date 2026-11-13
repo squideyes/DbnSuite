@@ -1,22 +1,22 @@
 <Solution>
   <Folder Name="/Aspire/" />
   <Folder Name="/Aspire/AppHost/">
-    <Project Path="Aspire/AppHost/DbnSync.AppHost.csproj" />
+    <Project Path="Aspire/AppHost/DbnSuite.AppHost.csproj" />
   </Folder>
   <Folder Name="/Aspire/ServiceDefaults/">
-    <Project Path="Aspire/ServiceDefaults/DbnSync.ServiceDefaults.csproj" />
+    <Project Path="Aspire/ServiceDefaults/DbnSuite.ServiceDefaults.csproj" />
   </Folder>
   <Folder Name="/Core/">
-    <Project Path="Core/DbnFetch/DbnFetch.csproj" />
-    <Project Path="Core/DbnSpool/DbnSpool.csproj" />
-    <Project Path="Core/DbnClient/DbnClient.csproj" />
+    <Project Path="Core/DbnSuite.Fetch/DbnSuite.Fetch.csproj" />
+    <Project Path="Core/DbnSuite.Spool/DbnSuite.Spool.csproj" />
+    <Project Path="Core/DbnSuite.Client/DbnSuite.Client.csproj" />
     <Project Path="Core/DbnSuite.Site/DbnSuite.Site.csproj" />
-    <Project Path="Core/DbnSync.Core/DbnSync.Core.csproj" />
-    <Project Path="Core/DbnSync.Data/DbnSync.Data.csproj" />
-    <Project Path="Core/DbnSync.Worker/DbnSync.Worker.csproj" />
+    <Project Path="Core/DbnSuite.Sync.Core/DbnSuite.Sync.Core.csproj" />
+    <Project Path="Core/DbnSuite.Sync.Data/DbnSuite.Sync.Data.csproj" />
+    <Project Path="Core/DbnSuite.Sync.Worker/DbnSuite.Sync.Worker.csproj" />
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/DbnSuite.IntegrationTests/DbnSuite.IntegrationTests.csproj" />
-    <Project Path="Tests/DbnSync.UnitTests/DbnSync.UnitTests.csproj" />
+    <Project Path="Tests/DbnSuite.UnitTests/DbnSuite.UnitTests.csproj" />
   </Folder>
 </Solution>

@@ -26,16 +26,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Core\DbnClient\DbnClient.csproj" />
-    <ProjectReference Include="..\..\Core\DbnSync.Core\DbnSync.Core.csproj" />
-    <ProjectReference Include="..\..\Core\DbnSync.Data\DbnSync.Data.csproj" />
-    <ProjectReference Include="..\..\Core\DbnSync.Worker\DbnSync.Worker.csproj" />
-    <ProjectReference Include="..\..\Core\DbnSpool\DbnSpool.csproj" />
+    <ProjectReference Include="..\..\Core\DbnSuite.Client\DbnSuite.Client.csproj" />
+    <ProjectReference Include="..\..\Core\DbnSuite.Sync.Core\DbnSuite.Sync.Core.csproj" />
+    <ProjectReference Include="..\..\Core\DbnSuite.Sync.Data\DbnSuite.Sync.Data.csproj" />
+    <ProjectReference Include="..\..\Core\DbnSuite.Sync.Worker\DbnSuite.Sync.Worker.csproj" />
+    <ProjectReference Include="..\..\Core\DbnSuite.Spool\DbnSuite.Spool.csproj" />
   </ItemGroup>
 
   <!-- One definition of the DBN byte layout, shared with the unit tests. -->
   <ItemGroup>
-    <Compile Include="..\DbnSync.UnitTests\DbnClient\DbnBytes.cs" Link="Support\DbnBytes.cs" />
+    <Compile Include="..\DbnSuite.UnitTests\Client\DbnBytes.cs" Link="Support\DbnBytes.cs" />
   </ItemGroup>
 
 </Project>

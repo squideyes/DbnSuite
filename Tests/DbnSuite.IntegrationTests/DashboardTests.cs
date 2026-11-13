@@ -1,8 +1,8 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using DbnSuite.IntegrationTests.Support;
-using DbnSync.Core;
-using DbnSync.Worker;
+using DbnSuite.Sync.Core;
+using DbnSuite.Sync.Worker;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 using Shouldly;

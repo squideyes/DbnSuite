@@ -21,7 +21,7 @@ var s3 = builder.AddContainer("s3", "rustfs/rustfs", "1.0.4")
 
 var seq = builder.AddSeq("seq").WithDataVolume();
 
-builder.AddProject<Projects.DbnSync_Worker>("dbnsync")
+builder.AddProject<Projects.DbnSuite_Sync_Worker>("dbnsync")
     .WithEnvironment("Databento__ApiKey", databentoKey)
     .WithEnvironment("Store__ServiceUrl", s3.GetEndpoint("s3"))
     .WithEnvironment("Store__AccessKey", s3User)
@@ -32,7 +32,7 @@ builder.AddProject<Projects.DbnSync_Worker>("dbnsync")
     .WaitFor(seq);
 
 // Optional, like its install: it starts only when started from the dashboard.
-builder.AddProject<Projects.DbnSpool>("dbnspool")
+builder.AddProject<Projects.DbnSuite_Spool>("dbnspool")
     .WithEnvironment("Archive__Location", s3.GetEndpoint("s3"))
     .WithEnvironment("Archive__AccessKey", s3User)
     .WithEnvironment("Archive__SecretKey", s3Secret)

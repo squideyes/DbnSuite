@@ -82,7 +82,7 @@
 
 <h2 id="replay">Replay in C#</h2>
 <p>
-    Tapes are part of <a href="docs/dbnclient">DbnClient</a>, in <code>DbnClient.Tape</code>. A tape loads once as a
+    Tapes are part of <a href="docs/dbnclient">DbnClient</a>, in <code>DbnSuite.Client.Tape</code>. A tape loads once as a
     byte array, and a cursor walks it. Loading is async and returns a <code>Result</code>; replay is synchronous and
     creates no objects per event. Prices are <code>int</code> ticks, sizes are <code>uint</code>, and times are
     microseconds since the UNIX epoch. The header's <code>TickRaw</code> turns ticks back into prices.
@@ -362,7 +362,7 @@
         """;
 
     private const string Replay = """
-        using DbnClient.Tape;
+        using DbnSuite.Client.Tape;
 
         var loaded = await Tape.LoadAsync(@"D:\Tapes\GLBX.MDP3\l1\ES\2026\ES.l1.20261029.tape", cancel);
 
@@ -391,8 +391,8 @@
         """;
 
     private const string BarStream = """
-        using DbnClient.Export;
-        using DbnClient.Tape;
+        using DbnSuite.Client.Export;
+        using DbnSuite.Client.Tape;
 
         var bars = tape.Bars(BarSpec.Parse("5m").Value, Window.Rth);
 
@@ -401,7 +401,7 @@
         """;
 
     private const string MonteCarlo = """
-        using DbnClient.Tape;
+        using DbnSuite.Client.Tape;
 
         var stream = new SessionStream(@"D:\Tapes", "GLBX.MDP3", "ES", TapeKind.L1);
         var sampler = new SessionSampler(stream.Days(), seed: 42, Sampling.Permutation, warmup: 5);

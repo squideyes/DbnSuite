@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DbnSuite.Client\DbnSuite.Client.csproj" />
+    <ProjectReference Include="..\..\Aspire\ServiceDefaults\DbnSuite.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Sinks.Seq" />
+  </ItemGroup>
+
+</Project>

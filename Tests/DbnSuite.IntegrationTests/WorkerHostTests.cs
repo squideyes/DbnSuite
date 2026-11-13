@@ -1,9 +1,9 @@
 using System.Net;
 using System.Text.Json;
 using DbnSuite.IntegrationTests.Support;
-using DbnSync.Core;
-using DbnSync.Data;
-using DbnSync.Worker;
+using DbnSuite.Sync.Core;
+using DbnSuite.Sync.Data;
+using DbnSuite.Sync.Worker;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;

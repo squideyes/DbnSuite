@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="bunit" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NSubstitute" />
+    <!-- An independent reader to check the Parquet writer against; tests only. -->
+    <PackageReference Include="Parquet.Net" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="Testcontainers" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\S3Ready.cs" Link="Shared\S3Ready.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\DbnSuite.Sync.Core\DbnSuite.Sync.Core.csproj" />
+    <ProjectReference Include="..\..\Core\DbnSuite.Sync.Data\DbnSuite.Sync.Data.csproj" />
+    <ProjectReference Include="..\..\Core\DbnSuite.Sync.Worker\DbnSuite.Sync.Worker.csproj" />
+    <ProjectReference Include="..\..\Core\DbnSuite.Client\DbnSuite.Client.csproj" />
+    <ProjectReference Include="..\..\Core\DbnSuite.Fetch\DbnSuite.Fetch.csproj" />
+    <ProjectReference Include="..\..\Core\DbnSuite.Spool\DbnSuite.Spool.csproj" />
+  </ItemGroup>
+
+</Project>

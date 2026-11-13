@@ -1,7 +1,7 @@
 using System.Globalization;
 using DbnSuite.IntegrationTests.Support;
-using DbnSync.Core;
-using DbnSync.Data;
+using DbnSuite.Sync.Core;
+using DbnSuite.Sync.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

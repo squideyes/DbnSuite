@@ -1,5 +1,5 @@
-using DbnClient.Archive;
-using DbnSpool;
+using DbnSuite.Client.Archive;
+using DbnSuite.Spool;
 using DbnSuite.IntegrationTests.Support;
 using Shouldly;
 
