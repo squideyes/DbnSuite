@@ -89,8 +89,7 @@ jobs:
       - name: Pack the rest
         run: |
           V=${RELEASE_TAG#v}
-          dotnet pack Core/DbnSuite.Fetch -c Release -p:Version=$V -o packages
-          dotnet pack Core/DbnSuite.Fetch -c Release -r any -p:PublishAot=false -p:Version=$V -o packages
+          dotnet pack Core/DbnSuite.Fetch -c Release -p:PackPortableOnly=true -p:PublishAot=false -p:RuntimeIdentifiers=any -p:Version=$V -o packages
           dotnet pack Core/DbnSuite.Client -c Release -p:Version=$V -o packages
 
       - uses: actions/download-artifact@v8
