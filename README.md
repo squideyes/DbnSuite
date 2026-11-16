@@ -257,8 +257,8 @@ Install it from [NuGet](https://www.nuget.org/packages/DbnSuite.Fetch) with
 earlier version), or take a native binary from the
 [releases](https://github.com/squideyes/DbnSuite/releases).
 
-**Log in once** with your read-only key. It asks for the secret, which Windows
-then keeps encrypted for your user:
+**Log in once** with your read-only key. It asks for the secret. Windows keeps it encrypted
+for your user; macOS and Linux keep it in a file only you can read:
 
 ```bash
 dbnf login --location https://s3.example.com --access-key dbn-reader
@@ -306,14 +306,15 @@ order. The symbol can be a root (`MES`), a contract (`MESZ26`) or, for `mbo`,
 **Download raw files** exactly as stored:
 
 ```bash
-dbnf pull mbo,definition MNQ --from 2026-10-01 --to 2026-10-31 --out D:\dbn
+dbnf pull mbo,definition MNQ --from 2026-10-01 --to 2026-10-31 --out dbn
 ```
 
-Files land in a cache (`%LOCALAPPDATA%\DbnFetch\cache`) unless `--out` names a
-folder. A file already there is skipped, an interrupted download carries on
+Files land in a cache unless `--out` names a folder. The cache is
+`%LOCALAPPDATA%\DbnFetch\cache` on Windows and `~/.cache/DbnFetch` on macOS
+and Linux. A file already there is skipped, an interrupted download carries on
 where it stopped, and `--dry-run` shows what would come down and how many GB.
 A folder filled by `pull --out` is an archive in its own right:
-`dbnf --archive D:\dbn ls`. `dbnf cache` shows what the cache holds, and
+`dbnf --archive dbn ls`. `dbnf cache` shows what the cache holds, and
 `dbnf cache clear` frees it.
 
 
@@ -372,9 +373,9 @@ Holidays, early closes and late opens are left out whole, so every tape day is
 alike, and any tape an older version left for such a date is deleted.
 
 ```bash
-dbnf tape catalog ES --tapes D:\Tapes
-dbnf tape build ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30
-dbnf tape verify ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30
+dbnf tape catalog ES --tapes tapes
+dbnf tape build ES --tapes tapes --from 2026-10-05 --to 2026-10-30
+dbnf tape verify ES --tapes tapes --from 2026-10-05 --to 2026-10-30
 ```
 
 DbnClient replays them in `DbnSuite.Client.Tape`, with nothing allocated per event.

@@ -87,7 +87,7 @@
     <li><strong>Another bucket:</strong> <code>login --bucket</code> names a bucket other than <code>dbn</code>, and <code>--prefix</code> a folder inside it that holds the archive.</li>
     <li><strong>More than one archive:</strong> add <code>--profile work</code> to <code>login</code> and to every later command.</li>
     <li><strong>Scripts and CI:</strong> set <code>DBNF_LOCATION</code>, <code>DBNF_ACCESS_KEY</code> and <code>DBNF_SECRET_KEY</code> (and <code>DBNF_BUCKET</code> if it isn't <code>dbn</code>) instead of logging in, or pipe the secret with <code>--secret-stdin</code>.</li>
-    <li><strong>A folder instead of S3:</strong> <code>--archive D:\dbn</code> on any command reads a folder in the archive's layout, such as one <code>dbnf pull --out</code> filled. No login needed.</li>
+    <li><strong>A folder instead of S3:</strong> <code>--archive dbn</code> on any command reads a folder in the archive's layout, such as one <code>dbnf pull --out</code> filled. No login needed.</li>
     <li><strong>Forget it:</strong> <code>dbnf logout</code>.</li>
 </ul>
 
@@ -224,12 +224,12 @@
     <code>dbnf tape</code> builds compact files for backtesting from the archive, and proves them against it. See
     <a href="docs/dbntape">DbnTape</a>.
 </p>
-<CodeBlock Title="Any terminal" Text="dbnf tape build ES --tapes D:\Tapes --from 2026-10-29" />
+<CodeBlock Title="Any terminal" Text="dbnf tape build ES --tapes tapes --from 2026-10-29" />
 
 <h2 id="cache">The cache</h2>
 <p>
     Raw files are cached in <code>%LOCALAPPDATA%\DbnFetch\cache</code> on Windows and
-    <code>~/.cache/DbnFetch</code> elsewhere, in a folder for each login, so a second export of the same days downloads nothing. A file that
+    <code>~/.cache/DbnFetch</code> on macOS and Linux, in a folder for each login, so a second export of the same days downloads nothing. A file that
     changes in the archive is downloaded again. <code>--cache</code> on any command uses another folder.
 </p>
 <ul>
@@ -330,8 +330,8 @@
         """;
 
     private const string Pull = """
-        dbnf pull mbo,definition MNQ --from 2026-10-01 --to 2026-10-31 --out D:\dbn --dry-run
-        dbnf pull mbo,definition MNQ --from 2026-10-01 --to 2026-10-31 --out D:\dbn
+        dbnf pull mbo,definition MNQ --from 2026-10-01 --to 2026-10-31 --out dbn --dry-run
+        dbnf pull mbo,definition MNQ --from 2026-10-01 --to 2026-10-31 --out dbn
         """;
 
     private const string RecipeBars = """
