@@ -187,7 +187,7 @@
         }, cacheRoot: Path.Combine(Path.GetTempPath(), "dbn-cache"));
 
         // Or a folder in the archive's layout, such as one dbnf pull --out filled
-        using var local = DbnArchive.Open(new ArchiveOptions { Location = @"D:\dbn" }, cacheRoot: null);
+        using var local = DbnArchive.Open(new ArchiveOptions { Location = "dbn" }, cacheRoot: null);
         """;
 
     private const string List = """

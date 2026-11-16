@@ -178,7 +178,7 @@
     <code>dbnf tape verify</code> proves tapes against the archive through independent paths, reports a pass or a
     difference for each check, and writes nothing. Treat a tape as trusted only once it has passed.
 </p>
-<CodeBlock Title="Any terminal" Text="dbnf tape verify ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30" />
+<CodeBlock Title="Any terminal" Text="dbnf tape verify ES --tapes tapes --from 2026-10-05 --to 2026-10-30" />
 <div class="table">
     <table>
         <thead><tr><th>Check</th><th>Passes when</th></tr></thead>
@@ -356,15 +356,15 @@
 
 @code {
     private const string BuildCommands = """
-        dbnf tape catalog ES --tapes D:\Tapes
-        dbnf tape build ES --tapes D:\Tapes --from 2026-10-05 --to 2026-10-30
-        dbnf tape info D:\Tapes\GLBX.MDP3\l1\ES\2026\ES.l1.20261029.tape
+        dbnf tape catalog ES --tapes tapes
+        dbnf tape build ES --tapes tapes --from 2026-10-05 --to 2026-10-30
+        dbnf tape info tapes/GLBX.MDP3/l1/ES/2026/ES.l1.20261029.tape
         """;
 
     private const string Replay = """
         using DbnSuite.Client.Tape;
 
-        var loaded = await Tape.LoadAsync(@"D:\Tapes\GLBX.MDP3\l1\ES\2026\ES.l1.20261029.tape", cancel);
+        var loaded = await Tape.LoadAsync("tapes/GLBX.MDP3/l1/ES/2026/ES.l1.20261029.tape", cancel);
 
         if (!loaded.IsSuccess)
             return;
@@ -403,7 +403,7 @@
     private const string MonteCarlo = """
         using DbnSuite.Client.Tape;
 
-        var stream = new SessionStream(@"D:\Tapes", "GLBX.MDP3", "ES", TapeKind.L1);
+        var stream = new SessionStream("tapes", "GLBX.MDP3", "ES", TapeKind.L1);
         var sampler = new SessionSampler(stream.Days(), seed: 42, Sampling.Permutation, warmup: 5);
 
         for (var run = 0; run < 1_000; run++)
