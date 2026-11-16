@@ -221,7 +221,9 @@
     </table>
 </div>
 <ul>
-    <li>Each <code>mbo</code> day opens with a snapshot of the book; the rebuilt book starts from it and is never crossed.</li>
+    <li>Each <code>mbo</code> day opens with a snapshot of the book; the rebuilt book starts from it and is never crossed during trading.
+        It can be in pre-open, and so can the book written with the auction trade that opens a session or reopens it
+        after a pause, as in Databento's own schemas.</li>
     <li><code>mbp-1</code> and <code>mbp-10</code> write a row for every trade and whenever the levels they hold change, once the event that changed them is complete. <code>trades</code> and <code>tbbo</code> write a row for every trade.</li>
     <li>A level with no orders has no value in its price, size and count.</li>
     <li>The trades of a day add up to the archive's own <code>ohlcv-1s</code> volume for the same contract.</li>
