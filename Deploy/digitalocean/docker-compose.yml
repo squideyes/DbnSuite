@@ -29,7 +29,7 @@ services:
   # free for individual use; it keeps everything until a retention policy
   # is set in its Settings.
   seq:
-    image: datalust/seq:2025.2
+    image: datalust/seq:2026.1.17526
     restart: unless-stopped
     logging: *logging
     environment:
