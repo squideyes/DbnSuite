@@ -4,6 +4,9 @@
 
 [![DbnClient on NuGet](https://img.shields.io/nuget/v/DbnSuite.Client?label=DbnClient%20on%20NuGet)](https://www.nuget.org/packages/DbnSuite.Client)
 [![DbnFetch on NuGet](https://img.shields.io/nuget/v/DbnSuite.Fetch?label=DbnFetch%20on%20NuGet)](https://www.nuget.org/packages/DbnSuite.Fetch)
+[![CI](https://github.com/squideyes/DbnSuite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/squideyes/DbnSuite/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![.NET 11](https://img.shields.io/badge/.NET-11-512BD4)](https://dotnet.microsoft.com/)
 
 Five open-source tools for keeping and using Databento® market data, by
 SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**. MIT licensed.
