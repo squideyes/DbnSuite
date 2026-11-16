@@ -340,7 +340,9 @@ dbnf export ohlcv-1s ES.v.0 --bars 5m --session rth --since 2026-01-01 --adjust 
 - **From `mbo`:** `--as trades`, `tbbo`, `mbp-1`, `mbp-10`, `bbo-1s` or
   `bbo-1m` rebuilds the order book and writes the schema Databento sells
   separately. The `mbo` trades of a day add up to the archive's own
-  `ohlcv-1s` volume, and the rebuilt book is never crossed.
+  `ohlcv-1s` volume. The rebuilt book is never crossed during trading. It
+  can be in pre-open, and so can the book written with the auction trade that
+  opens a session or reopens it after a pause, as in Databento's own schemas.
 - **Formats:** `--format csv` (default), `parquet`, `jsonl`, `dbn` (a filtered
   copy of the records) or `nt8` (NinjaTrader 8 import text for bars, and
   `--as trades` ticks). `--compress gzip` or `zstd` for `csv`, `jsonl` and
