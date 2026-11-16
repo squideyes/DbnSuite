@@ -1,0 +1,60 @@
+{
+  // CME Globex US equity index futures. Times are Chicago.
+  //
+  // The session is the whole Globex trading day: trade date D opens at 17:00 on D-1 and closes at 16:00 on D.
+  // RTH isn't here: RuleCalendar takes it from Sessions.RegularHours, 08:30 to 15:00, cut to the session.
+  //
+  // The holiday rules project the schedule into any year. Run against the Databento GLBX.MDP3 tapes, they
+  // reproduce every closure and early close from 2020-01-02 to 2026-11-02 on ES, MES, NQ, MNQ, MYM and M2K;
+  // Calendars/RuleCalendarOnTapesTests checks it. A dated change replaces what the rules say for its date: the
+  // ones here are what no rule could know. A live host adds CME's announcements the same way, with
+  // RuleCalendar.With.
+  //
+  // Halts are market-wide only: circuit breakers and outages. A product's own pauses, such as velocity-logic
+  // halts and price-limit locks, are left out: they differ from product to product and aren't a schedule.
+  "id": "cme-us-equity-index",
+  "timeZone": "America/Chicago",
+  "roots": ["ES", "MES", "NQ", "MNQ", "YM", "MYM", "RTY", "M2K"],
+  "session": {
+    "open": "17:00",
+    "openDayOffset": -1,
+    "close": "16:00",
+    "tradingDays": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+    "dailyHalts": [
+      { "from": "15:15", "to": "15:30", "until": "2021-06-25", "note": "CME's daily equity index halt, dropped from trade date 2021-06-28" }
+    ]
+  },
+  "holidays": [
+    { "name": "New Year's Day", "fixed": "01-01", "observed": "sundayToMonday", "kind": "closed" },
+    { "name": "Martin Luther King Jr. Day", "nth": 3, "weekday": "monday", "month": 1, "kind": "earlyClose", "at": "12:00" },
+    { "name": "Presidents Day", "nth": 3, "weekday": "monday", "month": 2, "kind": "earlyClose", "at": "12:00" },
+
+    // Closed, unless the jobs report comes out that day, which so far has meant the first Friday of the month.
+    // CME announces which; an announcement overrides this.
+    { "name": "Good Friday", "easter": true, "offset": -2, "dayOfMonth": [8, 31], "kind": "closed" },
+    { "name": "Good Friday", "easter": true, "offset": -2, "dayOfMonth": [1, 7], "kind": "earlyClose", "at": "08:15" },
+
+    { "name": "Memorial Day", "nth": -1, "weekday": "monday", "month": 5, "kind": "earlyClose", "at": "12:00" },
+    { "name": "Juneteenth", "fixed": "06-19", "observed": "nearestWeekday", "since": 2022, "kind": "earlyClose", "at": "12:00" },
+
+    // July 3 closes early when July 4 falls Tuesday to Friday. On a Friday July 3, July 4 itself is observed.
+    { "name": "Day before Independence Day", "fixed": "07-03", "weekdays": ["monday", "tuesday", "wednesday", "thursday"], "kind": "earlyClose", "at": "12:15" },
+    { "name": "Independence Day", "fixed": "07-04", "observed": "nearestWeekday", "kind": "earlyClose", "at": "12:00" },
+
+    { "name": "Labor Day", "nth": 1, "weekday": "monday", "month": 9, "kind": "earlyClose", "at": "12:00" },
+    { "name": "Thanksgiving", "nth": 4, "weekday": "thursday", "month": 11, "kind": "earlyClose", "at": "12:00" },
+    { "name": "Day after Thanksgiving", "nth": 4, "weekday": "thursday", "month": 11, "offset": 1, "kind": "earlyClose", "at": "12:15" },
+
+    // On a Friday December 24, Christmas itself is observed.
+    { "name": "Christmas Eve", "fixed": "12-24", "weekdays": ["monday", "tuesday", "wednesday", "thursday"], "kind": "earlyClose", "at": "12:15" },
+    { "name": "Christmas", "fixed": "12-25", "observed": "nearestWeekday", "kind": "closed" }
+  ],
+  "changes": [
+    { "tradeDate": "2020-03-09", "kind": "halt", "from": "2020-03-09T08:35:19", "to": "2020-03-09T08:49:13", "note": "Market-wide circuit breaker", "source": "Databento GLBX.MDP3 status records", "verified": true },
+    { "tradeDate": "2020-03-12", "kind": "halt", "from": "2020-03-12T08:36:45", "to": "2020-03-12T08:50:44", "note": "Market-wide circuit breaker", "source": "Databento GLBX.MDP3 status records", "verified": true },
+    { "tradeDate": "2020-03-16", "kind": "halt", "from": "2020-03-16T08:30:54", "to": "2020-03-16T08:45:01", "note": "Market-wide circuit breaker", "source": "Databento GLBX.MDP3 status records", "verified": true },
+    { "tradeDate": "2020-03-18", "kind": "halt", "from": "2020-03-18T11:57:39", "to": "2020-03-18T12:11:17", "note": "Market-wide circuit breaker", "source": "Databento GLBX.MDP3 status records", "verified": true },
+    { "tradeDate": "2025-01-09", "kind": "earlyClose", "at": "2025-01-09T08:30", "note": "National Day of Mourning for President Carter", "source": "Databento GLBX.MDP3 status records", "verified": true },
+    { "tradeDate": "2025-11-28", "kind": "halt", "from": "2025-11-27T20:44:27", "to": "2025-11-28T07:30", "note": "CME Globex outage", "source": "Databento GLBX.MDP3 status records", "verified": true }
+  ]
+}
