@@ -4,7 +4,6 @@ using System.Text.Json;
 using DbnSuite.Client.Export;
 using DbnSuite.Client.Time;
 using Shouldly;
-using ZstdSharp;
 
 namespace DbnSuite.UnitTests.ClientTests;
 
@@ -222,7 +221,7 @@ public sealed class WritersTests : IDisposable
         using var source = new MemoryStream(packed);
         using Stream unpacking = compression == Compression.Gzip
             ? new GZipStream(source, CompressionMode.Decompress)
-            : new DecompressionStream(source);
+            : new ZstandardStream(source, CompressionMode.Decompress);
         using var target = new MemoryStream();
 
         unpacking.CopyTo(target);

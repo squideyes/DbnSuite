@@ -1,7 +1,6 @@
 using System.IO.Hashing;
 using DbnSuite.Client.Export;
 using DbnSuite.Client.Time;
-using ZstdSharp;
 
 namespace DbnSuite.Client.Tape;
 
@@ -280,12 +279,10 @@ public sealed class Tape
 
         try
         {
-            using var decompressor = new Decompressor();
-
-            if (decompressor.Unwrap(stored, body) != body.Length)
+            if (!Zstd.TryDecompress(stored, body, out var written) || written != body.Length)
                 return Corrupt("The body unpacks to the wrong length.");
         }
-        catch (ZstdException problem)
+        catch (InvalidDataException problem)
         {
             return Corrupt($"The body cannot be unpacked: {problem.Message}");
         }

@@ -5,7 +5,6 @@ using DbnSuite.Client.Export;
 using DbnSuite.Client.Time;
 using Parquet;
 using Shouldly;
-using ZstdSharp;
 
 namespace DbnSuite.UnitTests.ClientTests;
 
@@ -316,7 +315,7 @@ public sealed class OutputFilesTests : IDisposable
         Stream stream = compression switch
         {
             Compression.Gzip => new GZipStream(file, CompressionMode.Decompress),
-            Compression.Zstd => new DecompressionStream(file),
+            Compression.Zstd => new ZstandardStream(file, CompressionMode.Decompress),
             _ => file
         };
 

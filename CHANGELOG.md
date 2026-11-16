@@ -6,6 +6,16 @@ What changed in each release of the **DbnClient** library and the **DbnFetch**
 release. The format follows [Keep a Changelog](https://keepachangelog.com), and
 versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Changed
+
+- **zstd comes with .NET.** `DbnSuite.Client` compresses and decompresses with
+  .NET 11's own zstd, so it no longer depends on ZstdSharp.Port. Its only
+  dependencies are the AWS S3 SDK and System.IO.Hashing. A `.dbn.zst` file
+  with damaged bytes after its last frame, or cut short partway through one,
+  now fails to read instead of reading as a clean end.
+
 ## 0.4.0 (2026-11-15)
 
 ### Added
