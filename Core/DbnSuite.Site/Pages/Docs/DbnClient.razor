@@ -1,8 +1,8 @@
 @page "/docs/dbnclient"
 
-<PageTitle>DbnClient docs: DbnSuite</PageTitle>
+<PageTitle>DbnSuite.Client docs: DbnSuite</PageTitle>
 
-<h1>DbnClient</h1>
+<h1>DbnSuite.Client</h1>
 <p class="lead">
     The engine under <code>dbnf</code>, as a NuGet package: open an archive, stream DBN records, build continuous
     series and order books, and export, from your own C#.
@@ -25,17 +25,11 @@
 
 <h2 id="install">Install</h2>
 <p>
-    DbnClient is published on NuGet as <a href="@Links.NuGetClient">DbnSuite.Client</a>. It targets .NET 11 and is Native AOT
-    compatible, and its only dependencies are the AWS S3 SDK and System.IO.Hashing; zstd comes with .NET. Tapes, in
-    <code>DbnSuite.Client.Tape</code>, need version 0.3.0 or later.
+    DbnSuite.Client is published on <a href="@Links.NuGetClient">NuGet</a>. It targets .NET 11 and is Native AOT
+    compatible, and its only dependencies are the AWS S3 SDK and System.IO.Hashing; zstd comes with .NET.
 </p>
 <CodeBlock Title="In your project's folder" Text="dotnet add package DbnSuite.Client" />
 <p>Run the same command again later to move to the newest version.</p>
-<p>
-    Before 0.3.0 the package was named <code>DbnClient</code>, with namespaces such as <code>DbnClient.Tape</code>. To
-    move up, run <code>dotnet remove package DbnClient</code>, add <code>DbnSuite.Client</code> as above, and change
-    each <code>using DbnClient.</code> to <code>using DbnSuite.Client.</code>.
-</p>
 
 <h2 id="open">Open an archive</h2>
 <p>
@@ -162,7 +156,7 @@
 <div class="table">
     <table>
         <tbody>
-            <tr><td><code>DbnClient</code></td><td><code>Result&lt;T&gt;</code>, <code>Error</code>, <code>Errors</code></td></tr>
+            <tr><td><code>DbnSuite.Client</code></td><td><code>Result&lt;T&gt;</code>, <code>Error</code>, <code>Errors</code></td></tr>
             <tr><td><code>DbnSuite.Client.Archive</code></td><td><code>DbnArchive</code>, <code>ArchiveOptions</code>, the S3 and folder stores, <code>LocalCache</code></td></tr>
             <tr><td><code>DbnSuite.Client.Dbn</code></td><td><code>DbnReader</code>, the records, <code>DbnPrice</code>, <code>DbnTime</code></td></tr>
             <tr><td><code>DbnSuite.Client.Contracts</code></td><td><code>Contract</code>, <code>SymbolSpec</code>, <code>RollSchedule</code>, <code>Adjustment</code></td></tr>
@@ -173,7 +167,7 @@
     </table>
 </div>
 
-<div class="next"><a href="docs/dbnfetch">← DbnFetch</a><a href="docs/archive">The archive →</a></div>
+<div class="next"><a href="docs/dbnfetch">← DbnSuite.Fetch</a><a href="docs/archive">The archive →</a></div>
 
 @code {
     private const string Open = """

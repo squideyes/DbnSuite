@@ -22,7 +22,7 @@
 <h2 id="supported">Supported datasets</h2>
 <div class="table">
     <table>
-        <thead><tr><th>Dataset</th><th>What it is</th><th>Profile</th><th>DbnSync</th><th>DbnFetch and DbnClient</th></tr></thead>
+        <thead><tr><th>Dataset</th><th>What it is</th><th>Profile</th><th>DbnSync</th><th>DbnSuite.Fetch and DbnSuite.Client</th></tr></thead>
         <tbody>
             <tr><td><code>GLBX.MDP3</code></td><td>CME Globex: CME, CBOT, NYMEX and COMEX futures</td><td>Verified, SquidEyes</td><td>Archives</td><td>List, pull and export</td></tr>
         </tbody>
@@ -73,7 +73,7 @@
 </div>
 <p>
     Readers need one more thing: the dataset's trading day, which cuts exports into trade dates, bars and rolls. In
-    this version only <code>GLBX.MDP3</code> has one. DbnFetch and DbnClient list and pull raw files from any
+    this version only <code>GLBX.MDP3</code> has one. DbnSuite.Fetch and DbnSuite.Client list and pull raw files from any
     dataset, and refuse to export any other with <code>input.unsupported_dataset</code>, rather than cut it on the
     wrong day.
 </p>

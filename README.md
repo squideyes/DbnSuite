@@ -2,8 +2,8 @@
 
 <img src="Core/DbnSuite.Sync.Worker/wwwroot/img/squidly.png" alt="Squidly" width="96" align="right" />
 
-[![DbnClient on NuGet](https://img.shields.io/nuget/v/DbnSuite.Client?label=DbnClient%20on%20NuGet)](https://www.nuget.org/packages/DbnSuite.Client)
-[![DbnFetch on NuGet](https://img.shields.io/nuget/v/DbnSuite.Fetch?label=DbnFetch%20on%20NuGet)](https://www.nuget.org/packages/DbnSuite.Fetch)
+[![DbnSuite.Client on NuGet](https://img.shields.io/nuget/v/DbnSuite.Client?label=DbnSuite.Client%20on%20NuGet)](https://www.nuget.org/packages/DbnSuite.Client)
+[![DbnSuite.Fetch on NuGet](https://img.shields.io/nuget/v/DbnSuite.Fetch?label=DbnSuite.Fetch%20on%20NuGet)](https://www.nuget.org/packages/DbnSuite.Fetch)
 [![CI](https://github.com/squideyes/DbnSuite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/squideyes/DbnSuite/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![.NET 11](https://img.shields.io/badge/.NET-11-512BD4)](https://dotnet.microsoft.com/)
@@ -26,21 +26,17 @@ SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**
 | Tool | What it does | Get it |
 |---|---|---|
 | **DbnSync** | Keeps a growing archive of Databento data in any S3-compatible store. By default it spends nothing at Databento | `ghcr.io/squideyes/dbnsync-worker` (Docker) |
-| **DbnFetch** (`dbnf`) | Downloads raw files from the archive and exports bars, rebuilt order books and, for futures, sessions and back-adjusted continuous series, as Parquet, CSV or JSON Lines for research tools and trading platforms, DBN, or NinjaTrader 8's own import format | [NuGet](https://www.nuget.org/packages/DbnSuite.Fetch): `dotnet tool install -g DbnSuite.Fetch` |
-| **DbnClient** | The engine under DbnFetch, as a C# library | [NuGet](https://www.nuget.org/packages/DbnSuite.Client): `dotnet add package DbnSuite.Client` |
-| **DbnTape** | Compact tapes of each trade date, for its most traded contract, for fast, exact backtests: one-second bars, every trade, and top of book with trading state, proved against the archive | `dbnf tape` in DbnFetch and `DbnSuite.Client.Tape` in DbnClient, 0.3.0 or later |
+| **DbnSuite.Fetch** (`dbnf`) | Downloads raw files from the archive and exports bars, rebuilt order books and, for futures, sessions and back-adjusted continuous series, as Parquet, CSV or JSON Lines for research tools and trading platforms, DBN, or NinjaTrader 8's own import format | [NuGet](https://www.nuget.org/packages/DbnSuite.Fetch): `dotnet tool install -g DbnSuite.Fetch` |
+| **DbnSuite.Client** | The engine under DbnSuite.Fetch, as a C# library | [NuGet](https://www.nuget.org/packages/DbnSuite.Client): `dotnet add package DbnSuite.Client` |
+| **DbnTape** | Compact tapes of each trade date, for its most traded contract, for fast, exact backtests: one-second bars, every trade, and top of book with trading state, proved against the archive | `dbnf tape` in DbnSuite.Fetch and `DbnSuite.Client.Tape` in DbnSuite.Client |
 | **DbnSpool** | Optional. A worker that keeps tapes up to date in a second, private S3 store, building, proving and uploading each new trade date | `ghcr.io/squideyes/dbnspool-worker` (Docker) |
 
 Each runs on your own machines with your own Databento account; nothing passes
 through anyone else.
 
-**Install.** DbnClient and DbnFetch are published on NuGet as
+**Install.** DbnSuite.Client and DbnSuite.Fetch are published on NuGet as
 [DbnSuite.Client](https://www.nuget.org/packages/DbnSuite.Client) and
-[DbnSuite.Fetch](https://www.nuget.org/packages/DbnSuite.Fetch), and need the .NET 11 SDK.
-Before 0.3.0 they were the `DbnClient` and `DbnFetch` packages: move up with
-`dotnet tool uninstall -g DbnFetch`, then `dotnet tool install -g DbnSuite.Fetch`,
-and in a project swap `DbnClient` for `DbnSuite.Client` and each
-`using DbnClient.` for `using DbnSuite.Client.`. Native `dbnf`
+[DbnSuite.Fetch](https://www.nuget.org/packages/DbnSuite.Fetch), and need the .NET 11 SDK. Native `dbnf`
 binaries that need no .NET are attached to each
 [release](https://github.com/squideyes/DbnSuite/releases). DbnSync and DbnSpool
 are Docker images on GitHub's container registry.
@@ -247,11 +243,11 @@ version 3.
 - **Prices** are integers in units of 1e-9; times are nanoseconds since the
   UNIX epoch, UTC. DBN readers convert both.
 
-### DbnFetch (`dbnf`), the command-line tool
+### DbnSuite.Fetch (`dbnf`), the command-line tool
 
 `dbnf` lists the archive, prints a day's records, downloads raw files and
 exports processed ones. It is a .NET tool built as a native binary for Windows
-(x64 and ARM), macOS and Linux. The DbnClient library underneath it does the same in your own C#.
+(x64 and ARM), macOS and Linux. The DbnSuite.Client library underneath it does the same in your own C#.
 Install it from [NuGet](https://www.nuget.org/packages/DbnSuite.Fetch) with
 `dotnet tool install -g DbnSuite.Fetch` (or `dotnet tool update -g DbnSuite.Fetch` over an
 earlier version), or take a native binary from the
@@ -378,7 +374,7 @@ dbnf tape build ES --tapes tapes --from 2026-10-05 --to 2026-10-30
 dbnf tape verify ES --tapes tapes --from 2026-10-05 --to 2026-10-30
 ```
 
-DbnClient replays them in `DbnSuite.Client.Tape`, with nothing allocated per event.
+DbnSuite.Client replays them in `DbnSuite.Client.Tape`, with nothing allocated per event.
 Tapes are derived from data licensed to you, so keep them in private storage you
 control and never commit one. See the [DbnTape docs](https://dbnsuite.squideyes.com/docs/dbntape)
 for the format. To keep tapes up to date in a cloud store, see
@@ -389,7 +385,7 @@ for the format. To keep tapes up to date in a cloud store, see
 `ISessionCalendar.For(symbol, tradeDate)` gives a symbol's `SessionDay`: its
 open, close and breaks, and RTH, the root's regular hours cut to the session,
 all in nanoseconds since the UNIX epoch. It is null when there is no session.
-DbnClient has two calendars:
+DbnSuite.Client has two calendars:
 
 | Calendar | Knows | For |
 |---|---|---|
@@ -869,7 +865,7 @@ Package versions live in `Directory.Packages.props`, shared build settings in
 Issues and pull requests are welcome at
 [github.com/squideyes/DbnSuite](https://github.com/squideyes/DbnSuite). See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the rules, how to build and test, and
-suggested contributions, such as a DbnClient in a language other than C#.
+suggested contributions, such as a DbnSuite.Client in a language other than C#.
 
 ## Licence
 

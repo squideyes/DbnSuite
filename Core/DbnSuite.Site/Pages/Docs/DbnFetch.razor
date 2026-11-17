@@ -1,8 +1,8 @@
 @page "/docs/dbnfetch"
 
-<PageTitle>DbnFetch docs: DbnSuite</PageTitle>
+<PageTitle>DbnSuite.Fetch docs: DbnSuite</PageTitle>
 
-<h1>DbnFetch</h1>
+<h1>DbnSuite.Fetch</h1>
 <p class="lead">
     The <code>dbnf</code> command lists a DbnSync archive, downloads its raw files, and exports bars, rebuilt order
     books and, for futures, back-adjusted continuous series, as CSV, Parquet, JSON Lines, DBN or NinjaTrader 8.
@@ -42,9 +42,8 @@
         Other systems: <a href="@Links.DotNet">dotnet.microsoft.com</a>.
     </li>
     <li>
-        <strong>Install DbnFetch</strong> from NuGet, where it is published as <a href="@Links.NuGetFetch">DbnSuite.Fetch</a>.
-        NuGet picks the native build for your system. Before 0.3.0 it was named <code>DbnFetch</code>; remove that
-        first with <code>dotnet tool uninstall -g DbnFetch</code>. Your profiles and cache stay where they are.
+        <strong>Install <a href="@Links.NuGetFetch">DbnSuite.Fetch</a></strong> from NuGet.
+        NuGet picks the native build for your system.
         <CodeBlock Title="Any terminal" Text="dotnet tool install -g DbnSuite.Fetch" />
     </li>
     <li>
@@ -186,7 +185,7 @@
 
 <h2 id="platforms">Into trading platforms</h2>
 <p>
-    Trading platforms such as NinjaTrader, MetaTrader and TradeStation each import history in their own way. DbnFetch
+    Trading platforms such as NinjaTrader, MetaTrader and TradeStation each import history in their own way. DbnSuite.Fetch
     writes one platform's format natively, NinjaTrader 8's, and plain CSV for the rest. It does not write
     MetaTrader's or TradeStation's formats, and their import steps are not covered here.
 </p>
@@ -287,7 +286,7 @@
     </table>
 </div>
 
-<div class="next"><a href="docs/dbnsync">← DbnSync</a><a href="docs/dbnclient">DbnClient →</a></div>
+<div class="next"><a href="docs/dbnsync">← DbnSync</a><a href="docs/dbnclient">DbnSuite.Client →</a></div>
 
 @code {
     private const string ToolsPath = """
