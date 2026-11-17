@@ -87,12 +87,12 @@
     <li><strong>Data objects are immutable.</strong> Once stored, a <code>.dbn.zst</code> object is never rewritten. A reader may cache it by key and ETag indefinitely.</li>
     <li><strong>Everything else is ignored.</strong> Readers must skip any key that does not match the grammar. <code>_dbnsync/</code> belongs to the DbnSync worker (its job, pass and spend records) and its contents may change without a layout version change.</li>
     <li><strong>The archive is read through S3.</strong> Copying files into an S3 server's own data folder does not create objects. Write through the S3 API, or keep a plain folder tree that follows the grammar.</li>
-    <li><strong>Other writers are welcome</strong>, and DbnFetch and DbnClient read their files, if every object follows these rules: Databento's own daily DBN v3 files, zstd-compressed, under keys in the grammar above. <code>dbnf pull --out</code> writes exactly this layout; <code>--flat</code> does not, and a flat folder is not an archive.</li>
+    <li><strong>Other writers are welcome</strong>, and DbnSuite.Fetch and DbnSuite.Client read their files, if every object follows these rules: Databento's own daily DBN v3 files, zstd-compressed, under keys in the grammar above. <code>dbnf pull --out</code> writes exactly this layout; <code>--flat</code> does not, and a flat folder is not an archive.</li>
 </ol>
 
 <h2 id="processed">Processed files</h2>
 <p>
-    <code>dbnf export</code> and DbnClient's <code>Exporter</code> write processed files. Each covers trade dates, not
+    <code>dbnf export</code> and DbnSuite.Client's <code>Exporter</code> write processed files. Each covers trade dates, not
     UTC days, and only the hours asked for (<code>--session</code> or <code>--hours</code>).
 </p>
 
@@ -190,7 +190,7 @@
 </div>
 <ul>
     <li>Field meanings are Databento's; see the schema reference in its documentation. <code>action</code> and <code>side</code> are single characters (<code>A</code>, <code>C</code>, <code>M</code>, <code>R</code>, <code>T</code>, <code>F</code>; <code>B</code>, <code>A</code>, <code>N</code>).</li>
-    <li><code>stat_type</code> is written as a name (<code>settlement_price</code>, <code>open_interest</code>), or the number when DbnClient doesn't know it. <code>ts_ref</code> and <code>quantity</code> are empty when Databento leaves them undefined.</li>
+    <li><code>stat_type</code> is written as a name (<code>settlement_price</code>, <code>open_interest</code>), or the number when DbnSuite.Client doesn't know it. <code>ts_ref</code> and <code>quantity</code> are empty when Databento leaves them undefined.</li>
     <li><code>raw_symbol</code> is CME's own symbol (<code>ESZ6</code>); <code>symbol</code> the two-digit-year form.</li>
     <li>A record belongs to the trade date of its <code>ts_recv</code> for <code>mbo</code>, and of its <code>ts_event</code> for every other schema. Rows within a file keep the archive's order, which is time order. A record whose <code>ts_event</code> runs back over a trade date goes to the end of that date's file; nothing already there is lost.</li>
 </ul>

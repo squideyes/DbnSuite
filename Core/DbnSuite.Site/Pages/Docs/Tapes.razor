@@ -49,8 +49,8 @@
 <p>
     <code>dbnf tape</code> reads the archive from your login or <code>--archive</code>, and writes to the folder
     <code>--tapes</code> names. Build a root's catalog first, and rebuild it whenever new days arrive. These commands
-    run at low priority, so the machine stays usable. They need <a href="@Links.NuGetFetch">DbnFetch</a> 0.3.0 or
-    later, and replaying from C# needs <a href="@Links.NuGetClient">DbnClient</a> 0.3.0 or later, both from NuGet.
+    run at low priority, so the machine stays usable. They come with <a href="@Links.NuGetFetch">DbnSuite.Fetch</a>, and replaying
+    from C# needs <a href="@Links.NuGetClient">DbnSuite.Client</a>, both from NuGet.
 </p>
 <CodeBlock Title="Any terminal" Text="@BuildCommands" />
 <div class="table">
@@ -82,7 +82,7 @@
 
 <h2 id="replay">Replay in C#</h2>
 <p>
-    Tapes are part of <a href="docs/dbnclient">DbnClient</a>, in <code>DbnSuite.Client.Tape</code>. A tape loads once as a
+    Tapes are part of <a href="docs/dbnclient">DbnSuite.Client</a>, in <code>DbnSuite.Client.Tape</code>. A tape loads once as a
     byte array, and a cursor walks it. Loading is async and returns a <code>Result</code>; replay is synchronous and
     creates no objects per event. Prices are <code>int</code> ticks, sizes are <code>uint</code>, and times are
     microseconds since the UNIX epoch. The header's <code>TickRaw</code> turns ticks back into prices.
@@ -186,7 +186,7 @@
             <tr><td>S1 against source</td><td>Every bar equals the <code>ohlcv-1s</code> record.</td></tr>
             <tr><td>Trade against bars</td><td>Source trades bucketed on <code>ts_recv</code> equal <code>ohlcv-1s</code> in every second from the open, or from earlier by the receive clock's lead, and the Trade tape's volume equals the session's trades.</td></tr>
             <tr><td>L1 against Trade</td><td>L1's trades are exactly the Trade tape's trades.</td></tr>
-            <tr><td>L1 against DbnClient</td><td>Replaying <code>MboTransform</code> gives the same quotes and trades. After a mid-session snapshot that moved the top, the tape's quote at the next event is checked against DbnClient's book instead, since the transform has no row for it.</td></tr>
+            <tr><td>L1 against DbnClient</td><td>Replaying <code>MboTransform</code> gives the same quotes and trades. After a mid-session snapshot that moved the top, the tape's quote at the next event is checked against DbnSuite.Client's book instead, since the transform has no row for it.</td></tr>
             <tr><td>Crossed book</td><td>No crossed or locked quote appears during trading.</td></tr>
             <tr><td>File boundary</td><td>The top of book is unchanged across the 00:00 UTC snapshot, or the difference is reported.</td></tr>
             <tr><td>Sessions</td><td>Every tape's events fall inside its session, and no trade falls in a stated break.</td></tr>

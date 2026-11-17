@@ -8,8 +8,8 @@
             <p class="eyebrow">Open source · MIT · .NET 11</p>
             <h1>Your Databento® data, archived and research-ready.</h1>
             <p class="lead">
-                DbnSync keeps the data your Databento subscription includes in S3 storage you control. DbnFetch and
-                DbnClient turn that archive into bars, rebuilt order books and, for futures, back-adjusted continuous
+                DbnSync keeps the data your Databento subscription includes in S3 storage you control. DbnSuite.Fetch and
+                DbnSuite.Client turn that archive into bars, rebuilt order books and, for futures, back-adjusted continuous
                 series, for your research, your backtests and trading platforms such as NinjaTrader, MetaTrader and
                 TradeStation. DbnTape packs futures into compact tapes for fast, exact backtests, and the optional
                 DbnSpool keeps those tapes up to date.
@@ -63,7 +63,7 @@
     <h2>Datasets</h2>
     <p class="lead">
         DbnSuite is built for Databento's whole corpus. Each dataset is described by a profile, archived by DbnSync,
-        laid out by the same rules and read by DbnFetch and DbnClient. A verified profile is run by the maintainer every
+        laid out by the same rules and read by DbnSuite.Fetch and DbnSuite.Client. A verified profile is run by the maintainer every
         day; a contributed one is run by whoever subscribes to that dataset.
     </p>
     <div class="table">
@@ -85,7 +85,7 @@
     <ul>
         <li><strong>A Databento subscription</strong>One whose plan includes the historical data you want, from a supported dataset. By default DbnSync asks only for what that plan covers at no extra charge.</li>
         <li><strong>Somewhere to run Docker</strong>A small cloud server such as a DigitalOcean Droplet, a NAS or a home server for DbnSync, with S3 storage.</li>
-        <li><strong>The .NET 11 SDK</strong>For DbnFetch and DbnClient, on Windows, macOS or Linux. The standalone dbnf binaries need nothing.</li>
+        <li><strong>The .NET 11 SDK</strong>For DbnSuite.Fetch and DbnSuite.Client, on Windows, macOS or Linux. The standalone dbnf binaries need nothing.</li>
     </ul>
 </section>
 
@@ -152,13 +152,13 @@
             ]),
         new("dbntape", "Backtest tapes", "DbnTape",
             "Compact tapes of each trade date, for its most traded contract, for fast and exact backtests.",
-            "Small, stream-only files built from your archive by dbnf tape and DbnClient: one tape of each kind a CME trade date, for its most traded contract, replayed from start to finish.",
+            "Small, stream-only files built from your archive by dbnf tape and DbnSuite.Client: one tape of each kind a CME trade date, for its most traded contract, replayed from start to finish.",
             [
                 new("Three kinds", "S1 holds one-second bars, Trade holds every trade with its aggressor, and L1 holds the best bid and offer, every trade and every change of trading state, in order."),
                 new("A fraction of the size", "About 3 bytes an event against 48 to 80 in DBN, with exact prices and sizes and times to the microsecond. zstd compresses them further for storage."),
                 new("Sessions built in", "Each tape is a whole trade date with its RTH start marked, so a backtest replays ETH, RTH or both without looking anything up."),
                 new("Bars and Monte Carlo runs", "Any time bar rolls up from an S1 tape as it streams, volume and tick bars from a Trade tape, and seeded runs replay whole sessions in a random order, stitched into one series."),
-                new("Proved against the archive", "dbnf tape verify checks tapes through independent paths: the archive's own bars, and DbnClient's rebuilt order book, event for event."),
+                new("Proved against the archive", "dbnf tape verify checks tapes through independent paths: the archive's own bars, and DbnSuite.Client's rebuilt order book, event for event."),
                 new("Private, like the archive", "Tapes are derived from data licensed to you, so they stay on your own drives or in a private store you control."),
             ]),
         new("dbnspool", "Optional worker", "DbnSpool",
