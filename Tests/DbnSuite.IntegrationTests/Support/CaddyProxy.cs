@@ -57,7 +57,7 @@ public sealed class CaddyProxy : IAsyncLifetime
 
         proxy = new ContainerBuilder(Image)
             .WithNetwork(network)
-            .WithResourceMapping(Caddyfile(), "/etc/caddy/")
+            .WithResourceMapping(FilePath.Of(Caddyfile().FullName), DirectoryPath.Of("/etc/caddy/"))
             .WithEnvironment("S3_DOMAIN", $"http://{S3Name}")
             .WithEnvironment("DASHBOARD_DOMAIN", $"http://{DashboardName}")
             .WithEnvironment("DASHBOARD_USER", User)
