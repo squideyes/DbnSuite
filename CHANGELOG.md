@@ -6,6 +6,26 @@ What changed in each release of the **DbnClient** library and the **DbnFetch**
 release. The format follows [Keep a Changelog](https://keepachangelog.com), and
 versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+
+- **Keyrings on macOS and Linux.** `dbnf login` keeps the secret key in your
+  macOS Keychain, or in your Linux keyring through the Secret Service (GNOME
+  Keyring, KWallet), instead of a file. Where there is no keyring, as on a
+  server, it still goes in a file only you can read, and `dbnf login` says
+  so. Logins saved by earlier versions keep working; log in again to move a
+  secret into the keyring. ([#68](https://github.com/squideyes/DbnSuite/issues/68))
+- **Native `dbnf` for Intel Macs and ARM Linux:** `osx-x64` and `linux-arm64`
+  binaries and NuGet tool packages. ([#69](https://github.com/squideyes/DbnSuite/issues/69))
+
+### Changed
+
+- **The cache follows `XDG_CACHE_HOME` on Linux**, when it is set, as
+  `$XDG_CACHE_HOME/DbnFetch`. Files cached in `~/.cache/DbnFetch` are
+  downloaded again there, or point `--cache` at the old folder.
+  ([#70](https://github.com/squideyes/DbnSuite/issues/70))
+
 ## 0.4.1 (2026-11-15)
 
 ### Changed

@@ -38,7 +38,7 @@ public sealed class Session
     /// <summary>The saved logins; the config folder is only made once something asks for them.</summary>
     public Profiles Profiles
     {
-        get => field ??= new(Profiles.DefaultFolder);
+        get => field ??= new(Profiles.DefaultFolder, SecretVaults.ForThisMachine(Profiles.DefaultFolder));
         init;
     }
 

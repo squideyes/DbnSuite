@@ -21,6 +21,7 @@
         <li><a href="docs/dbnfetch#rolls">Rolls</a></li>
         <li><a href="docs/dbnfetch#tapes">Tapes</a></li>
         <li><a href="docs/dbnfetch#cache">The cache</a></li>
+        <li><a href="docs/dbnfetch#unattended">Running unattended</a></li>
         <li><a href="docs/dbnfetch#exit">Exit codes</a></li>
         <li><a href="docs/dbnfetch#reference">Option reference</a></li>
     </ul>
@@ -62,7 +63,8 @@
 <h3 id="install-binary">As a standalone binary</h3>
 <p>
     Each <a href="@Links.Releases">release</a> has a zip of the <code>dbnf</code> binary for
-    <code>win-x64</code>, <code>win-arm64</code>, <code>osx-arm64</code> (Apple silicon) and <code>linux-x64</code>.
+    <code>win-x64</code>, <code>win-arm64</code>, <code>osx-arm64</code> (Apple silicon), <code>osx-x64</code> (Intel Macs),
+    <code>linux-x64</code> and <code>linux-arm64</code> (such as a Raspberry Pi or an ARM server). On anything else, use the .NET tool.
     Unzip it into a folder on your PATH.
 </p>
 <CodeBlock Title="Windows (PowerShell)" Text="@BinaryWindows" />
@@ -81,7 +83,7 @@
 </p>
 <CodeBlock Title="Any terminal" Text="@Login" />
 <ul>
-    <li><strong>Where it is kept:</strong> in <code>%APPDATA%\DbnFetch</code> on Windows, with the secret encrypted for your Windows user. On Linux it is in <code>~/.config/DbnFetch</code> and on macOS in <code>~/Library/Application Support/DbnFetch</code>, readable only by you.</li>
+    <li><strong>Where it is kept:</strong> the login is in <code>%APPDATA%\DbnFetch</code> on Windows, <code>~/Library/Application Support/DbnFetch</code> on macOS and <code>~/.config/DbnFetch</code> on Linux. The secret is encrypted for your Windows user, in your macOS Keychain, or in your Linux keyring (the Secret Service: GNOME Keyring or KWallet). Where there is no keyring, as on a server, it is in a file only you can read, and <code>dbnf login</code> says so.</li>
     <li><strong>Check everything:</strong> <code>dbnf doctor</code> tests the login, the archive, your clock (S3 refuses requests from a clock more than 15 minutes out) and the cache, which fails the check with under 10 GB free on its drive.</li>
     <li><strong>Another bucket:</strong> <code>login --bucket</code> names a bucket other than <code>dbn</code>, and <code>--prefix</code> a folder inside it that holds the archive.</li>
     <li><strong>More than one archive:</strong> add <code>--profile work</code> to <code>login</code> and to every later command.</li>
@@ -228,7 +230,7 @@
 <h2 id="cache">The cache</h2>
 <p>
     Raw files are cached in <code>%LOCALAPPDATA%\DbnFetch\cache</code> on Windows and
-    <code>~/.cache/DbnFetch</code> on macOS and Linux, in a folder for each login, so a second export of the same days downloads nothing. A file that
+    <code>~/.cache/DbnFetch</code> on macOS and Linux (<code>$XDG_CACHE_HOME/DbnFetch</code> on Linux when that is set), in a folder for each login, so a second export of the same days downloads nothing. A file that
     changes in the archive is downloaded again. <code>--cache</code> on any command uses another folder.
 </p>
 <ul>
@@ -240,6 +242,24 @@
     <code>dbnf pull mbo MNQ --from 2026-10-29 --force</code>, which downloads it again. In a folder archive, copy a good
     file over it. If <code>profiles.json</code> or <code>secrets.json</code> is damaged, the error names it; run
     <code>dbnf login</code> again, which replaces it and keeps the old file beside it, ending <code>.damaged</code>.
+</p>
+
+<h2 id="unattended">Running unattended</h2>
+<p>
+    On a server, or anywhere dbnf runs on a schedule, give it the archive through the <code>DBNF_</code> variables
+    instead of a login, and keep them in a file only you can read. This one points at a tape Space, for
+    <code>tape pull</code>; for the archive itself, use its bucket, <code>dbn</code>. A systemd user timer then runs it every morning,
+    after the night's data has arrived; <code>loginctl enable-linger</code> lets it run while you're logged out.
+</p>
+<CodeBlock Title="~/.config/dbnf.env (chmod 600)" Text="@UnattendedEnv" />
+<CodeBlock Title="~/.config/systemd/user/dbnf-pull.service" Text="@UnattendedService" />
+<CodeBlock Title="~/.config/systemd/user/dbnf-pull.timer" Text="@UnattendedTimer" />
+<CodeBlock Title="Any terminal" Text="@UnattendedEnable" />
+<p>
+    A tape already there is skipped, so a fixed <code>--from</code> only fetches what's new. dbnf needs no
+    terminal, and its <a href="docs/dbnfetch#exit">exit code</a> says how it went, so a failed run
+    shows in <code>systemctl --user status dbnf-pull</code> and <code>journalctl --user -u dbnf-pull</code>. With
+    cron instead, load the same file first: <code>set -a; . ~/.config/dbnf.env; set +a; dbnf …</code>.
 </p>
 
 <h2 id="exit">Exit codes</h2>
@@ -289,6 +309,42 @@
 <div class="next"><a href="docs/dbnsync">← DbnSync</a><a href="docs/dbnclient">DbnSuite.Client →</a></div>
 
 @code {
+    private const string UnattendedEnv = """
+        DBNF_LOCATION=https://nyc3.digitaloceanspaces.com
+        DBNF_BUCKET=dbn-tapes
+        DBNF_ACCESS_KEY=DO801EXAMPLEKEY
+        DBNF_SECRET_KEY=<the secret key>
+        """;
+
+    private const string UnattendedService = """
+        [Unit]
+        Description=Pull the night's tapes
+
+        [Service]
+        Type=oneshot
+        EnvironmentFile=%h/.config/dbnf.env
+        ExecStart=%h/.local/bin/dbnf tape pull ES --tapes %h/tapes --from 2026-10-01 --kind l1
+        """;
+
+    private const string UnattendedTimer = """
+        [Unit]
+        Description=Pull the night's tapes every morning
+
+        [Timer]
+        OnCalendar=*-*-* 07:30
+        Persistent=true
+
+        [Install]
+        WantedBy=timers.target
+        """;
+
+    private const string UnattendedEnable = """
+        chmod 600 ~/.config/dbnf.env
+        systemctl --user daemon-reload
+        systemctl --user enable --now dbnf-pull.timer
+        loginctl enable-linger "$USER"
+        """;
+
     private const string ToolsPath = """
         export PATH="$PATH:$HOME/.dotnet/tools"
         """;
