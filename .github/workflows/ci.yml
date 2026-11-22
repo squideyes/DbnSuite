@@ -47,6 +47,10 @@ jobs:
 
       - run: dotnet test Tests/DbnSuite.UnitTests -c Release --filter "FullyQualifiedName!~S3ObjectStoreTests&FullyQualifiedName!~S3ArchiveStoreTests"
 
+      # The real Keychain round trip runs on macOS only; name each test, so a skip would show.
+      - if: runner.os == 'macOS'
+        run: dotnet test Tests/DbnSuite.UnitTests -c Release --no-build --filter "FullyQualifiedName~SecretVaultsTests" --logger "console;verbosity=normal"
+
   image:
     needs: build
     if: github.ref == 'refs/heads/main'
