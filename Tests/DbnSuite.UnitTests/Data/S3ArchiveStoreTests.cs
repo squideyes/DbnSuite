@@ -1,6 +1,7 @@
 using System.Net;
 using Amazon.S3;
 using Amazon.S3.Model;
+using Amazon.S3.Util;
 using DbnSuite.Sync.Core;
 using DbnSuite.Sync.Data;
 using DbnSuite.Testing;
@@ -17,12 +18,15 @@ namespace DbnSuite.UnitTests.Data;
 /// <summary>Against a real S3 server, since pagination and checksums are where stores differ.</summary>
 public sealed class S3ArchiveStoreTests : IAsyncLifetime
 {
-    private const string Image = "rustfs/rustfs:1.0.4";
+    private const string Image = "rustfs/rustfs:1.0.5";
     private const string AccessKey = "dbnsync-tests";
     private const string SecretKey = "dbnsync-tests-secret";
     private const string Bucket = "dbn";
     private const string Prefix = "archive";
     private const int S3Port = 9000;
+    private const string MadeBucket = "dbn-made";
+    private const string RegionVariable = "AWS_REGION";
+    private const string ElsewhereRegion = "us-east-2";
 
     private readonly IContainer server = new ContainerBuilder(Image)
         .WithEnvironment("RUSTFS_ACCESS_KEY", AccessKey)
@@ -33,6 +37,7 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
             .AddCustomWaitStrategy(new S3Ready(AccessKey, SecretKey, S3Port)))
         .Build();
 
+    private string serviceUrl = null!;
     private IAmazonS3 s3 = null!;
     private S3ArchiveStore store = null!;
 
@@ -40,9 +45,11 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
     {
         await server.StartAsync();
 
+        serviceUrl = $"http://{server.Hostname}:{server.GetMappedPublicPort(S3Port)}";
+
         var options = new StoreOptions
         {
-            ServiceUrl = $"http://{server.Hostname}:{server.GetMappedPublicPort(S3Port)}",
+            ServiceUrl = serviceUrl,
             Bucket = Bucket,
             Prefix = Prefix,
             AccessKey = AccessKey,
@@ -190,6 +197,34 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
         var reader = new S3ArchiveStore(failing, Options.Create(new StoreOptions { Bucket = Bucket }), new SyncOptions());
 
         await Should.ThrowAsync<AmazonS3Exception>(() => reader.ListPendingAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task A_bucket_is_made_in_the_stores_region_whatever_AWS_REGION_says()
+    {
+        var before = Environment.GetEnvironmentVariable(RegionVariable);
+        Environment.SetEnvironmentVariable(RegionVariable, ElsewhereRegion);
+        try
+        {
+            var options = new StoreOptions
+            {
+                ServiceUrl = serviceUrl,
+                Bucket = MadeBucket,
+                Prefix = Prefix,
+                AccessKey = AccessKey,
+                SecretKey = SecretKey
+            };
+            using var client = S3ArchiveStore.CreateClient(options);
+            var made = new S3ArchiveStore(client, Options.Create(options), new SyncOptions { Dataset = Dataset });
+
+            await made.EnsureBucketAsync(CancellationToken.None);
+
+            (await AmazonS3Util.DoesS3BucketExistV2Async(s3, MadeBucket)).ShouldBeTrue();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(RegionVariable, before);
+        }
     }
 
     [Fact]

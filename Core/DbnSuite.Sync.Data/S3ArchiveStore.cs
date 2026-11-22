@@ -49,9 +49,12 @@ public sealed class S3ArchiveStore(IAmazonS3 s3, IOptions<StoreOptions> store, S
 
     public async Task EnsureBucketAsync(CancellationToken cancel)
     {
+        // The bucket's region is the store's own. Left unset, the SDK takes it from
+        // AWS_REGION, and a store that checks it (RustFS from 1.0.5) refuses a mismatch.
         if (!await AmazonS3Util.DoesS3BucketExistV2Async(s3, settings.Bucket).ConfigureAwait(false))
         {
-            await s3.PutBucketAsync(new PutBucketRequest { BucketName = settings.Bucket }, cancel)
+            await s3.PutBucketAsync(
+                new PutBucketRequest { BucketName = settings.Bucket, BucketRegionName = settings.Region }, cancel)
                 .ConfigureAwait(false);
         }
     }

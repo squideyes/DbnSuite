@@ -10,7 +10,7 @@ var s3Secret = builder.AddParameter("s3-secret-key",
 // Any S3 server will do; DbnSync speaks only the S3 API. RustFS because
 // MinIO no longer publishes public images. Development pulls only what
 // appsettings.Development.json names, so the volume stays small.
-var s3 = builder.AddContainer("s3", "rustfs/rustfs", "1.0.4")
+var s3 = builder.AddContainer("s3", "rustfs/rustfs", "1.0.5")
     .WithEnvironment("RUSTFS_ACCESS_KEY", s3User)
     .WithEnvironment("RUSTFS_SECRET_KEY", s3Secret)
     .WithEnvironment("RUSTFS_CONSOLE_ENABLE", "true")
@@ -19,9 +19,10 @@ var s3 = builder.AddContainer("s3", "rustfs/rustfs", "1.0.4")
     .WithHttpHealthCheck("/health", endpointName: "s3")
     .WithVolume("dbnsync-s3", "/data");
 
-var seq = builder.AddSeq("seq").WithDataVolume();
+// Aspire's Seq integration defaults to an older Seq; match what Deploy runs.
+var seq = builder.AddSeq("seq").WithImageTag("2026.1.17526").WithDataVolume();
 
-builder.AddProject<Projects.DbnSuite_Sync_Worker>("dbnsync")
+builder.AddDotnetProject("dbnsync", "../../Core/DbnSuite.Sync.Worker/DbnSuite.Sync.Worker.csproj")
     .WithEnvironment("Databento__ApiKey", databentoKey)
     .WithEnvironment("Store__ServiceUrl", s3.GetEndpoint("s3"))
     .WithEnvironment("Store__AccessKey", s3User)
@@ -32,7 +33,7 @@ builder.AddProject<Projects.DbnSuite_Sync_Worker>("dbnsync")
     .WaitFor(seq);
 
 // Optional, like its install: it starts only when started from the dashboard.
-builder.AddProject<Projects.DbnSuite_Spool>("dbnspool")
+builder.AddDotnetProject("dbnspool", "../../Core/DbnSuite.Spool/DbnSuite.Spool.csproj")
     .WithEnvironment("Archive__Location", s3.GetEndpoint("s3"))
     .WithEnvironment("Archive__AccessKey", s3User)
     .WithEnvironment("Archive__SecretKey", s3Secret)

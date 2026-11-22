@@ -11,6 +11,8 @@ namespace DbnSuite.IntegrationTests.Support;
 /// <summary>Reads and tampers with a bucket straight through S3, past everything under test.</summary>
 public sealed class ArchiveProbe(RustFs s3, string bucket, string prefix = "") : IDisposable
 {
+    private const string Region = "us-east-1";
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() }
@@ -21,7 +23,7 @@ public sealed class ArchiveProbe(RustFs s3, string bucket, string prefix = "") :
         {
             ServiceURL = s3.Endpoint,
             ForcePathStyle = true,
-            AuthenticationRegion = "us-east-1",
+            AuthenticationRegion = Region,
             RequestChecksumCalculation = RequestChecksumCalculation.WHEN_REQUIRED,
             ResponseChecksumValidation = ResponseChecksumValidation.WHEN_REQUIRED
         });
@@ -86,7 +88,7 @@ public sealed class ArchiveProbe(RustFs s3, string bucket, string prefix = "") :
     {
         try
         {
-            await client.PutBucketAsync(Bucket);
+            await client.PutBucketAsync(new PutBucketRequest { BucketName = Bucket, BucketRegionName = Region });
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.Conflict)
         {

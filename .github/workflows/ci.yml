@@ -21,8 +21,12 @@ jobs:
         with:
           global-json-file: global.json
 
+      # Every project, not just the tests and what they reference: dotnet test alone never
+      # builds the AppHost or the site, so a package bump could break them unnoticed.
+      - run: dotnet build DbnSuite.slnx -c Release
+
       # The S3 tests start a RustFS container; ubuntu runners have Docker.
-      - run: dotnet test DbnSuite.slnx -c Release
+      - run: dotnet test DbnSuite.slnx -c Release --no-build
 
   image:
     needs: build
