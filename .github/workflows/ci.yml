@@ -28,6 +28,25 @@ jobs:
       # The S3 tests start a RustFS container; ubuntu runners have Docker.
       - run: dotnet test DbnSuite.slnx -c Release --no-build
 
+  # dbnf differs by platform: where logins and caches live, and how secrets are kept.
+  # The S3 tests need Linux containers, which these runners can't start, so they run
+  # in the build job above only.
+  platforms:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - run: dotnet test Tests/DbnSuite.UnitTests -c Release --filter "FullyQualifiedName!~S3ObjectStoreTests&FullyQualifiedName!~S3ArchiveStoreTests"
+
   image:
     needs: build
     if: github.ref == 'refs/heads/main'

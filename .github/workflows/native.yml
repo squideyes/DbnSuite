@@ -1,0 +1,95 @@
+name: native
+
+# Builds the native dbnf for each platform, packs its NuGet tool package and zips
+# the binary, then runs it before anything leaves the runner. The release calls
+# this; pull requests that touch dbnf run it too, so a binary that won't start is
+# found before it is tagged.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: The release tag or version, such as v1.2.3; a leading v is dropped.
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - Core/DbnSuite.Fetch/**
+      - Core/DbnSuite.Client/**
+      - .github/workflows/native.yml
+      - .github/workflows/release.yml
+      - global.json
+      - Directory.Build.props
+      - Directory.Packages.props
+
+permissions:
+  contents: read
+
+env:
+  # A pull request builds a version nobody could mistake for a release.
+  PACKAGE_VERSION: ${{ inputs.version || '0.0.0-check' }}
+
+jobs:
+  native:
+    # A Native AOT binary builds only on its own operating system, and here only
+    # on its own processor too, so that each one can be run where it was built.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: win-arm64
+            os: windows-11-arm
+          - rid: linux-x64
+            os: ubuntu-latest
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+          - rid: osx-arm64
+            os: macos-latest
+          - rid: osx-x64
+            os: macos-15-intel
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Pack DbnFetch for ${{ matrix.rid }}
+        shell: bash
+        run: dotnet pack Core/DbnSuite.Fetch -c Release -r ${{ matrix.rid }} -p:Version=${PACKAGE_VERSION#v} -o packages
+
+      - name: Publish the dbnf binary
+        shell: bash
+        run: dotnet publish Core/DbnSuite.Fetch -c Release -r ${{ matrix.rid }} -p:Version=${PACKAGE_VERSION#v} -o bin/${{ matrix.rid }}
+
+      # It must start, know its own version, and read an archive: a folder
+      # holding one marker for a day with no data.
+      - name: Run it
+        shell: bash
+        run: |
+          dbnf=bin/${{ matrix.rid }}/dbnf
+          [ -f "$dbnf.exe" ] && dbnf="$dbnf.exe"
+          "$dbnf" --version | tee version.txt
+          grep -F "${PACKAGE_VERSION#v}" version.txt
+          mkdir -p smoke/GLBX.MDP3/ohlcv-1s/ES/2026
+          : > smoke/GLBX.MDP3/ohlcv-1s/ES/2026/ES.ohlcv-1s.20261030.empty
+          "$dbnf" --archive smoke ls | tee ls.txt
+          grep -E "^ES +ohlcv-1s +0 +1 " ls.txt
+
+      - name: Zip it
+        shell: bash
+        run: |
+          cp NOTICE.md LICENSE bin/${{ matrix.rid }}/
+          cd bin/${{ matrix.rid }}
+          7z a ../../dbnf-${{ matrix.rid }}.zip dbnf* NOTICE.md LICENSE > /dev/null || zip ../../dbnf-${{ matrix.rid }}.zip dbnf* NOTICE.md LICENSE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ matrix.rid }}
+          path: |
+            packages/*.nupkg
+            dbnf-${{ matrix.rid }}.zip

@@ -1,6 +1,6 @@
 name: release
 
-# Push a tag such as v1.0.0 to publish DbnClient and DbnFetch to nuget.org
+# Push a tag such as v1.0.0 to publish DbnSuite.Client and DbnSuite.Fetch to nuget.org
 # and attach native dbnf binaries to a GitHub release. It signs in to nuget.org
 # with Trusted Publishing, so no API key is stored: it needs a policy on nuget.org
 # for this repo and release.yml, and the NUGET_USER secret, the nuget.org user name.
@@ -18,46 +18,11 @@ env:
   RELEASE_TAG: ${{ github.ref_name }}
 
 jobs:
-  # A Native AOT binary builds only on its own operating system, so each
-  # platform's DbnFetch package is packed on a runner of that system.
+  # Every native dbnf, built, run and packed on its own platform: see native.yml.
   native:
-    strategy:
-      matrix:
-        include:
-          - rid: win-x64
-            os: windows-latest
-          - rid: win-arm64
-            os: windows-latest
-          - rid: linux-x64
-            os: ubuntu-latest
-          - rid: osx-arm64
-            os: macos-latest
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-dotnet@v6
-        with:
-          global-json-file: global.json
-
-      - name: Pack DbnFetch for ${{ matrix.rid }}
-        shell: bash
-        run: dotnet pack Core/DbnSuite.Fetch -c Release -r ${{ matrix.rid }} -p:Version=${RELEASE_TAG#v} -o packages
-
-      - name: Publish the dbnf binary
-        shell: bash
-        run: |
-          dotnet publish Core/DbnSuite.Fetch -c Release -r ${{ matrix.rid }} -p:Version=${RELEASE_TAG#v} -o bin/${{ matrix.rid }}
-          cp NOTICE.md LICENSE bin/${{ matrix.rid }}/
-          cd bin/${{ matrix.rid }}
-          7z a ../../dbnf-${{ matrix.rid }}.zip dbnf* NOTICE.md LICENSE > /dev/null || zip ../../dbnf-${{ matrix.rid }}.zip dbnf* NOTICE.md LICENSE
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: native-${{ matrix.rid }}
-          path: |
-            packages/*.nupkg
-            dbnf-${{ matrix.rid }}.zip
+    uses: ./.github/workflows/native.yml
+    with:
+      version: ${{ github.ref_name }}
 
   publish:
     needs: native

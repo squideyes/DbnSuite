@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -31,8 +30,9 @@ public sealed record Profile
 
 /// <summary>
 /// Saved logins, in the user's own config folder. Secrets never sit in the
-/// profiles file: Windows encrypts them for the signed-in user (DPAPI);
-/// elsewhere they go in a file only the user can read. A damaged file is an
+/// profiles file: Windows encrypts them for the signed-in user (DPAPI), macOS
+/// keeps them in the Keychain and Linux in the Secret Service. Without a
+/// keyring they go in a file only the user can read. A damaged file is an
 /// error naming it, and logging in again replaces it.
 /// </summary>
 public sealed class Profiles
@@ -46,11 +46,21 @@ public sealed class Profiles
     private const string SecretsFile = "secrets.json";
     private const string DamagedSuffix = ".damaged";
 
-    private readonly string folder;
+    private const string PlainMark = "plain:";
 
+    private readonly string folder;
+    private readonly ISecretVault? vault;
+
+    /// <summary>Saved logins with no keyring: DPAPI on Windows, the file elsewhere.</summary>
     public Profiles(string folder)
+        : this(folder, OperatingSystem.IsWindows() ? new DpapiVault() : null)
+    {
+    }
+
+    public Profiles(string folder, ISecretVault? vault)
     {
         this.folder = folder;
+        this.vault = vault;
 
         if (OperatingSystem.IsWindows())
             Directory.CreateDirectory(folder);
@@ -65,11 +75,23 @@ public sealed class Profiles
     public static string DefaultFolder =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create), "DbnFetch");
 
-    /// <summary>The cache folder: %LOCALAPPDATA%\DbnFetch\cache on Windows, ~/.cache/DbnFetch elsewhere.</summary>
-    public static string DefaultCache =>
-        OperatingSystem.IsWindows()
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DbnFetch", "cache")
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "DbnFetch");
+    /// <summary>
+    /// The cache folder: %LOCALAPPDATA%\DbnFetch\cache on Windows, $XDG_CACHE_HOME/DbnFetch on
+    /// Linux when that is set, and ~/.cache/DbnFetch otherwise.
+    /// </summary>
+    public static string DefaultCache => CacheFolder(Environment.GetEnvironmentVariable("XDG_CACHE_HOME"));
+
+    /// <summary>The cache folder, given XDG_CACHE_HOME. The XDG spec ignores a relative path, and so does dbnf.</summary>
+    internal static string CacheFolder(string? xdgCacheHome)
+    {
+        if (OperatingSystem.IsWindows())
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DbnFetch", "cache");
+
+        if (OperatingSystem.IsLinux() && xdgCacheHome is { Length: > 0 } && Path.IsPathRooted(xdgCacheHome))
+            return Path.Combine(xdgCacheHome, "DbnFetch");
+
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "DbnFetch");
+    }
 
     public Result<IReadOnlyDictionary<string, Profile>> All()
     {
@@ -85,17 +107,34 @@ public sealed class Profiles
         return file.IsSuccess ? file.Value.Profiles.GetValueOrDefault(name) : file.Error!;
     }
 
-    /// <summary>Saves a login. It is how a damaged file is replaced, so what can be read of it is set aside, not lost.</summary>
-    public void Save(string name, Profile profile, string secret)
+    /// <summary>
+    /// Saves a login, and says where its secret went. It is how a damaged file is replaced,
+    /// so what can be read of it is set aside, not lost.
+    /// </summary>
+    public SecretPlace Save(string name, Profile profile, string secret)
     {
         var file = OrFresh(Load(), ProfilesFile, new ProfilesFile());
         file.Profiles[name] = profile;
         Write(ProfilesFile, JsonSerializer.Serialize(file, ProfilesJson.Default.ProfilesFile));
 
         var secrets = OrFresh(LoadSecrets(), SecretsFile, []);
-        secrets[name] = Protect(secret);
+
+        // Whatever kept the old secret lets go of it first, so a keyring is never left holding one.
+        if (secrets.GetValueOrDefault(name) is { } old)
+            vault?.Forget(name, old);
+
+        var (stored, place) = vault?.Protect(name, secret) is { } kept
+            ? (kept, vault.Place)
+            : (PlainMark + secret, SecretPlace.File);
+
+        secrets[name] = stored;
         WriteSecrets(secrets);
+
+        return place;
     }
+
+    /// <summary>Where the secrets file is, for saying so.</summary>
+    public string SecretsPath => Path.Combine(folder, SecretsFile);
 
     public Result<bool> Remove(string name)
     {
@@ -110,8 +149,11 @@ public sealed class Profiles
             return secrets.Error!;
 
         // A secret can outlive its login, when the profiles file was replaced; it goes either way.
-        if (secrets.Value.Remove(name))
+        if (secrets.Value.Remove(name, out var stored))
+        {
+            vault?.Forget(name, stored);
             WriteSecrets(secrets.Value);
+        }
 
         if (!file.Value.Profiles.Remove(name))
             return false;
@@ -128,7 +170,7 @@ public sealed class Profiles
         if (!secrets.IsSuccess)
             return secrets.Error!;
 
-        return secrets.Value.GetValueOrDefault(name) is { } stored ? Unprotect(stored) : (string?)null;
+        return secrets.Value.GetValueOrDefault(name) is { } stored ? Unprotect(name, stored) : (string?)null;
     }
 
     /// <summary>
@@ -223,32 +265,11 @@ public sealed class Profiles
         File.Move(temp, path, overwrite: true);
     }
 
-    private static string Protect(string secret) =>
-        OperatingSystem.IsWindows()
-            ? "dpapi:" + Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(secret), null, DataProtectionScope.CurrentUser))
-            : "plain:" + secret;
-
-    private static string? Unprotect(string stored)
-    {
-        if (stored.StartsWith("plain:", StringComparison.Ordinal))
-            return stored["plain:".Length..];
-
-        if (stored.StartsWith("dpapi:", StringComparison.Ordinal) && OperatingSystem.IsWindows())
-        {
-            try
-            {
-                return Encoding.UTF8.GetString(ProtectedData.Unprotect(
-                    Convert.FromBase64String(stored["dpapi:".Length..]), null, DataProtectionScope.CurrentUser));
-            }
-            catch (CryptographicException)
-            {
-                // Saved by another Windows user or machine: log in again.
-                return null;
-            }
-        }
-
-        return null;
-    }
+    /// <summary>A secret from the file as it is, or from whatever kept it; null when it can't be had here.</summary>
+    private string? Unprotect(string name, string stored) =>
+        stored.StartsWith(PlainMark, StringComparison.Ordinal)
+            ? stored[PlainMark.Length..]
+            : vault?.Unprotect(name, stored);
 }
 
 public sealed class ProfilesFile

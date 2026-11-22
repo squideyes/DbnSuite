@@ -64,17 +64,29 @@ public static class LoginCommand
 
             var name = parse.GetValue(session.Profile)!;
 
-            session.Profiles.Save(name, profile, secret);
+            var place = session.Profiles.Save(name, profile, secret);
 
             await session.Out.WriteLineAsync(name == Profiles.DefaultName
                 ? $"Logged in to {profile.Location}{(isFolder ? "" : $" as {profile.AccessKey}")}."
                 : $"Logged in to {profile.Location}{(isFolder ? "" : $" as {profile.AccessKey}")}, saved as {name}.").ConfigureAwait(false);
+
+            if (!isFolder && WhereKept(place, session.Profiles.SecretsPath) is { } where)
+                await session.Out.WriteLineAsync(where).ConfigureAwait(false);
 
             return Session.Ok;
         });
 
         return command;
     }
+
+    /// <summary>Where the secret went, said only where it isn't the platform's usual place.</summary>
+    internal static string? WhereKept(SecretPlace place, string secretsPath) => place switch
+    {
+        SecretPlace.Keychain => "The secret key is in your macOS Keychain.",
+        SecretPlace.SecretService => "The secret key is in your keyring.",
+        SecretPlace.File => $"No keyring was found, so the secret key is in {secretsPath}, readable by you alone.",
+        _ => null
+    };
 
     private static async Task<string?> SecretAsync(bool fromStdin, Session session)
     {

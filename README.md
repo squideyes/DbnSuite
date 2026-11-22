@@ -246,15 +246,16 @@ version 3.
 ### DbnSuite.Fetch (`dbnf`), the command-line tool
 
 `dbnf` lists the archive, prints a day's records, downloads raw files and
-exports processed ones. It is a .NET tool built as a native binary for Windows
-(x64 and ARM), macOS and Linux. The DbnSuite.Client library underneath it does the same in your own C#.
+exports processed ones. It is a .NET tool built as a native binary for Windows,
+macOS and Linux, each on x64 and ARM. The DbnSuite.Client library underneath it does the same in your own C#.
 Install it from [NuGet](https://www.nuget.org/packages/DbnSuite.Fetch) with
 `dotnet tool install -g DbnSuite.Fetch` (or `dotnet tool update -g DbnSuite.Fetch` over an
 earlier version), or take a native binary from the
 [releases](https://github.com/squideyes/DbnSuite/releases).
 
-**Log in once** with your read-only key. It asks for the secret. Windows keeps it encrypted
-for your user; macOS and Linux keep it in a file only you can read:
+**Log in once** with your read-only key. It asks for the secret, which Windows keeps
+encrypted for your user, macOS in your Keychain and Linux in your keyring. Without a
+keyring, as on a server, it goes in a file only you can read:
 
 ```bash
 dbnf login --location https://s3.example.com --access-key dbn-reader
