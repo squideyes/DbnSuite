@@ -485,6 +485,12 @@ store = db.DBNStore.from_bytes(s3.get_object(Bucket="dbn", Key=key)["Body"].read
 df = store.to_df()   # one row per event, prices in dollars, symbols mapped
 ```
 
+**The Python client** in [`Clients/python`](Clients/python) wraps that in the
+layout's rules, reads DbnTape tapes, and deals Monte Carlo sessions exactly as
+C# does. It is contributed and **largely untested**: nobody has yet used it on
+real data, so it needs Python users to adopt it, review it and tell us what's
+wrong. See its [README](Clients/python/README.md).
+
 **The `dbn` command-line tool** (`cargo install dbn-cli`) turns a downloaded
 file into CSV or JSON:
 
@@ -859,6 +865,7 @@ Aspire/AppHost                    local orchestration: workers, RustFS, Seq
 Aspire/ServiceDefaults
 Deploy/digitalocean               Droplet compose file and .env.example
 Deploy/                           NAS compose file, Caddyfile and .env.example
+Clients/python                    contributed, largely untested Python client: archive, tapes, sessions
 ```
 
 Package versions live in `Directory.Packages.props`, shared build settings in
@@ -869,7 +876,8 @@ Package versions live in `Directory.Packages.props`, shared build settings in
 Issues and pull requests are welcome at
 [github.com/squideyes/DbnSuite](https://github.com/squideyes/DbnSuite). See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the rules, how to build and test, and
-suggested contributions, such as a DbnSuite.Client in a language other than C#.
+suggested contributions. The most wanted is help with the Python client: using
+it, reviewing it and fixing it, since it is largely untested.
 
 ## Licence
 

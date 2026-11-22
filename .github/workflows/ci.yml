@@ -51,6 +51,26 @@ jobs:
       - if: runner.os == 'macOS'
         run: dotnet test Tests/DbnSuite.UnitTests -c Release --no-build --filter "FullyQualifiedName~SecretVaultsTests" --logger "console;verbosity=normal"
 
+  # The contributed Python client, on the oldest and newest Python it supports. Its fixtures
+  # are written by C# (PythonFixturesTests, in the build job), so both sides check one contract.
+  python:
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.13"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - run: pip install -e "Clients/python[test]"
+
+      - run: pytest Clients/python
+
   image:
     needs: build
     if: github.ref == 'refs/heads/main'

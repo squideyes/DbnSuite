@@ -89,6 +89,11 @@
 </p>
 <CodeBlock Title="C#" Text="@Replay" />
 <p>
+    From Python, the <a href="@Links.PythonClient">Python client</a> reads tapes into numpy arrays and deals the same
+    sessions for the same seed. It is contributed and largely untested, so check what it gives against C# before
+    relying on it.
+</p>
+<p>
     <code>S1Cursor</code> and <code>TradeCursor</code> work the same way. A cursor is a <code>ref struct</code>, so it
     lives in the replay loop and can't be stored. A compressed tape is unpacked once at load, and a damaged body fails
     the load, because its hash is checked.

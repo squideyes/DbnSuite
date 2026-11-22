@@ -484,6 +484,9 @@ $RECYCLE.BIN/
 # Tapes are derived from licensed data: they never go in a repository.
 *.tape
 
+# Except the Python client's fixtures: synthetic prices that C# generates, no market data.
+!Clients/python/tests/fixtures/tapes/**/*.tape
+
 # Nor do Databento's own files.
 *.dbn
 *.dbn.zst
