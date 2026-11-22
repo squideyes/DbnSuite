@@ -239,8 +239,8 @@ public sealed class LoginCommandTests : IDisposable
         var run = await dbnf.RunAsync(S3Login);
 
         run.ExitCode.ShouldBe(Session.Ok);
-        run.Out.ShouldStartWith(Prompt);
-        run.Out.ShouldNotContain(Typed);
+        run.Lines[0].TrimEnd().ShouldBe(Prompt.TrimEnd());
+        run.Lines.Skip(1).ShouldAllBe(line => !line.StartsWith(Typed, StringComparison.Ordinal));
         dbnf.Profiles.Secret(Profiles.DefaultName).Value.ShouldBe(Typed);
     }
 
