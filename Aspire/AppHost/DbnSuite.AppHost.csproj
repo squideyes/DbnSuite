@@ -1,11 +1,11 @@
-<Project Sdk="Aspire.AppHost.Sdk/17.0.0">
+<Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Aspire 17 C# AppHost: the plain .NET SDK, with Aspire.Hosting.AppHost for its
+       build targets and Aspire.Hosting.Dotnet for AddDotnetProject. The dashboard
+       and orchestrator come from the Aspire CLI, so run it with `aspire run`. -->
   <ItemGroup>
-    <ProjectReference Include="..\..\Core\DbnSuite.Sync.Worker\DbnSuite.Sync.Worker.csproj" />
-    <ProjectReference Include="..\..\Core\DbnSuite.Spool\DbnSuite.Spool.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+    <PackageReference Include="Aspire.Hosting.Dotnet" />
     <PackageReference Include="Aspire.Hosting.Seq" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="System.IO.Hashing" />
@@ -14,8 +14,6 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <UserSecretsId>20a6eaac-2a40-4f58-81db-4270c4dd1759</UserSecretsId>
-    <!-- Runs with `dotnet run`; the Aspire CLI bundle is not needed. -->
-    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);ASPIRE010</MSBuildWarningsAsMessages>
   </PropertyGroup>
 
 </Project>

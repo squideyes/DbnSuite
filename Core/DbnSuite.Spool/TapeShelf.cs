@@ -48,8 +48,11 @@ public sealed class S3TapeShelf(ArchiveOptions options) : ITapeShelf, IDisposabl
 
     public async Task EnsureReadyAsync(CancellationToken cancel)
     {
+        // The bucket's region is the store's own, not AWS_REGION's (see S3ArchiveStore).
         if (!await AmazonS3Util.DoesS3BucketExistV2Async(s3, options.Bucket).ConfigureAwait(false))
-            await s3.PutBucketAsync(new PutBucketRequest { BucketName = options.Bucket }, cancel).ConfigureAwait(false);
+            await s3.PutBucketAsync(
+                new PutBucketRequest { BucketName = options.Bucket, BucketRegionName = options.Region }, cancel)
+                .ConfigureAwait(false);
     }
 
     public Task PutFileAsync(string key, string path, CancellationToken cancel) =>

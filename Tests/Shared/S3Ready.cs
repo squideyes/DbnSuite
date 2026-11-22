@@ -1,6 +1,7 @@
 using System.Net;
 using Amazon.Runtime;
 using Amazon.S3;
+using Amazon.S3.Model;
 using DotNet.Testcontainers.Configurations;
 using DotNet.Testcontainers.Containers;
 
@@ -14,6 +15,7 @@ namespace DbnSuite.Testing;
 internal sealed class S3Ready(string accessKey, string secretKey, int port) : IWaitUntil
 {
     private const string Probe = "ready-probe";
+    private const string Region = "us-east-1";
 
     public async Task<bool> UntilAsync(IContainer container)
     {
@@ -21,13 +23,13 @@ internal sealed class S3Ready(string accessKey, string secretKey, int port) : IW
         {
             ServiceURL = $"http://{container.Hostname}:{container.GetMappedPublicPort(port)}",
             ForcePathStyle = true,
-            AuthenticationRegion = "us-east-1",
+            AuthenticationRegion = Region,
             MaxErrorRetry = 0
         });
 
         try
         {
-            await s3.PutBucketAsync(Probe);
+            await s3.PutBucketAsync(new PutBucketRequest { BucketName = Probe, BucketRegionName = Region });
 
             return true;
         }

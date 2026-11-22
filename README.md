@@ -545,14 +545,17 @@ as JSON.
 
 ## Run locally
 
-Requires the .NET 11 SDK and Docker.
+Requires the .NET 11 SDK, Docker and the Aspire CLI, which brings Aspire's
+dashboard. Install the CLI with `irm https://aspire.dev/install.ps1 | iex` on
+Windows or `curl -sSL https://aspire.dev/install.sh | bash` on macOS and Linux,
+and keep it current with `aspire update --self`.
 
 ```bash
 dotnet user-secrets set "Parameters:databento-api-key" "<key>" --project Aspire/AppHost
 ```
 
 ```bash
-dotnet run --project Aspire/AppHost
+aspire run --apphost Aspire/AppHost/DbnSuite.AppHost.csproj
 ```
 
 The AppHost starts a RustFS S3 server and Seq, and links the dashboard to Seq.

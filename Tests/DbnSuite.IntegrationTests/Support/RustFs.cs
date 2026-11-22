@@ -10,7 +10,7 @@ public sealed class RustFs : IAsyncLifetime
     public const string AccessKey = "dbnsuite-integration";
     public const string SecretKey = "dbnsuite-integration-secret";
 
-    private const string Image = "rustfs/rustfs:1.0.4";
+    private const string Image = "rustfs/rustfs:1.0.5";
     private const int S3Port = 9000;
 
     private readonly IContainer server = new ContainerBuilder(Image)

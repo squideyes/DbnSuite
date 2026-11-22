@@ -14,12 +14,13 @@ namespace DbnSuite.UnitTests.ClientTests;
 /// <summary>The library's reads against a real S3 server, laid out as the worker writes it.</summary>
 public sealed class S3ObjectStoreTests : IAsyncLifetime
 {
-    private const string Image = "rustfs/rustfs:1.0.4";
+    private const string Image = "rustfs/rustfs:1.0.5";
     private const string AccessKey = "dbnsync-tests";
     private const string SecretKey = "dbnsync-tests-secret";
     private const string WrongSecret = "not-the-secret";
     private const string Bucket = "dbn";
     private const string Prefix = "archive";
+    private const string Region = "us-east-1";
     private const int S3Port = 9000;
 
     private static readonly byte[] Content = [1, 2, 3, 4, 5];
@@ -44,9 +45,9 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
         endpoint = $"http://{server.Hostname}:{server.GetMappedPublicPort(S3Port)}";
 
         using var s3 = new AmazonS3Client(new BasicAWSCredentials(AccessKey, SecretKey),
-            new AmazonS3Config { ServiceURL = endpoint, ForcePathStyle = true, AuthenticationRegion = "us-east-1" });
+            new AmazonS3Config { ServiceURL = endpoint, ForcePathStyle = true, AuthenticationRegion = Region });
 
-        await s3.PutBucketAsync(Bucket);
+        await s3.PutBucketAsync(new PutBucketRequest { BucketName = Bucket, BucketRegionName = Region });
         await PutAsync(s3, DbnSyncLayout.Data(Dataset, Mbo, Root, Day(10, 30)), Content);
         await PutAsync(s3, DbnSyncLayout.Empty(Dataset, Mbo, Root, Day(10, 31)), []);
         await PutAsync(s3, DbnSyncLayout.Data(Dataset, Mbo, Root, Day(11, 2)), Content);
@@ -275,7 +276,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
         const int MoreThanAPage = 1001;
         const string Folder = "paged/";
         using var s3 = new AmazonS3Client(new BasicAWSCredentials(AccessKey, SecretKey),
-            new AmazonS3Config { ServiceURL = endpoint, ForcePathStyle = true, AuthenticationRegion = "us-east-1" });
+            new AmazonS3Config { ServiceURL = endpoint, ForcePathStyle = true, AuthenticationRegion = Region });
 
         await Parallel.ForEachAsync(Enumerable.Range(0, MoreThanAPage), new ParallelOptions { MaxDegreeOfParallelism = 16 },
             async (i, cancel) => await PutAsync(s3, $"{Folder}{i}/x", []));
