@@ -21,6 +21,13 @@ and the changelog.
 | `Aspire/AppHost` | Local orchestration | Not shipped |
 | `Deploy` | Self-hosting: RustFS, Seq, Caddy | Compose files |
 | `Deploy/digitalocean` | A Droplet with a Space as the store | Compose files |
+| `Clients/python` | A contributed Python client, largely untested | Not published yet |
+
+The Python client reads the archive and tapes, and deals sessions, as C# does. C#'s
+`PythonFixturesTests` writes its fixtures and checks C# still matches them. When the tape format
+or the sampler changes, run that test with `DBNSUITE_WRITE_FIXTURES=1`, then
+`pytest Clients/python`. The client never rebuilds books, bars or back-adjustment: those stay in
+C#, behind `dbnf export`.
 
 ## Dependencies: always upgrade, never pin back
 

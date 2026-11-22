@@ -60,6 +60,14 @@
 <h2 id="python">Python</h2>
 <p>With <code>boto3</code> and Databento's own <code>databento</code> package, which reads DBN into a pandas DataFrame:</p>
 <CodeBlock Title="Python" Text="@Python" />
+<p>
+    <strong>The Python client</strong>, in <a href="@Links.PythonClient">Clients/python</a>, wraps that in the
+    <a href="docs/layout">layout</a>'s rules, so a day never fetched is never taken for a day without trading. It
+    also reads DbnTape tapes and deals Monte Carlo sessions exactly as C# does. It is contributed and
+    <strong>largely untested</strong>: its tests check it against C# on synthetic data, but nobody has yet used it
+    on a real archive. It needs Python users to adopt it, review it and say what's wrong, in
+    <a href="@Links.PythonIssues">issues with the python label</a> or a pull request.
+</p>
 
 <h2 id="dbn">Databento's dbn tool</h2>
 <p>The <code>dbn</code> command (<code>cargo install dbn-cli</code>) turns a downloaded file into CSV or JSON:</p>

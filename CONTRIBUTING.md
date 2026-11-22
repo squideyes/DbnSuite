@@ -65,25 +65,42 @@ WebAssembly app.
 These are things SquidEyes won't build, because it can't use or test them, but
 would gladly take from someone who can.
 
-### DbnClient in other languages
+### Clients in other languages
 
-DbnClient is C# only, and SquidEyes has no plans to port it. If you want one in
-Python, Rust, C++, Go or anything else, write it and send a pull request. Anything
-that speaks S3 and reads DBN can already use an archive, so
-[The archive](https://dbnsuite.squideyes.com/docs/archive) is the place to start.
+DbnSuite.Client is C#. Anything that speaks S3 and reads DBN can already use an
+archive, so [The archive](https://dbnsuite.squideyes.com/docs/archive) is the
+place to start.
 
-A client in another language should:
+**Python has a start, and it needs you.** [`Clients/python`](Clients/python) reads
+an archive and DbnTape tapes, and deals Monte Carlo sessions exactly as C# does. It
+is **largely untested**:
+- Its tests check it against the C# code on synthetic tapes and a stand-in archive.
+- SquidEyes doesn't use Python, so nobody has yet run it on a real archive or real
+  tapes, or tried it in real research.
+
+It needs people who work in Python to adopt it, review it, try it on their own data,
+and fix or reshape what doesn't suit how they work, so expect its API to change. Its
+work is tracked in [#73](https://github.com/squideyes/DbnSuite/issues/73) and
+[#74](https://github.com/squideyes/DbnSuite/issues/74). Issues and pull requests
+with the `python` label are welcome, from a one-line fix to taking it over.
+
+Clients in Rust, C++, Go, R or anything else are welcome too. Say so in
+[#1](https://github.com/squideyes/DbnSuite/issues/1) before you start. A client in
+another language should:
 
 - live under `Clients/<language>/`, with its own README, build and tests;
 - follow the [data layout](https://dbnsuite.squideyes.com/docs/layout) exactly, so that it
   reads the same archive and writes the same files as `dbnf`;
 - use Databento's own open-source DBN libraries rather than a new decoder;
+- if it reads tapes or deals sessions, pass the fixtures C# writes
+  (`PythonFixturesTests` shows how), so a seed means the same thing in every language;
+- leave rebuilt books, bars and back-adjustment to `dbnf export`, so there is one
+  engine and every language gets the same numbers;
 - pass its tests in CI, using generated data only;
-- carry the notices, and say plainly that it is contributed: its contributor
-  maintains it, SquidEyes doesn't test or support it, and people use it at their
-  own risk.
+- carry the notices, and say plainly at the top of its README that it is contributed
+  and largely untested, so people use it at their own risk.
 
-A contributed client whose maintainer stops responding for six months is removed.
+A contributed client that nobody maintains or uses for six months may be removed.
 
 ### Dataset profiles
 
