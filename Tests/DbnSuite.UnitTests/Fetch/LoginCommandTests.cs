@@ -19,6 +19,7 @@ public sealed class LoginCommandTests : IDisposable
     private const string NotALayout = "so it is not in a layout DbnClient knows";
     private const string ClosedPort = "http://127.0.0.1:1";
     private const string Typed = "ab";
+    private const string SecretsPath = "secrets.json";
 
     private readonly Dbnf dbnf = new();
     private readonly FakeS3 s3;
@@ -141,8 +142,26 @@ public sealed class LoginCommandTests : IDisposable
         var run = await dbnf.RunAsync($"{S3Login} --secret-stdin");
 
         run.ExitCode.ShouldBe(Session.Ok);
-        run.Lines.ShouldBe([$"Logged in to {s3.Location} as {TestKey.Access}."]);
+        run.Lines[0].ShouldBe($"Logged in to {s3.Location} as {TestKey.Access}.");
         dbnf.Profiles.Secret(Profiles.DefaultName).Value.ShouldBe(TestKey.Secret);
+    }
+
+    [Theory]
+    [InlineData(SecretPlace.Keychain, "macOS Keychain")]
+    [InlineData(SecretPlace.SecretService, "keyring")]
+    [InlineData(SecretPlace.File, "readable by you alone")]
+    public void Login_says_where_the_secret_went_off_windows(SecretPlace place, string said)
+    {
+        var where = DbnSuite.Fetch.Commands.LoginCommand.WhereKept(place, SecretsPath);
+
+        where.ShouldNotBeNull();
+        where.ShouldContain(said);
+    }
+
+    [Fact]
+    public void On_windows_the_usual_place_needs_no_saying()
+    {
+        DbnSuite.Fetch.Commands.LoginCommand.WhereKept(SecretPlace.Encrypted, SecretsPath).ShouldBeNull();
     }
 
     [Fact]
@@ -162,7 +181,7 @@ public sealed class LoginCommandTests : IDisposable
 
         var run = await dbnf.RunAsync($"{S3Login} --secret-stdin --profile {Work}");
 
-        run.Lines.ShouldBe([$"Logged in to {s3.Location} as {TestKey.Access}, saved as {Work}."]);
+        run.Lines[0].ShouldBe($"Logged in to {s3.Location} as {TestKey.Access}, saved as {Work}.");
     }
 
     [Fact]
@@ -220,8 +239,8 @@ public sealed class LoginCommandTests : IDisposable
         var run = await dbnf.RunAsync(S3Login);
 
         run.ExitCode.ShouldBe(Session.Ok);
-        run.Out.ShouldStartWith(Prompt);
-        run.Out.ShouldNotContain(Typed);
+        run.Lines[0].TrimEnd().ShouldBe(Prompt.TrimEnd());
+        run.Lines.Skip(1).ShouldAllBe(line => !line.StartsWith(Typed, StringComparison.Ordinal));
         dbnf.Profiles.Secret(Profiles.DefaultName).Value.ShouldBe(Typed);
     }
 

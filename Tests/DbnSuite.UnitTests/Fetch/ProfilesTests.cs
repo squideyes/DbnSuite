@@ -379,4 +379,155 @@ public sealed class ProfilesTests : IDisposable
 
     private const string Garbled = "{ \"profiles\": ";
     private const string DamagedCopy = ".damaged";
+
+    /// <summary>A keyring in memory, which can be told to refuse or to lose what it kept.</summary>
+    private sealed class MemoryVault : ISecretVault
+    {
+        public const string Mark = "memory:";
+
+        public Dictionary<string, string> Kept { get; } = [];
+
+        public bool Refuses { get; set; }
+
+        public SecretPlace Place => SecretPlace.Keychain;
+
+        public string? Protect(string account, string secret)
+        {
+            if (Refuses)
+                return null;
+
+            Kept[account] = secret;
+
+            return Mark;
+        }
+
+        public string? Unprotect(string account, string stored) =>
+            stored == Mark ? Kept.GetValueOrDefault(account) : null;
+
+        public void Forget(string account, string stored)
+        {
+            if (stored == Mark)
+                Kept.Remove(account);
+        }
+    }
+
+    private readonly MemoryVault vault = new();
+
+    private Profiles WithVault() => new(folder, vault);
+
+    [Fact]
+    public void With_a_keyring_the_secret_never_reaches_the_secrets_file()
+    {
+        var place = WithVault().Save(Work, Profile, Secret);
+
+        place.ShouldBe(SecretPlace.Keychain);
+        File.ReadAllText(PathOf(SecretsFile)).ShouldNotContain(Secret);
+        WithVault().Resolve(Work).Value!.SecretKey.ShouldBe(Secret);
+    }
+
+    [Fact]
+    public void When_the_keyring_refuses_the_secret_stays_in_the_file()
+    {
+        vault.Refuses = true;
+
+        var place = WithVault().Save(Work, Profile, Secret);
+
+        place.ShouldBe(SecretPlace.File);
+        WithVault().Secret(Work).Value.ShouldBe(Secret);
+    }
+
+    [Fact]
+    public void Without_a_keyring_off_windows_the_secret_is_in_the_file()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        Profiles().Save(Work, Profile, Secret).ShouldBe(SecretPlace.File);
+    }
+
+    [Fact]
+    public void A_login_saved_in_the_file_still_works_once_there_is_a_keyring()
+    {
+        WriteSecret(PlainMark + Secret);
+
+        WithVault().Secret(Work).Value.ShouldBe(Secret);
+    }
+
+    [Fact]
+    public void A_removed_login_leaves_nothing_in_the_keyring()
+    {
+        WithVault().Save(Work, Profile, Secret);
+
+        WithVault().Remove(Work);
+
+        vault.Kept.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Logging_in_again_where_the_keyring_refuses_leaves_nothing_behind_in_it()
+    {
+        WithVault().Save(Work, Profile, Secret);
+        vault.Refuses = true;
+
+        WithVault().Save(Work, Profile, OtherSecret);
+
+        vault.Kept.ShouldBeEmpty();
+        WithVault().Secret(Work).Value.ShouldBe(OtherSecret);
+    }
+
+    [Fact]
+    public void A_secret_the_keyring_has_lost_means_logging_in_again()
+    {
+        WithVault().Save(Work, Profile, Secret);
+        vault.Kept.Clear();
+
+        WithVault().Secret(Work).Value.ShouldBeNull();
+    }
+
+    [Fact]
+    public void A_keyring_secret_cannot_be_read_without_the_keyring()
+    {
+        WithVault().Save(Work, Profile, Secret);
+
+        new Profiles(folder, null).Secret(Work).Value.ShouldBeNull();
+    }
+
+    [Fact]
+    public void On_linux_the_cache_follows_xdg_cache_home()
+    {
+        if (!OperatingSystem.IsLinux())
+            return;
+
+        DbnSuite.Fetch.Profiles.CacheFolder(XdgCache).ShouldBe(Path.Combine(XdgCache, AppFolder));
+    }
+
+    [Fact]
+    public void A_relative_xdg_cache_home_is_ignored_as_the_spec_says()
+    {
+        DbnSuite.Fetch.Profiles.CacheFolder(RelativeXdgCache).ShouldBe(DbnSuite.Fetch.Profiles.CacheFolder(null));
+    }
+
+    [Fact]
+    public void Off_windows_without_xdg_cache_home_the_cache_is_in_dot_cache()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        DbnSuite.Fetch.Profiles.CacheFolder(null).ShouldBe(
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), DotCache, AppFolder));
+    }
+
+    [Fact]
+    public void On_macos_xdg_cache_home_is_not_used()
+    {
+        if (!OperatingSystem.IsMacOS())
+            return;
+
+        DbnSuite.Fetch.Profiles.CacheFolder(XdgCache).ShouldBe(DbnSuite.Fetch.Profiles.CacheFolder(null));
+    }
+
+    private const string PlainMark = "plain:";
+    private const string XdgCache = "/var/tmp/xdg-cache";
+    private const string RelativeXdgCache = "relative/cache";
+    private const string DotCache = ".cache";
 }
