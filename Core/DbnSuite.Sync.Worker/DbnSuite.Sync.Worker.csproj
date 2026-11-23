@@ -4,6 +4,7 @@
     <ProjectReference Include="..\DbnSuite.Sync.Core\DbnSuite.Sync.Core.csproj" />
     <ProjectReference Include="..\DbnSuite.Sync.Data\DbnSuite.Sync.Data.csproj" />
     <ProjectReference Include="..\..\Aspire\ServiceDefaults\DbnSuite.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\DbnSuite.Alerts\DbnSuite.Alerts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

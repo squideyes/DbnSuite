@@ -1,5 +1,5 @@
 # DbnSync worker. Build from the repository root:
-#   docker build -t dbnsync .
+#   docker build -f Dockerfile.sync -t dbnsync .
 
 FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src

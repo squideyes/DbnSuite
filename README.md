@@ -894,6 +894,7 @@ problem is emailed again). Alerts are on once `Host` and `To` are set; ports
 Core/DbnSuite.Sync.Core           planning, windows, keys, the sync pass, issue explanations; no I/O
 Core/DbnSuite.Sync.Data           Databento HTTP client, S3 store
 Core/DbnSuite.Sync.Worker         host: background loop, Blazor dashboard, /status, /health
+Core/DbnSuite.Alerts              alert emails, shared by the DbnSync and DbnSpool workers
 Core/DbnSuite.Client              library: the archive, DBN files, contracts, rolls, sessions, calendars, bars, export, Parquet, tapes
 Core/DbnSuite.Fetch               the dbnf tool, a Native AOT .NET tool
 Core/DbnSuite.Spool               optional worker: keeps tapes up to date in a second store
@@ -901,13 +902,14 @@ Core/DbnSuite.Site                The website: Blazor WebAssembly, published to 
 Tests/DbnSuite.UnitTests          xUnit, Shouldly, NSubstitute, bUnit
 Tests/DbnSuite.IntegrationTests   the worker against a made-up Databento and RustFS through Testcontainers
 Aspire/AppHost                    local orchestration: workers, RustFS, Seq
-Aspire/ServiceDefaults
+Aspire/ServiceDefaults            OpenTelemetry, health checks and resilience for both workers
 Deploy/digitalocean               Droplet compose file and .env.example
 Deploy/                           NAS compose file, Caddyfile and .env.example
 Clients/python                    contributed, largely untested Python client: archive, tapes, sessions
 ```
 
-Package versions live in `Directory.Packages.props`, shared build settings in
+`Dockerfile.sync` and `Dockerfile.spool` build the two worker images from the
+repository root. Package versions live in `Directory.Packages.props`, shared build settings in
 `Directory.Build.props`, and `nuget.config` restores from nuget.org only.
 
 ## Contributing
