@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <!-- DbnSuite.Tests.*, not DbnSuite.Client.Tests.*: under DbnSuite.Client, the namespace
+         DbnSuite.Client.Tape would hide the Tape type wherever a test names it. -->
+    <RootNamespace>DbnSuite.Tests.Fetch</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Parquet.Net" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="DbnSuite.Testing" />
+  </ItemGroup>
+
+  <!-- Helpers shared with the other test projects, in Tests/Shared. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\TestData.cs" Link="Shared\TestData.cs" />
+    <Compile Include="..\Shared\ArchiveFolder.cs" Link="Shared\ArchiveFolder.cs" />
+    <Compile Include="..\Shared\DbnBytes.cs" Link="Shared\DbnBytes.cs" />
+    <Compile Include="..\Shared\TapeFixture.cs" Link="Shared\TapeFixture.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\DbnSuite.Fetch\DbnSuite.Fetch.csproj" />
+  </ItemGroup>
+
+</Project>

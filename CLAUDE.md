@@ -91,6 +91,12 @@ same pull request as the code, never in a later one.
   nice -n 10 dotnet test DbnSuite.slnx -c Release --no-build -- xUnit.MaxParallelThreads=1
   ```
 
+- **One test project per product.** `Tests/DbnSuite.Client.Tests`, `.Fetch.Tests`,
+  `.Sync.Tests`, `.Spool.Tests` and `.Alerts.Tests` mirror their products' folders, with
+  namespaces under `DbnSuite.Tests.<Product>`, never `DbnSuite.<Product>.Tests`, where
+  `DbnSuite.Client.Tape` would hide the `Tape` type. Helpers more than one project uses are in
+  `Tests/Shared`, under `DbnSuite.Testing`, linked by each project that needs them. After a change
+  to one product, run its project first, then the whole solution.
 - **Run tests gently on the maintainer's PCs:** at low priority, on one thread,
   as above. A CPU stress test once crashed one of them. Anything heavy, such as
   load, soak, benchmarks or wide parallel runs, belongs in CI.

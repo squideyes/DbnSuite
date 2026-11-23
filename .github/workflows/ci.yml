@@ -45,11 +45,16 @@ jobs:
         with:
           global-json-file: global.json
 
-      - run: dotnet test Tests/DbnSuite.UnitTests -c Release --filter "FullyQualifiedName!~S3ObjectStoreTests&FullyQualifiedName!~S3ArchiveStoreTests"
+      # Every unit test project; the integration tests need Linux containers too.
+      - shell: bash
+        run: |
+          for project in Tests/DbnSuite.*.Tests; do
+            dotnet test "$project" -c Release --filter "FullyQualifiedName!~S3ObjectStoreTests&FullyQualifiedName!~S3ArchiveStoreTests"
+          done
 
       # The real Keychain round trip runs on macOS only; name each test, so a skip would show.
       - if: runner.os == 'macOS'
-        run: dotnet test Tests/DbnSuite.UnitTests -c Release --no-build --filter "FullyQualifiedName~SecretVaultsTests" --logger "console;verbosity=normal"
+        run: dotnet test Tests/DbnSuite.Fetch.Tests -c Release --no-build --filter "FullyQualifiedName~SecretVaultsTests" --logger "console;verbosity=normal"
 
   # The contributed Python client, on the oldest and newest Python it supports. Its fixtures
   # are written by C# (PythonFixturesTests, in the build job), so both sides check one contract.

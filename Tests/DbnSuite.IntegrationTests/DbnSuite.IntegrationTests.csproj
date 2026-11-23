@@ -35,7 +35,7 @@
 
   <!-- One definition of the DBN byte layout, shared with the unit tests. -->
   <ItemGroup>
-    <Compile Include="..\DbnSuite.UnitTests\Client\DbnBytes.cs" Link="Support\DbnBytes.cs" />
+    <Compile Include="..\Shared\DbnBytes.cs" Link="Support\DbnBytes.cs" />
   </ItemGroup>
 
 </Project>

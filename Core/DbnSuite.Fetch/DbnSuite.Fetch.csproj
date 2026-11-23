@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="DbnSuite.UnitTests" />
+    <InternalsVisibleTo Include="DbnSuite.Fetch.Tests" />
   </ItemGroup>
 
   <ItemGroup>

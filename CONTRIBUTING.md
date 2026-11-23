@@ -43,7 +43,18 @@ pip install -e "Clients/python[test]"
 pytest Clients/python
 ```
 
-Warnings are errors. `Tests/DbnSuite.UnitTests` holds the unit tests.
+Warnings are errors. The unit tests are in a project for each product:
+`Tests/DbnSuite.Client.Tests`, `DbnSuite.Fetch.Tests`, `DbnSuite.Sync.Tests`
+(DbnSync's core, data, worker and deploy files), `DbnSuite.Spool.Tests` and
+`DbnSuite.Alerts.Tests`. Each test project's folders mirror the project it
+tests, and its namespaces follow its folders under `DbnSuite.Tests.<Product>`.
+Helpers more than one project needs are in `Tests/Shared`, under
+`DbnSuite.Testing`, and each project links the ones it uses.
+To run one product's tests, name its project:
+
+```bash
+dotnet test Tests/DbnSuite.Client.Tests
+```
 `Tests/DbnSuite.IntegrationTests` runs the real worker against a real S3 server
 and a fake Databento gateway. The site is `Core/DbnSuite.Site`, a Blazor
 WebAssembly app. `Clients/python/tests` holds the Python client's tests, against
