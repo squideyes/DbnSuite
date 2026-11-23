@@ -11,6 +11,8 @@ public static class Links
     public const string Releases = GitHub + "/releases";
     public const string PythonClient = GitHub + "/tree/main/Clients/python";
     public const string PythonIssues = GitHub + "/issues?q=is%3Aopen+label%3Apython";
+    public const string PythonExamples = GitHub + "/tree/main/Clients/python/examples";
+    public const string Samples = GitHub + "/tree/main/Samples/DbnSuite.Samples";
 
     public const string NuGetClient = "https://www.nuget.org/packages/DbnSuite.Client";
     public const string NuGetFetch = "https://www.nuget.org/packages/DbnSuite.Fetch";

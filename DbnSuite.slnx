@@ -54,11 +54,15 @@
     <File Path="Deploy/digitalocean/.env.example" />
     <File Path="Deploy/digitalocean/docker-compose.yml" />
   </Folder>
+  <Folder Name="/Samples/">
+    <Project Path="Samples/DbnSuite.Samples/DbnSuite.Samples.csproj" />
+  </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/DbnSuite.Alerts.Tests/DbnSuite.Alerts.Tests.csproj" />
     <Project Path="Tests/DbnSuite.Client.Tests/DbnSuite.Client.Tests.csproj" />
     <Project Path="Tests/DbnSuite.Fetch.Tests/DbnSuite.Fetch.Tests.csproj" />
     <Project Path="Tests/DbnSuite.IntegrationTests/DbnSuite.IntegrationTests.csproj" />
+    <Project Path="Tests/DbnSuite.Samples.Tests/DbnSuite.Samples.Tests.csproj" />
     <Project Path="Tests/DbnSuite.Spool.Tests/DbnSuite.Spool.Tests.csproj" />
     <Project Path="Tests/DbnSuite.Sync.Tests/DbnSuite.Sync.Tests.csproj" />
   </Folder>

@@ -901,6 +901,7 @@ Core/DbnSuite.Spool               optional worker: keeps tapes up to date in a s
 Core/DbnSuite.Site                The website: Blazor WebAssembly, published to GitHub Pages
 Tests/DbnSuite.*.Tests            unit tests, one project for each product: Client, Fetch, Sync, Spool, Alerts
 Tests/Shared                      test helpers more than one test project links
+Samples/DbnSuite.Samples          the C# the docs quote, as a program its tests run
 Tests/DbnSuite.IntegrationTests   the worker against a made-up Databento and RustFS through Testcontainers
 Aspire/AppHost                    local orchestration: workers, RustFS, Seq
 Aspire/ServiceDefaults            OpenTelemetry, health checks and resilience for both workers

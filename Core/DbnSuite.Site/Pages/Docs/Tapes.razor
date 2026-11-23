@@ -82,6 +82,10 @@
 
 <h2 id="replay">Replay in C#</h2>
 <p>
+    The C# on this page is in <a href="@Links.Samples">Samples/DbnSuite.Samples</a>, which runs it on synthetic tapes:
+    <code>dotnet run --project Samples/DbnSuite.Samples -- tapes Clients/python/tests/fixtures</code>.
+</p>
+<p>
     Tapes are part of <a href="docs/dbnclient">DbnSuite.Client</a>, in <code>DbnSuite.Client.Tape</code>. A tape loads once as a
     byte array, and a cursor walks it. Loading is async and returns a <code>Result</code>; replay is synchronous and
     creates no objects per event. Prices are <code>int</code> ticks, sizes are <code>uint</code>, and times are
@@ -432,6 +436,8 @@
                         strategy.OnTrade(cursor.TradePrice, cursor.TradePrice + day.Offset, canTrade: !day.IsWarmup);
                 }
             }
+
+            strategy.OnRunEnd(run);
         }
         """;
 
