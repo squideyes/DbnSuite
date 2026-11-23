@@ -54,7 +54,7 @@ public sealed class TapeTests
         {
             using var stream = new ForwardOnlyStream(bytes[..length]);
 
-            var loaded = await Tape.LoadAsync(stream, CancellationToken.None);
+            var loaded = await Tape.LoadAsync(stream, TestContext.Current.CancellationToken);
 
             loaded.IsSuccess.ShouldBeFalse($"length {length}");
         }
@@ -76,7 +76,7 @@ public sealed class TapeTests
         var bytes = await SmallTapeAsync(compress: false);
         using var stream = new ForwardOnlyStream([.. bytes, 0]);
 
-        var loaded = await Tape.LoadAsync(stream, CancellationToken.None);
+        var loaded = await Tape.LoadAsync(stream, TestContext.Current.CancellationToken);
 
         loaded.Error!.Code.ShouldBe(TapeErrors.Corrupt);
     }
@@ -87,7 +87,7 @@ public sealed class TapeTests
         var bytes = await SmallTapeAsync(compress: false);
         using var stream = new ForwardOnlyStream(bytes[..TapeHeader.Size]);
 
-        var header = await Tape.ReadHeaderAsync(stream, CancellationToken.None);
+        var header = await Tape.ReadHeaderAsync(stream, TestContext.Current.CancellationToken);
 
         header.Value.Symbol.ShouldBe(TapeFixture.Symbol);
         header.Value.TradeDate.ShouldBe(TapeFixture.TradeDate);
@@ -99,7 +99,7 @@ public sealed class TapeTests
     {
         using var stream = new MemoryStream("This is not a tape."u8.ToArray());
 
-        var header = await Tape.ReadHeaderAsync(stream, CancellationToken.None);
+        var header = await Tape.ReadHeaderAsync(stream, TestContext.Current.CancellationToken);
 
         header.Error!.Code.ShouldBe(TapeErrors.NotATape);
     }
@@ -221,7 +221,7 @@ public sealed class TapeTests
     {
         var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.tape");
 
-        var loaded = await Tape.LoadAsync(path, CancellationToken.None);
+        var loaded = await Tape.LoadAsync(path, TestContext.Current.CancellationToken);
 
         loaded.Error!.Code.ShouldBe(TapeErrors.Io);
     }

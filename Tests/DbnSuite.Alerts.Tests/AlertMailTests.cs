@@ -27,7 +27,7 @@ public sealed class AlertMailTests
     [Fact]
     public async Task A_problem_is_emailed_with_its_title_in_the_subject()
     {
-        var sent = await Mail().RaiseAsync(Source, [Refused], CancellationToken.None);
+        var sent = await Mail().RaiseAsync(Source, [Refused], TestContext.Current.CancellationToken);
 
         sent.ShouldBeTrue();
         await sender.Received(1).SendAsync("DbnSync: Databento refused (ES mbo)",
@@ -37,7 +37,7 @@ public sealed class AlertMailTests
     [Fact]
     public async Task Several_problems_go_in_one_email()
     {
-        await Mail().RaiseAsync(Source, [Refused, Crashed, Refused], CancellationToken.None);
+        await Mail().RaiseAsync(Source, [Refused, Crashed, Refused], TestContext.Current.CancellationToken);
 
         await sender.Received(1).SendAsync("DbnSync: Databento refused (ES mbo), and 1 more",
             Arg.Is<string>(b => b.Contains("S3 is down.")), Arg.Any<CancellationToken>());
@@ -48,9 +48,9 @@ public sealed class AlertMailTests
     {
         var mail = Mail();
 
-        await mail.RaiseAsync(Source, [Refused], CancellationToken.None);
+        await mail.RaiseAsync(Source, [Refused], TestContext.Current.CancellationToken);
         clock.Advance(TimeSpan.FromHours(23));
-        var again = await mail.RaiseAsync(Source, [Refused], CancellationToken.None);
+        var again = await mail.RaiseAsync(Source, [Refused], TestContext.Current.CancellationToken);
 
         again.ShouldBeFalse();
         await sender.Received(1).SendAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -61,9 +61,9 @@ public sealed class AlertMailTests
     {
         var mail = Mail();
 
-        await mail.RaiseAsync(Source, [Refused], CancellationToken.None);
+        await mail.RaiseAsync(Source, [Refused], TestContext.Current.CancellationToken);
         clock.Advance(TimeSpan.FromHours(24));
-        var again = await mail.RaiseAsync(Source, [Refused], CancellationToken.None);
+        var again = await mail.RaiseAsync(Source, [Refused], TestContext.Current.CancellationToken);
 
         again.ShouldBeTrue();
         await sender.Received(2).SendAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -74,8 +74,8 @@ public sealed class AlertMailTests
     {
         var mail = Mail();
 
-        await mail.RaiseAsync(Source, [Refused], CancellationToken.None);
-        await mail.RaiseAsync(Source, [Refused, Crashed], CancellationToken.None);
+        await mail.RaiseAsync(Source, [Refused], TestContext.Current.CancellationToken);
+        await mail.RaiseAsync(Source, [Refused, Crashed], TestContext.Current.CancellationToken);
 
         await sender.Received(1).SendAsync("DbnSync: Pass crashed",
             Arg.Is<string>(b => !b.Contains("401: bad key.")), Arg.Any<CancellationToken>());
@@ -88,8 +88,8 @@ public sealed class AlertMailTests
         sender.SendAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromException(new IOException("no route")), Task.CompletedTask);
 
-        var first = await mail.RaiseAsync(Source, [Refused], CancellationToken.None);
-        var second = await mail.RaiseAsync(Source, [Refused], CancellationToken.None);
+        var first = await mail.RaiseAsync(Source, [Refused], TestContext.Current.CancellationToken);
+        var second = await mail.RaiseAsync(Source, [Refused], TestContext.Current.CancellationToken);
 
         first.ShouldBeFalse();
         second.ShouldBeTrue();
@@ -100,11 +100,11 @@ public sealed class AlertMailTests
     {
         var mail = Mail(host: "");
 
-        var sent = await mail.RaiseAsync(Source, [Refused], CancellationToken.None);
+        var sent = await mail.RaiseAsync(Source, [Refused], TestContext.Current.CancellationToken);
 
         sent.ShouldBeFalse();
         mail.Describe().ShouldStartWith("off");
-        await sender.DidNotReceiveWithAnyArgs().SendAsync(default!, default!, default);
+        await sender.DidNotReceiveWithAnyArgs().SendAsync(default!, default!, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -130,9 +130,9 @@ public sealed class AlertMailTests
     [Fact]
     public async Task No_problems_send_nothing()
     {
-        var sent = await Mail().RaiseAsync(Source, [], CancellationToken.None);
+        var sent = await Mail().RaiseAsync(Source, [], TestContext.Current.CancellationToken);
 
         sent.ShouldBeFalse();
-        await sender.DidNotReceiveWithAnyArgs().SendAsync(default!, default!, default);
+        await sender.DidNotReceiveWithAnyArgs().SendAsync(default!, default!, TestContext.Current.CancellationToken);
     }
 }

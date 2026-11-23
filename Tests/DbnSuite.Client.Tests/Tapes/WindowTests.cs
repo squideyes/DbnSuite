@@ -173,7 +173,7 @@ public sealed class WindowTests
         var bytes = await TapeFixture.ToBytesAsync(Trades());
         using var stream = new MemoryStream(bytes);
 
-        var loaded = await Tape.LoadAsync(stream, Window.Rth, CancellationToken.None);
+        var loaded = await Tape.LoadAsync(stream, Window.Rth, TestContext.Current.CancellationToken);
         var whole = await TapeFixture.LoadAsync(bytes);
 
         loaded.Value.IsRthOnly.ShouldBeTrue();
@@ -187,7 +187,7 @@ public sealed class WindowTests
         var bytes = await TapeFixture.ToBytesAsync(Trades());
         using var stream = new MemoryStream(bytes);
 
-        var loaded = await Tape.LoadAsync(stream, Window.Rth, CancellationToken.None);
+        var loaded = await Tape.LoadAsync(stream, Window.Rth, TestContext.Current.CancellationToken);
 
         Should.Throw<InvalidOperationException>(() => loaded.Value.TradeCursor());
     }
@@ -198,7 +198,7 @@ public sealed class WindowTests
         var bytes = await TapeFixture.ToBytesAsync(Trades(compress: true));
         using var stream = new MemoryStream(bytes);
 
-        var loaded = await Tape.LoadAsync(stream, Window.Rth, CancellationToken.None);
+        var loaded = await Tape.LoadAsync(stream, Window.Rth, TestContext.Current.CancellationToken);
 
         loaded.Value.IsRthOnly.ShouldBeFalse();
         Times(loaded.Value, Window.Rth)[0].ShouldBe(RthOpen);
@@ -210,7 +210,7 @@ public sealed class WindowTests
         var bytes = await TapeFixture.ToBytesAsync(Trades());
         using var stream = new MemoryStream(bytes[..^1]);
 
-        var loaded = await Tape.LoadAsync(stream, Window.Rth, CancellationToken.None);
+        var loaded = await Tape.LoadAsync(stream, Window.Rth, TestContext.Current.CancellationToken);
 
         loaded.Error!.Code.ShouldBe(TapeErrors.Corrupt);
     }

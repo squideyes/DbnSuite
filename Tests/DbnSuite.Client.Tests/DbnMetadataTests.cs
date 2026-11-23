@@ -23,7 +23,7 @@ public sealed class DbnMetadataTests
 
     private static byte[] Block() => DbnBytes.Metadata(Dataset, [], Mappings);
 
-    private static Task<DbnMetadata> Read(byte[] bytes) => DbnMetadata.ReadAsync(new MemoryStream(bytes), CancellationToken.None);
+    private static Task<DbnMetadata> Read(byte[] bytes) => DbnMetadata.ReadAsync(new MemoryStream(bytes), TestContext.Current.CancellationToken);
 
     [Fact]
     public async Task Start_and_end_are_read_as_utc_times()
@@ -50,7 +50,7 @@ public sealed class DbnMetadataTests
         byte[] record = [1, 2, 3];
         var stream = new MemoryStream([.. Block(), .. record]);
 
-        await DbnMetadata.ReadAsync(stream, CancellationToken.None);
+        await DbnMetadata.ReadAsync(stream, TestContext.Current.CancellationToken);
 
         stream.Position.ShouldBe(Block().Length);
     }

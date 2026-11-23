@@ -24,9 +24,9 @@ public sealed class RustFs : IAsyncLifetime
 
     public string Endpoint => $"http://{server.Hostname}:{server.GetMappedPublicPort(S3Port)}";
 
-    public Task InitializeAsync() => server.StartAsync();
+    public async ValueTask InitializeAsync() => await server.StartAsync();
 
-    public async Task DisposeAsync() => await server.DisposeAsync();
+    public async ValueTask DisposeAsync() => await server.DisposeAsync();
 }
 
 /// <summary>Scenarios against the shared S3 server, one bucket each, one at a time.</summary>

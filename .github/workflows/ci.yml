@@ -26,7 +26,7 @@ jobs:
       - run: dotnet build DbnSuite.slnx -c Release
 
       # The S3 tests start a RustFS container; ubuntu runners have Docker.
-      - run: dotnet test DbnSuite.slnx -c Release --no-build
+      - run: dotnet test --solution DbnSuite.slnx -c Release --no-build
 
   # dbnf differs by platform: where logins and caches live, and how secrets are kept.
   # The S3 tests need Linux containers, which these runners can't start, so they run
@@ -49,12 +49,12 @@ jobs:
       - shell: bash
         run: |
           for project in Tests/DbnSuite.*.Tests; do
-            dotnet test "$project" -c Release --filter "FullyQualifiedName!~S3ObjectStoreTests&FullyQualifiedName!~S3ArchiveStoreTests"
+            dotnet test --project "$project" -c Release --filter-not-class DbnSuite.Tests.Client.S3ObjectStoreTests --filter-not-class DbnSuite.Tests.Sync.Data.S3ArchiveStoreTests
           done
 
       # The real Keychain round trip runs on macOS only; name each test, so a skip would show.
       - if: runner.os == 'macOS'
-        run: dotnet test Tests/DbnSuite.Fetch.Tests -c Release --no-build --filter "FullyQualifiedName~SecretVaultsTests" --logger "console;verbosity=normal"
+        run: dotnet test --project Tests/DbnSuite.Fetch.Tests -c Release --no-build --filter-class DbnSuite.Tests.Fetch.SecretVaultsTests --output Detailed
 
   # The contributed Python client, on the oldest and newest Python it supports. Its fixtures
   # are written by C# (PythonFixturesTests, in the build job), so both sides check one contract.

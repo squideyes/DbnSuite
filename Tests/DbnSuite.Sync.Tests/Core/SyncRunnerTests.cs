@@ -55,7 +55,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(NotFree());
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.JobsSubmitted.ShouldBe(0);
         pass.QuotesRefused.ShouldBeGreaterThan(0);
@@ -77,7 +77,7 @@ public sealed class SyncRunnerTests : IDisposable
                 return first.Count == 1 ? NotFree() : (Result<string>)JobId;
             });
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.JobsSubmitted.ShouldBe(1);
         first.ShouldBe([Day(10, 1), Day(10, 2)]);
@@ -93,7 +93,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(JobId);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.Received(3).SubmitWithinAsync(Arg.Any<BatchRequest>(), 0m, Arg.Any<CancellationToken>());
         await databento.DidNotReceive().SubmitWithinAsync(Arg.Any<BatchRequest>(),
@@ -156,7 +156,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(new Error(Errors.Rejected, "no"));
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         databento.ClearReceivedCalls();
         store.ClearReceivedCalls();
@@ -178,7 +178,7 @@ public sealed class SyncRunnerTests : IDisposable
         options.MaxPendingJobs = 1;
         PaidJobsFound(r => Same(r));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.DidNotReceive().SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>());
         await store.DidNotReceive().SaveSpendAsync(Arg.Any<SpendEntry>(), Arg.Any<CancellationToken>());
@@ -201,7 +201,7 @@ public sealed class SyncRunnerTests : IDisposable
         options.HistoryStart = Today.AddDays(-2);
         PaidJobsFound(r => Same(r));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.JobsOwed.ShouldBe(0);
     }
@@ -215,7 +215,7 @@ public sealed class SyncRunnerTests : IDisposable
             .Returns([new SpendEntry("k", Now, Root, Mbo, new DayRange(Today, Today), 1m)]);
         PaidJobsFound(r => Same(r));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await store.Received(1).SavePendingAsync(Arg.Any<PendingJob>(), Arg.Any<CancellationToken>());
         pass.QuotesRefused.ShouldBe(0);
@@ -231,7 +231,7 @@ public sealed class SyncRunnerTests : IDisposable
             .Returns([new SpendEntry("k", Now, Root, Definition, new DayRange(Today, Today), 1m)]);
         databento.QuoteAsync(Arg.Any<BatchRequest>(), Arg.Any<CancellationToken>()).Returns(PaidQuote);
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.DidNotReceive().SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>());
         pass.QuotesRefused.ShouldBeGreaterThan(0);
@@ -245,7 +245,7 @@ public sealed class SyncRunnerTests : IDisposable
         PaidJobsFound(r => Same(r, expires: Now));
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), PaidQuote, Arg.Any<CancellationToken>()).Returns(OtherJobId);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await store.Received(1).SavePendingAsync(Arg.Is<PendingJob>(j => j.Id == OtherJobId), Arg.Any<CancellationToken>());
     }
@@ -257,7 +257,7 @@ public sealed class SyncRunnerTests : IDisposable
         options.MaxPendingJobs = 1;
         PaidJobsFound(r => Same(r, expires: Now.AddDays(1)));
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await store.Received(1).SavePendingAsync(Arg.Is<PendingJob>(j => j.Id == JobId), Arg.Any<CancellationToken>());
     }
@@ -275,7 +275,7 @@ public sealed class SyncRunnerTests : IDisposable
         Spent(LastMonth, [.. planned.Select(r => Earlier(r))]);
         Listing(new Error(code, "no"));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.DidNotReceive().SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>());
         await store.DidNotReceive().SaveSpendAsync(Arg.Any<SpendEntry>(), Arg.Any<CancellationToken>());
@@ -293,7 +293,7 @@ public sealed class SyncRunnerTests : IDisposable
         Spent(LastMonth, [.. planned.Select(r => Earlier(r))]);
         Listing(new Error(Errors.Unreachable, "no"));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.Received(1).ListJobsAsync(BoughtDay.AddDays(-1), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
         pass.Issues.Count.ShouldBeGreaterThan(1);
@@ -308,7 +308,7 @@ public sealed class SyncRunnerTests : IDisposable
         Spent(LastMonth, Earlier(planned[0]), Earlier(planned[1], dayBefore));
         Listing(NoJobs);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.Received(1).ListJobsAsync(BoughtDay.AddDays(-1), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
         await databento.Received(1).ListJobsAsync(BoughtDay.AddDays(-2), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
@@ -324,7 +324,7 @@ public sealed class SyncRunnerTests : IDisposable
         Listing(new Error(Errors.Unreachable, "no"));
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), PaidQuote, Arg.Any<CancellationToken>()).Returns(OtherJobId);
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.DidNotReceive().SubmitWithinAsync(Arg.Is<BatchRequest>(b => b.Range == planned[0]), Arg.Any<decimal>(), Arg.Any<CancellationToken>());
         await databento.Received(1).SubmitWithinAsync(Arg.Is<BatchRequest>(b => b.Range == planned[1]), PaidQuote, Arg.Any<CancellationToken>());
@@ -344,7 +344,7 @@ public sealed class SyncRunnerTests : IDisposable
         Spent(LastMonth, Earlier(planned[0]), Earlier(planned[0], BoughtAt.AddDays(-2)), Earlier(planned[1], BoughtAt.AddDays(-9)));
         Listing(NoJobs);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.Received(1).ListJobsAsync(BoughtDay.AddDays(-3),
             Arg.Is<IReadOnlySet<string>>(k => k.Contains(JobId)), Arg.Any<CancellationToken>());
@@ -358,7 +358,7 @@ public sealed class SyncRunnerTests : IDisposable
         var planned = await PlannedAsync();
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), PaidQuote, Arg.Any<CancellationToken>()).Returns(JobId);
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await NeverListed();
         pass.JobsSubmitted.ShouldBe(1);
@@ -375,7 +375,7 @@ public sealed class SyncRunnerTests : IDisposable
         Spent(LastMonth, Earlier(first, root: OtherRoot), Earlier(first, schema: Definition), Earlier(otherRange));
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), PaidQuote, Arg.Any<CancellationToken>()).Returns(JobId);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await NeverListed();
     }
@@ -392,7 +392,7 @@ public sealed class SyncRunnerTests : IDisposable
         Spent(LastMonth, Earlier(first, job: JobId));
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), PaidQuote, Arg.Any<CancellationToken>()).Returns(OtherJobId);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await NeverListed();
     }
@@ -406,7 +406,7 @@ public sealed class SyncRunnerTests : IDisposable
         Spent(LastMonth, Earlier(first, job: JobId));
         Listing(NoJobs);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.Received(1).ListJobsAsync(BoughtDay.AddDays(-1), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
     }
@@ -420,7 +420,7 @@ public sealed class SyncRunnerTests : IDisposable
         Spent(Today, Earlier(first, Now.AddHours(-1)));
         Listing(NoJobs);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.Received(1).ListJobsAsync(Today.AddDays(-1), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
     }
@@ -436,7 +436,7 @@ public sealed class SyncRunnerTests : IDisposable
         Spent(MonthBefore, Earlier(first, Now.AddDays(-daysAgo)));
         Listing(NoJobs);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.Received(listings).ListJobsAsync(Arg.Any<DateOnly>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
     }
@@ -449,7 +449,7 @@ public sealed class SyncRunnerTests : IDisposable
         await PlannedAsync();
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), PaidQuote, Arg.Any<CancellationToken>()).Returns(new Error(Errors.Rejected, "no"));
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await store.Received(1).ListSpendAsync(Today, Arg.Any<CancellationToken>());
         await store.Received(1).ListSpendAsync(LastMonth, Arg.Any<CancellationToken>());
@@ -462,7 +462,7 @@ public sealed class SyncRunnerTests : IDisposable
         options.MaxPendingJobs = 1;
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), 0m, Arg.Any<CancellationToken>()).Returns(JobId);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.DidNotReceive().ListJobsAsync(Arg.Any<DateOnly>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
     }
@@ -475,7 +475,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.QuoteAsync(Arg.Any<BatchRequest>(), Arg.Any<CancellationToken>()).Returns(0m);
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), 0m, Arg.Any<CancellationToken>()).Returns(JobId);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.DidNotReceive().ListJobsAsync(Arg.Any<DateOnly>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>());
     }
@@ -489,7 +489,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), PaidQuote, Arg.Any<CancellationToken>())
             .Returns(new Error(Errors.ServerError, "503"));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await store.DidNotReceive().DeleteSpendAsync(Arg.Any<SpendEntry>(), Arg.Any<CancellationToken>());
         await databento.Received(1).SubmitWithinAsync(Arg.Any<BatchRequest>(), PaidQuote, Arg.Any<CancellationToken>());
@@ -505,7 +505,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), PaidQuote, Arg.Any<CancellationToken>())
             .Returns(JobId);
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.JobsSubmitted.ShouldBe(1);
         pass.Spent.ShouldBe(PaidQuote);
@@ -524,7 +524,7 @@ public sealed class SyncRunnerTests : IDisposable
         options.Schemas = Definition;
         databento.QuoteAsync(Arg.Any<BatchRequest>(), Arg.Any<CancellationToken>()).Returns(PaidQuote);
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.JobsSubmitted.ShouldBe(0);
         pass.Issues.ShouldContain(i => i.Code == Errors.OverLimit);
@@ -541,7 +541,7 @@ public sealed class SyncRunnerTests : IDisposable
             .Returns([new SpendEntry("earlier", Now.AddDays(-5), Root, Mbo, new DayRange(Day(9, 1), Day(9, 5)), 10m)]);
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), 0m, Arg.Any<CancellationToken>()).Returns(JobId);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.DidNotReceive().SubmitWithinAsync(Arg.Any<BatchRequest>(),
             Arg.Is<decimal>(d => d != 0m), Arg.Any<CancellationToken>());
@@ -557,7 +557,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), PaidQuote, Arg.Any<CancellationToken>())
             .Returns(new Error(Errors.Rejected, "400 Bad Request"));
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await store.Received().DeleteSpendAsync(Arg.Is<SpendEntry>(e => e.Cost == PaidQuote), Arg.Any<CancellationToken>());
     }
@@ -571,7 +571,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), PaidQuote, Arg.Any<CancellationToken>())
             .Returns(new Error(Errors.Unreachable, "timed out"));
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await store.DidNotReceive().DeleteSpendAsync(Arg.Any<SpendEntry>(), Arg.Any<CancellationToken>());
     }
@@ -585,7 +585,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Do<BatchRequest>(r => asked.Add(r.Range)), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<BatchRequest>().Range.From < IncludedFrom ? NotFree() : (Result<string>)JobId);
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         asked.TakeWhile(r => r.From >= IncludedFrom).Count().ShouldBe(pass.JobsSubmitted);
         asked.Count(r => r.From < IncludedFrom).ShouldBe(1);
@@ -602,7 +602,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Do<BatchRequest>(r => asked = r), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(JobId);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         asked.ShouldNotBeNull();
         asked.StypeIn.ShouldBe("continuous");
@@ -616,7 +616,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(JobId);
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.JobsSubmitted.ShouldBe(2);
         pass.JobsOwed.ShouldBeGreaterThan(0);
@@ -633,7 +633,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.DownloadAsync(file, Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call => Write(call.ArgAt<string>(1)));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.JobsCollected.ShouldBe(1);
         pass.FilesStored.ShouldBe(1);
@@ -652,7 +652,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.DownloadAsync(file, Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new Error(Errors.Corrupt, file.Name));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.JobsCollected.ShouldBe(0);
         await store.DidNotReceive().PutEmptyAsync(Arg.Any<string>(), Arg.Any<string>(),
@@ -670,7 +670,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.DownloadAsync(file, Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new Error(Errors.Corrupt, file.Name));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         var issue = pass.Issues.ShouldHaveSingleItem();
         issue.Level.ShouldBe(IssueLevel.Error);
@@ -689,7 +689,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(NotFree());
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.Issues.ShouldNotBeEmpty();
         pass.Issues.ShouldAllBe(i => i.Level == IssueLevel.Warning && i.Code == Errors.OverLimit
@@ -705,7 +705,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(NoSymbols());
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         var october = new DayRange(Day(10, 1), Day(10, 31));
         foreach (var day in october.Each())
@@ -723,7 +723,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(NoSymbols());
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         var issue = pass.Issues.ShouldHaveSingleItem();
         issue.Level.ShouldBe(IssueLevel.Warning);
@@ -741,7 +741,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(NoData());
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         var october = new DayRange(Day(10, 1), Day(10, 31));
         foreach (var day in october.Each())
@@ -760,7 +760,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<BatchRequest>().Range == new DayRange(traded, traded) ? (Result<string>)JobId : NoData());
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         var october = new DayRange(Day(10, 1), Day(10, 31));
         foreach (var day in october.Each().Where(d => d != traded))
@@ -784,7 +784,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<BatchRequest>().Range == new DayRange(Day(10, 1), Day(10, 1)) ? (Result<string>)JobId : NoData());
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await store.DidNotReceive().PutEmptyAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(),
             Arg.Any<CancellationToken>());
@@ -797,7 +797,7 @@ public sealed class SyncRunnerTests : IDisposable
     {
         options.HistoryStart = Today;
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.Eventful.ShouldBeFalse();
     }
@@ -812,7 +812,7 @@ public sealed class SyncRunnerTests : IDisposable
         store.ListHeldAsync(Mbo, Root, Arg.Any<CancellationToken>())
             .Returns(new HashSet<DateOnly> { Day(10, 30) });
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.DidNotReceive().DownloadAsync(Arg.Any<RemoteFile>(), Arg.Any<string>(),
             Arg.Any<CancellationToken>());
@@ -828,7 +828,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.GetStateAsync(JobId, job.SubmittedAt, Arg.Any<CancellationToken>())
             .Returns(JobState.Gone);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await store.Received(1).DeletePendingAsync(JobId, Arg.Any<CancellationToken>());
     }
@@ -846,7 +846,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Do<BatchRequest>(asked.Add), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(OtherJobId);
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         asked.ShouldAllBe(r => r.Range.From > Day(10, 31));
     }
@@ -857,7 +857,7 @@ public sealed class SyncRunnerTests : IDisposable
         options.Schemas = "statistics";
         options.Roots = $"{Root},ES";
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.DidNotReceive().SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>());
 
@@ -872,7 +872,7 @@ public sealed class SyncRunnerTests : IDisposable
     {
         options.HistoryStart = Today;
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.DidNotReceive().SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>());
         pass.JobsOwed.ShouldBe(0);
@@ -884,7 +884,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.GetAvailableEndsAsync(Dataset, Arg.Any<CancellationToken>())
             .Returns(new Error(Errors.Rejected, "401 Unauthorized"));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         var issue = pass.Issues.ShouldHaveSingleItem();
         issue.Level.ShouldBe(IssueLevel.Error);
@@ -907,7 +907,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.GetAvailableEndsAsync(Dataset, Arg.Any<CancellationToken>())
             .Returns(new Error(code, "get_dataset_range has no per-schema ranges."));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.JobsCollected.ShouldBe(1);
         pass.Failure.ShouldNotBeNull();
@@ -922,7 +922,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(NotFree());
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.QuotesRefused.ShouldBe(1);
         pass.JobsSubmitted.ShouldBe(0);
@@ -938,7 +938,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.GetStateAsync(JobId, job.SubmittedAt, Arg.Any<CancellationToken>())
             .Returns(new Error(Errors.Unreachable, "timed out"));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.JobsPending.ShouldBe(1);
         var issue = pass.Issues.ShouldHaveSingleItem();
@@ -956,7 +956,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.ListFilesAsync(JobId, Arg.Any<CancellationToken>())
             .Returns((Result<IReadOnlyList<RemoteFile>>)new List<RemoteFile>());
 
-        var summary = await Runner().RunOnceAsync(CancellationToken.None);
+        var summary = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         summary.Issues.ShouldContain(i => i.Code == IssueCodes.NoFiles);
         await store.DidNotReceive().PutEmptyAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
@@ -971,12 +971,12 @@ public sealed class SyncRunnerTests : IDisposable
         databento.GetStateAsync(JobId, job.SubmittedAt, Arg.Any<CancellationToken>()).Returns(JobState.Done);
         databento.ListFilesAsync(JobId, Arg.Any<CancellationToken>()).Returns(new Error(Errors.Unreachable, "timed out"));
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
         clock.Advance(TimeSpan.FromDays(6));
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
         var kept = store.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IArchiveStore.DeletePendingAsync));
         clock.Advance(TimeSpan.FromDays(2));
-        var abandoned = await Runner().RunOnceAsync(CancellationToken.None);
+        var abandoned = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         kept.ShouldBe(0);
         abandoned.JobsCollected.ShouldBe(1);
@@ -992,7 +992,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.GetStateAsync(JobId, job.SubmittedAt, Arg.Any<CancellationToken>()).Returns(JobState.Done);
         databento.ListFilesAsync(JobId, Arg.Any<CancellationToken>()).Returns(new Error(Errors.Unreachable, "timed out"));
 
-        var summary = await Runner().RunOnceAsync(CancellationToken.None);
+        var summary = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         summary.Issues.ShouldNotContain(i => i.Code == IssueCodes.JobAbandoned);
         await store.DidNotReceive().DeletePendingAsync(JobId, Arg.Any<CancellationToken>());
@@ -1026,7 +1026,7 @@ public sealed class SyncRunnerTests : IDisposable
 
         Finished(job, new RemoteFile(name, 3, "", name), File(Day(10, 30)));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         var issue = pass.Issues.ShouldHaveSingleItem();
         issue.Code.ShouldBe(IssueCodes.UnexpectedFile);
@@ -1045,7 +1045,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.DownloadAsync(file, Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new Error(Errors.Unreachable, file.Name));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.Issues.ShouldHaveSingleItem().Level.ShouldBe(IssueLevel.Warning);
     }
@@ -1062,7 +1062,7 @@ public sealed class SyncRunnerTests : IDisposable
         store.PutFileAsync(Mbo, Root, Day(10, 30), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new IOException("disk full"));
 
-        await Should.ThrowAsync<IOException>(() => Runner().RunOnceAsync(CancellationToken.None));
+        await Should.ThrowAsync<IOException>(() => Runner().RunOnceAsync(TestContext.Current.CancellationToken));
 
         Directory.Exists(Path.Combine(scratch, JobId)).ShouldBeFalse();
         await store.DidNotReceive().DeletePendingAsync(JobId, Arg.Any<CancellationToken>());
@@ -1079,7 +1079,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(new Error(code, "no"));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.Issues.ShouldNotBeEmpty();
         pass.Issues.ShouldAllBe(i => i.Code == code && i.Level == level && i.Schema == Definition);
@@ -1094,7 +1094,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.QuoteAsync(Arg.Any<BatchRequest>(), Arg.Any<CancellationToken>())
             .Returns(new Error(Errors.Unreachable, "timed out"));
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.Issues.ShouldNotBeEmpty();
         await store.DidNotReceive().SaveSpendAsync(Arg.Any<SpendEntry>(), Arg.Any<CancellationToken>());
@@ -1109,7 +1109,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.QuoteAsync(Arg.Any<BatchRequest>(), Arg.Any<CancellationToken>()).Returns(0m);
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), 0m, Arg.Any<CancellationToken>()).Returns(JobId);
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.JobsSubmitted.ShouldBe(1);
         pass.Spent.ShouldBe(0m);
@@ -1126,7 +1126,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), PaidQuote, Arg.Any<CancellationToken>())
             .Returns(new Error(Errors.Unreachable, "timed out"));
 
-        await Runner().RunOnceAsync(CancellationToken.None);
+        await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         await databento.Received(1).SubmitWithinAsync(Arg.Any<BatchRequest>(), PaidQuote, Arg.Any<CancellationToken>());
     }
@@ -1139,7 +1139,7 @@ public sealed class SyncRunnerTests : IDisposable
         databento.SubmitWithinAsync(Arg.Any<BatchRequest>(), Arg.Any<decimal>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<BatchRequest>().Range.From < IncludedFrom ? NotFree() : (Result<string>)JobId);
 
-        var pass = await Runner().RunOnceAsync(CancellationToken.None);
+        var pass = await Runner().RunOnceAsync(TestContext.Current.CancellationToken);
 
         pass.Issues.ShouldHaveSingleItem().Message.ShouldContain("such jobs wait for a later pass");
         pass.QuotesRefused.ShouldBe(1);

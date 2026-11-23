@@ -20,7 +20,7 @@ public sealed class TapeCommandTests : IDisposable
     private async Task<string> SaveAsync(TapeWriter writer)
     {
         var path = Path.Combine(dbnf.Home, TapeName);
-        var saved = await writer.SaveAsync(path, CancellationToken.None);
+        var saved = await writer.SaveAsync(path, TestContext.Current.CancellationToken);
 
         saved.IsSuccess.ShouldBeTrue(saved.Error?.Message);
 
@@ -86,7 +86,7 @@ public sealed class TapeCommandTests : IDisposable
     {
         var path = Path.Combine(dbnf.Home, NotATapeName);
 
-        await File.WriteAllTextAsync(path, NotATapeText);
+        await File.WriteAllTextAsync(path, NotATapeText, TestContext.Current.CancellationToken);
 
         var run = await dbnf.RunAsync($"tape info \"{path}\"");
 

@@ -58,7 +58,7 @@ public sealed class PullCommandTests : IDisposable
 
         run.ExitCode.ShouldBe(Session.Ok);
         dbnf.Written().ShouldBe([DataKey, NextKey]);
-        (await File.ReadAllBytesAsync(InOutput(NextKey))).ShouldBe(await File.ReadAllBytesAsync(dbnf.Archive.PathOf(NextKey)));
+        (await File.ReadAllBytesAsync(InOutput(NextKey), TestContext.Current.CancellationToken)).ShouldBe(await File.ReadAllBytesAsync(dbnf.Archive.PathOf(NextKey), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -168,14 +168,14 @@ public sealed class PullCommandTests : IDisposable
     {
         TwoDaysAndAnEmptyOne();
         await dbnf.OnArchiveAsync($"pull {Mbo} {Root} {Range} {dbnf.OutOption}");
-        var damaged = await File.ReadAllBytesAsync(InOutput(DataKey));
+        var damaged = await File.ReadAllBytesAsync(InOutput(DataKey), TestContext.Current.CancellationToken);
         damaged[^1] = Damage;
-        await File.WriteAllBytesAsync(InOutput(DataKey), damaged);
+        await File.WriteAllBytesAsync(InOutput(DataKey), damaged, TestContext.Current.CancellationToken);
 
         var run = await dbnf.OnArchiveAsync($"pull {Mbo} {Root} {Range} {dbnf.OutOption} --force");
 
         run.Lines[0].ShouldContain("0 already here, 2 to download");
-        (await File.ReadAllBytesAsync(InOutput(DataKey))).ShouldBe(await File.ReadAllBytesAsync(dbnf.Archive.PathOf(DataKey)));
+        (await File.ReadAllBytesAsync(InOutput(DataKey), TestContext.Current.CancellationToken)).ShouldBe(await File.ReadAllBytesAsync(dbnf.Archive.PathOf(DataKey), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -385,7 +385,7 @@ public sealed class PullCommandTests : IDisposable
 
         run.ExitCode.ShouldBe(Session.Ok);
         s3.Offsets[^1].ShouldBe(PartLength);
-        (await File.ReadAllBytesAsync(InCache(DataKey))).ShouldBe(await File.ReadAllBytesAsync(dbnf.Archive.PathOf(DataKey)));
+        (await File.ReadAllBytesAsync(InCache(DataKey), TestContext.Current.CancellationToken)).ShouldBe(await File.ReadAllBytesAsync(dbnf.Archive.PathOf(DataKey), TestContext.Current.CancellationToken));
         File.Exists(InCache(DataKey) + PartSuffix).ShouldBeFalse();
     }
 

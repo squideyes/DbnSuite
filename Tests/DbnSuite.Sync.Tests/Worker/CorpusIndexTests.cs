@@ -41,7 +41,7 @@ public sealed class CorpusIndexTests
     private static Result<IReadOnlyDictionary<string, DateTimeOffset>> Ends(DateTimeOffset end) =>
         new Dictionary<string, DateTimeOffset> { [Mbo] = end };
 
-    private Task ScanAsync() => index.RefreshAsync(CancellationToken.None);
+    private Task ScanAsync() => index.RefreshAsync(TestContext.Current.CancellationToken);
 
     [Fact]
     public void There_is_no_snapshot_until_the_first_scan()
@@ -177,7 +177,7 @@ public sealed class CorpusIndexTests
             Task.FromResult<IReadOnlyList<PendingJob>>([new PendingJob(JobId, Root, Mbo, Range, Now)]));
 
         var startup = ScanAsync();
-        var rescan = index.RescanAsync(CancellationToken.None);
+        var rescan = index.RescanAsync(TestContext.Current.CancellationToken);
         var rescanWaited = !rescan.IsCompleted;
         slow.SetResult([]);
         await Task.WhenAll(startup, rescan);
@@ -191,7 +191,7 @@ public sealed class CorpusIndexTests
     [Fact]
     public async Task A_rescan_with_nothing_running_scans_at_once()
     {
-        await index.RescanAsync(CancellationToken.None);
+        await index.RescanAsync(TestContext.Current.CancellationToken);
 
         index.Snapshot.ShouldNotBeNull();
         await store.Received(1).ListPendingAsync(Arg.Any<CancellationToken>());

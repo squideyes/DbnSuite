@@ -47,7 +47,7 @@ internal static class TapeFixture
 
         try
         {
-            var saved = await catalog.SaveAsync(folder, CancellationToken.None);
+            var saved = await catalog.SaveAsync(folder, TestContext.Current.CancellationToken);
 
             return await File.ReadAllBytesAsync(saved.Value);
         }
@@ -78,7 +78,7 @@ internal static class TapeFixture
     {
         using var stream = new MemoryStream();
 
-        var written = await writer.WriteAsync(stream, CancellationToken.None);
+        var written = await writer.WriteAsync(stream, TestContext.Current.CancellationToken);
 
         written.IsSuccess.ShouldBeTrue(written.Error?.Message);
 
@@ -89,7 +89,7 @@ internal static class TapeFixture
     {
         using var stream = new MemoryStream(bytes);
 
-        return await Tape.LoadAsync(stream, CancellationToken.None, verifyHash);
+        return await Tape.LoadAsync(stream, TestContext.Current.CancellationToken, verifyHash);
     }
 
     public static async Task<Tape> RoundTripAsync(TapeWriter writer)

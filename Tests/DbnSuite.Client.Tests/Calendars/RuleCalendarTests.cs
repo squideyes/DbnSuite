@@ -329,11 +329,11 @@ public sealed class RuleCalendarTests
     public async Task LoadAsync_names_the_file_in_every_problem()
     {
         var path = Path.Combine(Path.GetTempPath(), $"dbnsuite-calendar-{Guid.NewGuid():N}.json");
-        await File.WriteAllTextAsync(path, """{ "id": "", "timeZone": "Mars/Olympus", "roots": ["ES"], "session": { "open": "17:00", "openDayOffset": -1, "close": "16:00", "tradingDays": ["monday"] } }""", CancellationToken.None);
+        await File.WriteAllTextAsync(path, """{ "id": "", "timeZone": "Mars/Olympus", "roots": ["ES"], "session": { "open": "17:00", "openDayOffset": -1, "close": "16:00", "tradingDays": ["monday"] } }""", TestContext.Current.CancellationToken);
 
         try
         {
-            var problems = Problems(await RuleCalendar.LoadAsync(path, CancellationToken.None));
+            var problems = Problems(await RuleCalendar.LoadAsync(path, TestContext.Current.CancellationToken));
 
             problems.Length.ShouldBe(2);
             problems.ShouldAllBe(p => p.StartsWith(path + ": "));
@@ -348,7 +348,7 @@ public sealed class RuleCalendarTests
     public async Task LoadAsync_reports_a_missing_file()
     {
         var path = Path.Combine(Path.GetTempPath(), $"dbnsuite-calendar-missing-{Guid.NewGuid():N}.json");
-        var read = await RuleCalendar.LoadAsync(path, CancellationToken.None);
+        var read = await RuleCalendar.LoadAsync(path, TestContext.Current.CancellationToken);
 
         read.Error.ShouldNotBeNull().Code.ShouldBe(CalendarErrors.Io);
         read.Error.Message.ShouldStartWith($"Could not read {path}: ");

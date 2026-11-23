@@ -47,7 +47,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      - run: dotnet test DbnSuite.slnx -c Release
+      - run: dotnet test --solution DbnSuite.slnx -c Release
 
       # The pointer package that lists the platform packages, a portable
       # fallback for any other platform, and the library.

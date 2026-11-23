@@ -597,7 +597,7 @@ small.
 
 ```bash
 dotnet build DbnSuite.slnx -c Release
-dotnet test DbnSuite.slnx -c Release --no-build
+dotnet test --solution DbnSuite.slnx -c Release --no-build
 ```
 
 The S3 tests start RustFS containers through Testcontainers, so Docker must be running.

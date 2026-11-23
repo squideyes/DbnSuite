@@ -22,7 +22,7 @@ public sealed class DataToolsTests : IAsyncLifetime
     private readonly Dbnf dbnf = new();
     private McpRun run = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         dbnf.Archive.AddDefinitions(Traded);
         dbnf.Archive.AddEmpty(SampleArchive.Ohlcv, Traded.AddDays(-1));
@@ -39,7 +39,7 @@ public sealed class DataToolsTests : IAsyncLifetime
         run = await McpRun.OnArchiveAsync(dbnf, AllowData);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await run.DisposeAsync();
         dbnf.Dispose();

@@ -44,7 +44,7 @@ public sealed class TapePullCommandTests : IDisposable
         var stale = Path.Combine(dbnf.Output, Tick.Replace('/', Path.DirectorySeparatorChar));
 
         Directory.CreateDirectory(Path.GetDirectoryName(stale)!);
-        await File.WriteAllBytesAsync(stale, [1, 2, 3]);
+        await File.WriteAllBytesAsync(stale, [1, 2, 3], TestContext.Current.CancellationToken);
 
         var run = await dbnf.OnArchiveAsync($"tape pull ES {Tapes}");
 

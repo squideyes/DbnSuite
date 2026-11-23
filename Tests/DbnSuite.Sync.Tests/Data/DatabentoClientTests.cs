@@ -55,7 +55,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(GetCost, "0.000005");
 
-        var result = await Client().SubmitWithinAsync(Request, 0m, CancellationToken.None);
+        var result = await Client().SubmitWithinAsync(Request, 0m, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.OverLimit);
         handler.Paths.ShouldNotContain(p => p.Contains(SubmitJob));
@@ -67,7 +67,7 @@ public sealed class DatabentoClientTests : IDisposable
         handler.Answer(GetCost, "2.5");
         handler.Answer(SubmitJob, $$"""{"id":"{{JobId}}","state":"queued"}""");
 
-        var result = await Client().SubmitWithinAsync(Request, 2.5m, CancellationToken.None);
+        var result = await Client().SubmitWithinAsync(Request, 2.5m, TestContext.Current.CancellationToken);
 
         result.Value.ShouldBe(JobId);
     }
@@ -77,7 +77,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(GetCost, "0.000005");
 
-        var result = await Client().SubmitWithinAsync(Request, -10m, CancellationToken.None);
+        var result = await Client().SubmitWithinAsync(Request, -10m, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.OverLimit);
         handler.Paths.ShouldNotContain(p => p.Contains(SubmitJob));
@@ -88,7 +88,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(GetCost, "-1");
 
-        var result = await Client().SubmitWithinAsync(Request, 5m, CancellationToken.None);
+        var result = await Client().SubmitWithinAsync(Request, 5m, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Malformed);
         handler.Paths.ShouldNotContain(p => p.Contains(SubmitJob));
@@ -100,7 +100,7 @@ public sealed class DatabentoClientTests : IDisposable
         handler.Answer(GetCost, "0.0");
         handler.Answer(SubmitJob, $$"""{"id":"{{JobId}}","state":"queued"}""");
 
-        var result = await Client().SubmitWithinAsync(Request, 0m, CancellationToken.None);
+        var result = await Client().SubmitWithinAsync(Request, 0m, TestContext.Current.CancellationToken);
 
         result.Value.ShouldBe(JobId);
         handler.Bodies[SubmitJob].ShouldContain("split_duration=day");
@@ -113,7 +113,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(GetCost, "1");
 
-        await Client().SubmitWithinAsync(Request, 0m, CancellationToken.None);
+        await Client().SubmitWithinAsync(Request, 0m, TestContext.Current.CancellationToken);
 
         handler.Authorization.ShouldBe(Convert.ToBase64String(Encoding.ASCII.GetBytes($"{ApiKey}:")));
     }
@@ -123,7 +123,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(GetCost, """{"detail":"symbology_invalid_request"}""", HttpStatusCode.UnprocessableEntity);
 
-        var result = await Client().SubmitWithinAsync(Request, 0m, CancellationToken.None);
+        var result = await Client().SubmitWithinAsync(Request, 0m, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Rejected);
         result.Error.Message.ShouldContain("422");
@@ -134,7 +134,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(GetCost, NoSymbolsBody, HttpStatusCode.UnprocessableEntity);
 
-        var result = await Client().SubmitWithinAsync(Request, 0m, CancellationToken.None);
+        var result = await Client().SubmitWithinAsync(Request, 0m, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.NoSymbols);
         handler.Paths.ShouldNotContain(p => p.Contains(SubmitJob));
@@ -145,7 +145,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(GetCost, NoDataBody, HttpStatusCode.UnprocessableEntity);
 
-        var result = await Client().SubmitWithinAsync(Request, 0m, CancellationToken.None);
+        var result = await Client().SubmitWithinAsync(Request, 0m, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.NoData);
         handler.Paths.ShouldNotContain(p => p.Contains(SubmitJob));
@@ -159,7 +159,7 @@ public sealed class DatabentoClientTests : IDisposable
              "schema":{"mbo":{"start":"2017-05-21T00:00:00.000000000Z","end":"2026-11-01T20:24:28.125760000Z"}}}
             """);
 
-        var ends = await Client().GetAvailableEndsAsync(Dataset, CancellationToken.None);
+        var ends = await Client().GetAvailableEndsAsync(Dataset, TestContext.Current.CancellationToken);
 
         ends.Value[Mbo].ShouldBe(new DateTimeOffset(2026, 11, 1, 20, 24, 28, TimeSpan.Zero).AddTicks(1257600));
     }
@@ -172,7 +172,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(ListJobs, $$"""[{"id":"{{JobId}}","state":"{{state}}"}]""");
 
-        var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+        var result = await Client().GetStateAsync(JobId, Now, TestContext.Current.CancellationToken);
 
         result.Value.ShouldBe(expected);
     }
@@ -183,7 +183,7 @@ public sealed class DatabentoClientTests : IDisposable
         handler.Answer(ListJobs, $$"""[{"id":"{{OtherJobId}}","state":"done"}]""");
         handler.Answer(JobDetails, "{}", HttpStatusCode.NotFound);
 
-        var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+        var result = await Client().GetStateAsync(JobId, Now, TestContext.Current.CancellationToken);
 
         result.Value.ShouldBe(JobState.Gone);
     }
@@ -197,7 +197,7 @@ public sealed class DatabentoClientTests : IDisposable
         handler.Answer(ListJobs, "[]");
         handler.Answer(JobDetails, $$"""{"id":"{{JobId}}","state":"{{state}}"}""");
 
-        var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+        var result = await Client().GetStateAsync(JobId, Now, TestContext.Current.CancellationToken);
 
         result.Value.ShouldBe(expected);
     }
@@ -208,7 +208,7 @@ public sealed class DatabentoClientTests : IDisposable
         handler.Answer(ListJobs, "[]");
         handler.Answer(JobDetails, "{}", HttpStatusCode.InternalServerError);
 
-        var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+        var result = await Client().GetStateAsync(JobId, Now, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.ServerError);
     }
@@ -219,7 +219,7 @@ public sealed class DatabentoClientTests : IDisposable
         handler.Answer(ListJobs, "[]");
         handler.Answer(JobDetails, """{"state":"something new"}""");
 
-        var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+        var result = await Client().GetStateAsync(JobId, Now, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Malformed);
     }
@@ -232,7 +232,7 @@ public sealed class DatabentoClientTests : IDisposable
         var path = Path.Combine(folder, file.Name);
         handler.Answer(file.Name, bytes);
 
-        var result = await Client().DownloadAsync(file, path, CancellationToken.None);
+        var result = await Client().DownloadAsync(file, path, TestContext.Current.CancellationToken);
 
         result.Value.ShouldBe(bytes.Length);
         System.IO.File.ReadAllBytes(path).ShouldBe(bytes);
@@ -246,7 +246,7 @@ public sealed class DatabentoClientTests : IDisposable
         var path = Path.Combine(folder, file.Name);
         handler.Answer(file.Name, bytes);
 
-        var result = await Client().DownloadAsync(file, path, CancellationToken.None);
+        var result = await Client().DownloadAsync(file, path, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Corrupt);
         Directory.GetFiles(folder).ShouldBeEmpty();
@@ -262,7 +262,7 @@ public sealed class DatabentoClientTests : IDisposable
         handler.Answer(GetCost, "0");
         handler.Answer(SubmitJob, "{}", status);
 
-        var result = await Client().SubmitWithinAsync(Request, 0m, CancellationToken.None);
+        var result = await Client().SubmitWithinAsync(Request, 0m, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.ServerError);
         result.Error.Message.ShouldContain(ServerErrorWords);
@@ -278,7 +278,7 @@ public sealed class DatabentoClientTests : IDisposable
         handler.Answer(GetCost, "0");
         handler.Answer(SubmitJob, "{}", status);
 
-        var result = await Client().SubmitWithinAsync(Request, 0m, CancellationToken.None);
+        var result = await Client().SubmitWithinAsync(Request, 0m, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Rejected);
     }
@@ -288,7 +288,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(GetCost, new string('x', 2_000), HttpStatusCode.BadRequest);
 
-        var result = await Client().QuoteAsync(Request, CancellationToken.None);
+        var result = await Client().QuoteAsync(Request, TestContext.Current.CancellationToken);
 
         result.Error!.Message.Length.ShouldBeLessThan(600);
     }
@@ -298,7 +298,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Throw(GetCost, new HttpRequestException(Offline));
 
-        var result = await Client().QuoteAsync(Request, CancellationToken.None);
+        var result = await Client().QuoteAsync(Request, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Unreachable);
     }
@@ -308,7 +308,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Throw(GetCost, new TaskCanceledException(Offline));
 
-        var result = await Client().QuoteAsync(Request, CancellationToken.None);
+        var result = await Client().QuoteAsync(Request, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Unreachable);
     }
@@ -328,7 +328,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(GetCost, "<html>");
 
-        var result = await Client().QuoteAsync(Request, CancellationToken.None);
+        var result = await Client().QuoteAsync(Request, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Malformed);
     }
@@ -343,7 +343,7 @@ public sealed class DatabentoClientTests : IDisposable
         handler.Answer(GetCost, "0");
         handler.Answer(SubmitJob, body);
 
-        var result = await Client().SubmitWithinAsync(Request, 0m, CancellationToken.None);
+        var result = await Client().SubmitWithinAsync(Request, 0m, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Malformed);
     }
@@ -354,7 +354,7 @@ public sealed class DatabentoClientTests : IDisposable
         handler.Answer(GetCost, "0");
         handler.Throw(SubmitJob, new HttpRequestException(Offline));
 
-        var result = await Client().SubmitWithinAsync(Request, 0m, CancellationToken.None);
+        var result = await Client().SubmitWithinAsync(Request, 0m, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Unreachable);
     }
@@ -364,7 +364,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(DatasetRange, "{}", HttpStatusCode.Unauthorized);
 
-        var result = await Client().GetAvailableEndsAsync(Dataset, CancellationToken.None);
+        var result = await Client().GetAvailableEndsAsync(Dataset, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Rejected);
     }
@@ -377,7 +377,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(DatasetRange, body);
 
-        var result = await Client().GetAvailableEndsAsync(Dataset, CancellationToken.None);
+        var result = await Client().GetAvailableEndsAsync(Dataset, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Malformed);
     }
@@ -390,7 +390,7 @@ public sealed class DatabentoClientTests : IDisposable
              "definition":{"end":"2026-11-01T20:00:00Z"}}}
             """);
 
-        var ends = await Client().GetAvailableEndsAsync(Dataset, CancellationToken.None);
+        var ends = await Client().GetAvailableEndsAsync(Dataset, TestContext.Current.CancellationToken);
 
         ends.Value.Keys.ShouldBe([Definition]);
     }
@@ -403,7 +403,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(DatasetRange, $$"""{"schema":{"mbo":{"end":"{{end}}"} } }""");
 
-        var ends = await Client().GetAvailableEndsAsync(Dataset, CancellationToken.None);
+        var ends = await Client().GetAvailableEndsAsync(Dataset, TestContext.Current.CancellationToken);
 
         ends.Value[Mbo].ShouldBe(new DateTimeOffset(2026, 11, 1, 20, 24, 28, TimeSpan.Zero).AddTicks(1234567));
     }
@@ -416,7 +416,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(ListJobs, $$"""[{"id":"{{JobId}}","state":"{{state}}"}]""");
 
-        var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+        var result = await Client().GetStateAsync(JobId, Now, TestContext.Current.CancellationToken);
 
         result.Value.ShouldBe(expected);
     }
@@ -426,7 +426,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(ListJobs, $$"""[{"id":"{{JobId}}","state":"something new"}]""");
 
-        var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+        var result = await Client().GetStateAsync(JobId, Now, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Malformed);
         result.Error.Message.ShouldContain("something new");
@@ -439,7 +439,7 @@ public sealed class DatabentoClientTests : IDisposable
         var file = Remote(bytes, SHA256.HashData(bytes));
         handler.Stream(file.Name, new SilentStream());
 
-        var result = await Client(stall: Briefly).DownloadAsync(file, Path.Combine(folder, file.Name), CancellationToken.None);
+        var result = await Client(stall: Briefly).DownloadAsync(file, Path.Combine(folder, file.Name), TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Unreachable);
         result.Error.Message.ShouldContain("stalled");
@@ -463,7 +463,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Stream(GetCost, new SilentStream());
 
-        var result = await Client(call: Briefly).QuoteAsync(Request, CancellationToken.None);
+        var result = await Client(call: Briefly).QuoteAsync(Request, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Unreachable);
         result.Error.Message.ShouldContain("no answer");
@@ -477,7 +477,7 @@ public sealed class DatabentoClientTests : IDisposable
         var bytes = Encoding.ASCII.GetBytes("dbn bytes");
         var file = Remote(bytes, SHA256.HashData(bytes)) with { Url = url };
 
-        var result = await Client().DownloadAsync(file, Path.Combine(folder, file.Name), CancellationToken.None);
+        var result = await Client().DownloadAsync(file, Path.Combine(folder, file.Name), TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Malformed);
         handler.Paths.ShouldBeEmpty();
@@ -489,7 +489,7 @@ public sealed class DatabentoClientTests : IDisposable
         handler.Answer(ListJobs, "[]");
         handler.Answer(JobDetails, "{}", HttpStatusCode.NotFound);
 
-        await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+        await Client().GetStateAsync(JobId, Now, TestContext.Current.CancellationToken);
 
         handler.Queries[ListJobs].ShouldContain($"since={Today.AddDays(-1):yyyy-MM-dd}");
     }
@@ -499,7 +499,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(ListJobs, "{}", HttpStatusCode.ServiceUnavailable);
 
-        var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+        var result = await Client().GetStateAsync(JobId, Now, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.ServerError);
     }
@@ -512,7 +512,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(ListJobs, body);
 
-        var result = await Client().GetStateAsync(JobId, Now, CancellationToken.None);
+        var result = await Client().GetStateAsync(JobId, Now, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Malformed);
     }
@@ -526,7 +526,7 @@ public sealed class DatabentoClientTests : IDisposable
         $$"""{"id":"{{JobId}}","dataset":"{{Dataset}}","symbols":{{symbols}},"stype_in":"continuous","schema":"{{Mbo}}","start":"2026-10-28{{startTime}}","end":"2026-10-29{{Midnight}}","encoding":"dbn","compression":"zstd","state":"done","ts_received":"{{Received}}","ts_expiration":{{expires}}}""";
 
     private Task<Result<IReadOnlyList<RemoteJob>>> Jobs(IReadOnlySet<string>? known = null) =>
-        Client().ListJobsAsync(Today, known ?? NoneKnown, CancellationToken.None);
+        Client().ListJobsAsync(Today, known ?? NoneKnown, TestContext.Current.CancellationToken);
 
     [Fact]
     public async Task A_listed_job_is_asked_about_and_read_in_full()
@@ -699,7 +699,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Throw(GetCost, new HttpRequestException(Offline));
 
-        var result = await Client().QuoteAsync(Request, CancellationToken.None);
+        var result = await Client().QuoteAsync(Request, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Unreachable);
         result.Error.Message.ShouldNotContain(ServerErrorWords);
@@ -710,7 +710,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(GetCost, "{}", HttpStatusCode.BadRequest);
 
-        var result = await Client().QuoteAsync(Request, CancellationToken.None);
+        var result = await Client().QuoteAsync(Request, TestContext.Current.CancellationToken);
 
         result.Error!.Message.ShouldNotContain(ServerErrorWords);
     }
@@ -722,7 +722,7 @@ public sealed class DatabentoClientTests : IDisposable
             [{"filename":"{{FileName(Day(10, 28), Mbo)}}","size":3,"hash":"sha256:abc","urls":{"https":"{{DownloadUrl}}"} }]
             """);
 
-        var files = await Client().ListFilesAsync(JobId, CancellationToken.None);
+        var files = await Client().ListFilesAsync(JobId, TestContext.Current.CancellationToken);
 
         files.Value.ShouldBe([new RemoteFile(FileName(Day(10, 28), Mbo), 3, "abc", DownloadUrl)]);
     }
@@ -732,7 +732,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(ListFiles, $$"""[{"filename":"a.dbn.zst","hash":"sha256:abc","urls":{"https":"{{DownloadUrl}}"} }]""");
 
-        var files = await Client().ListFilesAsync(JobId, CancellationToken.None);
+        var files = await Client().ListFilesAsync(JobId, TestContext.Current.CancellationToken);
 
         files.Value.ShouldHaveSingleItem().Size.ShouldBe(-1);
     }
@@ -750,7 +750,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(ListFiles, body);
 
-        var files = await Client().ListFilesAsync(JobId, CancellationToken.None);
+        var files = await Client().ListFilesAsync(JobId, TestContext.Current.CancellationToken);
 
         files.Error!.Code.ShouldBe(Errors.Malformed);
     }
@@ -760,7 +760,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(ListFiles, "{}", HttpStatusCode.Forbidden);
 
-        var files = await Client().ListFilesAsync(JobId, CancellationToken.None);
+        var files = await Client().ListFilesAsync(JobId, TestContext.Current.CancellationToken);
 
         files.Error!.Code.ShouldBe(Errors.Rejected);
     }
@@ -772,7 +772,7 @@ public sealed class DatabentoClientTests : IDisposable
         var file = Remote(bytes, SHA256.HashData(bytes)) with { Size = bytes.Length + 1 };
         handler.Answer(file.Name, bytes);
 
-        var result = await Client().DownloadAsync(file, Path.Combine(folder, file.Name), CancellationToken.None);
+        var result = await Client().DownloadAsync(file, Path.Combine(folder, file.Name), TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Corrupt);
         Directory.GetFiles(folder).ShouldBeEmpty();
@@ -786,7 +786,7 @@ public sealed class DatabentoClientTests : IDisposable
         file = file with { Sha256 = file.Sha256.ToUpperInvariant() };
         handler.Answer(file.Name, bytes);
 
-        var result = await Client().DownloadAsync(file, Path.Combine(folder, file.Name), CancellationToken.None);
+        var result = await Client().DownloadAsync(file, Path.Combine(folder, file.Name), TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeTrue();
     }
@@ -797,7 +797,7 @@ public sealed class DatabentoClientTests : IDisposable
         var file = Remote([1], SHA256.HashData([1]));
         handler.Answer(file.Name, "{}", HttpStatusCode.NotFound);
 
-        var result = await Client().DownloadAsync(file, Path.Combine(folder, file.Name), CancellationToken.None);
+        var result = await Client().DownloadAsync(file, Path.Combine(folder, file.Name), TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Rejected);
         Directory.GetFiles(folder).ShouldBeEmpty();
@@ -809,7 +809,7 @@ public sealed class DatabentoClientTests : IDisposable
         var file = Remote([1], SHA256.HashData([1]));
         handler.Throw(file.Name, new HttpRequestException(Offline));
 
-        var result = await Client().DownloadAsync(file, Path.Combine(folder, file.Name), CancellationToken.None);
+        var result = await Client().DownloadAsync(file, Path.Combine(folder, file.Name), TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Unreachable);
         Directory.GetFiles(folder).ShouldBeEmpty();
@@ -821,7 +821,7 @@ public sealed class DatabentoClientTests : IDisposable
         var file = Remote([1, 2, 3], SHA256.HashData([1, 2, 3]));
         handler.Stream(file.Name, new BrokenStream());
 
-        var result = await Client().DownloadAsync(file, Path.Combine(folder, file.Name), CancellationToken.None);
+        var result = await Client().DownloadAsync(file, Path.Combine(folder, file.Name), TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Unreachable);
         Directory.GetFiles(folder).ShouldBeEmpty();
@@ -833,12 +833,12 @@ public sealed class DatabentoClientTests : IDisposable
         var bytes = Encoding.ASCII.GetBytes("dbn bytes");
         var file = Remote(bytes, SHA256.HashData(bytes));
         var path = Path.Combine(folder, file.Name);
-        await System.IO.File.WriteAllBytesAsync(path, [9]);
+        await System.IO.File.WriteAllBytesAsync(path, [9], TestContext.Current.CancellationToken);
         handler.Answer(file.Name, bytes);
 
-        await Client().DownloadAsync(file, path, CancellationToken.None);
+        await Client().DownloadAsync(file, path, TestContext.Current.CancellationToken);
 
-        (await System.IO.File.ReadAllBytesAsync(path)).ShouldBe(bytes);
+        (await System.IO.File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken)).ShouldBe(bytes);
     }
 
     [Fact]
@@ -847,7 +847,7 @@ public sealed class DatabentoClientTests : IDisposable
         var file = Remote([1], SHA256.HashData([1]));
         handler.Answer(file.Name, new byte[] { 1 });
 
-        await Client().DownloadAsync(file, Path.Combine(folder, file.Name), CancellationToken.None);
+        await Client().DownloadAsync(file, Path.Combine(folder, file.Name), TestContext.Current.CancellationToken);
 
         handler.Authorization.ShouldBe(Convert.ToBase64String(Encoding.ASCII.GetBytes($"{ApiKey}:")));
     }
@@ -857,7 +857,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(GetCost, "1.5");
 
-        var quote = await Client().QuoteAsync(Request, CancellationToken.None);
+        var quote = await Client().QuoteAsync(Request, TestContext.Current.CancellationToken);
 
         quote.Value.ShouldBe(1.5m);
         var query = handler.Queries[GetCost];
@@ -872,7 +872,7 @@ public sealed class DatabentoClientTests : IDisposable
     {
         handler.Answer(GetCost, "1");
 
-        await Client(new Uri(OwnGateway)).QuoteAsync(Request, CancellationToken.None);
+        await Client(new Uri(OwnGateway)).QuoteAsync(Request, TestContext.Current.CancellationToken);
 
         handler.Hosts.ShouldBe([new Uri(OwnGateway).Host]);
     }

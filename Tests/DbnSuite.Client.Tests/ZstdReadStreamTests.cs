@@ -99,7 +99,7 @@ public sealed class ZstdReadStreamTests
         await using var stream = Zstd.Decompressing(new TrickleStream([.. Zstd.Compress(first), .. Zstd.Compress(second)]));
         using var target = new MemoryStream();
 
-        await stream.CopyToAsync(target);
+        await stream.CopyToAsync(target, TestContext.Current.CancellationToken);
 
         target.ToArray().ShouldBe([.. first, .. second]);
     }
@@ -112,7 +112,7 @@ public sealed class ZstdReadStreamTests
         var read = new List<byte>();
         var one = new byte[OneByte];
 
-        while (await stream.ReadAsync(one) > 0)
+        while (await stream.ReadAsync(one, TestContext.Current.CancellationToken) > 0)
             read.Add(one[0]);
 
         read.ShouldBe(plain);

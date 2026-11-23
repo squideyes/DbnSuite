@@ -39,7 +39,7 @@ public sealed class DbnReaderTests
     [Fact]
     public async Task Metadata_names_what_was_asked_for_and_maps_ids_to_it()
     {
-        await using var reader = await DbnReader.OpenAsync(File(), CancellationToken.None);
+        await using var reader = await DbnReader.OpenAsync(File(), TestContext.Current.CancellationToken);
 
         reader.Metadata.Version.ShouldBe(DbnBytes.Version);
         reader.Metadata.Dataset.ShouldBe(Dataset);
@@ -52,7 +52,7 @@ public sealed class DbnReaderTests
     [Fact]
     public async Task An_unmapped_instrument_is_named_by_its_id()
     {
-        await using var reader = await DbnReader.OpenAsync(File(), CancellationToken.None);
+        await using var reader = await DbnReader.OpenAsync(File(), TestContext.Current.CancellationToken);
 
         reader.Metadata.SymbolOf(UnmappedId).ShouldBe(UnmappedId.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
@@ -61,9 +61,9 @@ public sealed class DbnReaderTests
     public async Task An_mbo_record_decodes_field_by_field()
     {
         await using var reader = await DbnReader.OpenAsync(
-            File(DbnBytes.Mbo(FrontId, TsEvent, Price, Quantity, 'A', 'B', OrderId)), CancellationToken.None);
+            File(DbnBytes.Mbo(FrontId, TsEvent, Price, Quantity, 'A', 'B', OrderId)), TestContext.Current.CancellationToken);
 
-        var records = await reader.ReadAsync(CancellationToken.None).ToListAsync();
+        var records = await reader.ReadAsync(TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken);
 
         var mbo = records.ShouldHaveSingleItem().ShouldBeOfType<MboRecord>();
         mbo.InstrumentId.ShouldBe(FrontId);
@@ -80,9 +80,9 @@ public sealed class DbnReaderTests
     {
         await using var reader = await DbnReader.OpenAsync(File(
             DbnBytes.Unknown(UnknownType, UnknownLength, NextId, TsEvent),
-            DbnBytes.Mbo(FrontId, TsEvent, Price, Quantity, 'T', 'A', OrderId)), CancellationToken.None);
+            DbnBytes.Mbo(FrontId, TsEvent, Price, Quantity, 'T', 'A', OrderId)), TestContext.Current.CancellationToken);
 
-        var records = await reader.ReadAsync(CancellationToken.None).ToListAsync();
+        var records = await reader.ReadAsync(TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken);
 
         records.Count.ShouldBe(2);
         records[0].ShouldBeOfType<OtherRecord>().Length.ShouldBe(UnknownLength);
@@ -93,9 +93,9 @@ public sealed class DbnReaderTests
     public async Task The_no_price_sentinel_reads_as_no_price()
     {
         await using var reader = await DbnReader.OpenAsync(
-            File(DbnBytes.Mbo(FrontId, TsEvent, DbnPrice.Undefined, 0, 'R', 'N', 0)), CancellationToken.None);
+            File(DbnBytes.Mbo(FrontId, TsEvent, DbnPrice.Undefined, 0, 'R', 'N', 0)), TestContext.Current.CancellationToken);
 
-        var records = await reader.ReadAsync(CancellationToken.None).ToListAsync();
+        var records = await reader.ReadAsync(TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken);
 
         records.ShouldHaveSingleItem().ShouldBeOfType<MboRecord>().Price.ShouldBeNull();
     }
@@ -105,7 +105,7 @@ public sealed class DbnReaderTests
     {
         var notDbn = new MemoryStream(DbnBytes.Compress("PK\u0003\u0004 not a dbn file"u8.ToArray()));
 
-        await Should.ThrowAsync<InvalidDataException>(() => DbnReader.OpenAsync(notDbn, CancellationToken.None));
+        await Should.ThrowAsync<InvalidDataException>(() => DbnReader.OpenAsync(notDbn, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -115,9 +115,9 @@ public sealed class DbnReaderTests
         var records = Enumerable.Range(0, Records)
             .Select(i => DbnBytes.Mbo(FrontId, TsEvent, Price, Quantity, 'A', 'B', (ulong)i))
             .ToArray();
-        await using var reader = await DbnReader.OpenAsync(File(records), CancellationToken.None);
+        await using var reader = await DbnReader.OpenAsync(File(records), TestContext.Current.CancellationToken);
 
-        var orders = await reader.ReadAsync(CancellationToken.None).Select(r => ((MboRecord)r).OrderId).ToListAsync();
+        var orders = await reader.ReadAsync(TestContext.Current.CancellationToken).Select(r => ((MboRecord)r).OrderId).ToListAsync(TestContext.Current.CancellationToken);
 
         orders.ShouldBe(Enumerable.Range(0, Records).Select(i => (ulong)i).ToList());
     }
@@ -126,9 +126,9 @@ public sealed class DbnReaderTests
     public async Task Raw_records_are_the_bytes_as_stored()
     {
         var record = DbnBytes.Mbo(FrontId, TsEvent, Price, Quantity, 'A', 'B', OrderId);
-        await using var reader = await DbnReader.OpenAsync(File(record), CancellationToken.None);
+        await using var reader = await DbnReader.OpenAsync(File(record), TestContext.Current.CancellationToken);
 
-        var raw = await reader.ReadRawAsync(CancellationToken.None).Select(r => r.ToArray()).ToListAsync();
+        var raw = await reader.ReadRawAsync(TestContext.Current.CancellationToken).Select(r => r.ToArray()).ToListAsync(TestContext.Current.CancellationToken);
 
         raw.ShouldHaveSingleItem().ShouldBe(record);
     }
@@ -136,9 +136,9 @@ public sealed class DbnReaderTests
     [Fact]
     public async Task A_file_with_no_records_reads_as_none()
     {
-        await using var reader = await DbnReader.OpenAsync(File(), CancellationToken.None);
+        await using var reader = await DbnReader.OpenAsync(File(), TestContext.Current.CancellationToken);
 
-        (await reader.ReadAsync(CancellationToken.None).ToListAsync()).ShouldBeEmpty();
+        (await reader.ReadAsync(TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken)).ShouldBeEmpty();
     }
 
     [Theory]
@@ -148,18 +148,18 @@ public sealed class DbnReaderTests
     {
         var record = DbnBytes.Unknown(UnknownType, UnknownLength, FrontId, TsEvent);
         record[0] = words;
-        await using var reader = await DbnReader.OpenAsync(File(record), CancellationToken.None);
+        await using var reader = await DbnReader.OpenAsync(File(record), TestContext.Current.CancellationToken);
 
-        await Should.ThrowAsync<InvalidDataException>(async () => await reader.ReadAsync(CancellationToken.None).ToListAsync());
+        await Should.ThrowAsync<InvalidDataException>(async () => await reader.ReadAsync(TestContext.Current.CancellationToken).ToListAsync());
     }
 
     [Fact]
     public async Task A_stream_that_ends_inside_a_record_is_refused()
     {
         var record = DbnBytes.Mbo(FrontId, TsEvent, Price, Quantity, 'A', 'B', OrderId);
-        await using var reader = await DbnReader.OpenAsync(File(record[..30]), CancellationToken.None);
+        await using var reader = await DbnReader.OpenAsync(File(record[..30]), TestContext.Current.CancellationToken);
 
-        var refused = await Should.ThrowAsync<InvalidDataException>(async () => await reader.ReadAsync(CancellationToken.None).ToListAsync());
+        var refused = await Should.ThrowAsync<InvalidDataException>(async () => await reader.ReadAsync(TestContext.Current.CancellationToken).ToListAsync());
 
         refused.Message.ShouldContain("30");
     }
@@ -174,9 +174,9 @@ public sealed class DbnReaderTests
     public async Task A_definition_decodes_what_names_and_dates_a_contract()
     {
         await using var reader = await DbnReader.OpenAsync(File(DbnBytes.Definition(FrontId, TsEvent, RawSymbol, Asset,
-            DefinitionRecord.Future, TickNanos, Activation, Expiration, MaturityYear, MaturityMonth)), CancellationToken.None);
+            DefinitionRecord.Future, TickNanos, Activation, Expiration, MaturityYear, MaturityMonth)), TestContext.Current.CancellationToken);
 
-        var definition = (await reader.ReadAsync(CancellationToken.None).ToListAsync()).Single().ShouldBeOfType<DefinitionRecord>();
+        var definition = (await reader.ReadAsync(TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken)).Single().ShouldBeOfType<DefinitionRecord>();
 
         definition.RawSymbol.ShouldBe(RawSymbol);
         definition.Asset.ShouldBe(Asset);
@@ -193,7 +193,7 @@ public sealed class DbnReaderTests
     {
         var notZstd = new MemoryStream([1, 2, 3, 4, 5, 6, 7, 8]);
 
-        await Should.ThrowAsync<InvalidDataException>(() => DbnReader.OpenAsync(notZstd, CancellationToken.None));
+        await Should.ThrowAsync<InvalidDataException>(() => DbnReader.OpenAsync(notZstd, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -202,16 +202,16 @@ public sealed class DbnReaderTests
         var whole = DbnBytes.Compress(DbnBytes.Metadata(Dataset, [], new Dictionary<string, uint>()));
 
         await Should.ThrowAsync<InvalidDataException>(() =>
-            DbnReader.OpenAsync(new MemoryStream(whole[..^4]), CancellationToken.None));
+            DbnReader.OpenAsync(new MemoryStream(whole[..^4]), TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task A_compressed_stream_damaged_after_the_metadata_is_refused_as_damaged()
     {
         var metadata = DbnBytes.Compress(DbnBytes.Metadata(Dataset, [], new Dictionary<string, uint>()));
-        await using var reader = await DbnReader.OpenAsync(new MemoryStream([.. metadata, 1, 2, 3, 4, 5, 6, 7, 8]), CancellationToken.None);
+        await using var reader = await DbnReader.OpenAsync(new MemoryStream([.. metadata, 1, 2, 3, 4, 5, 6, 7, 8]), TestContext.Current.CancellationToken);
 
-        await Should.ThrowAsync<InvalidDataException>(async () => await reader.ReadAsync(CancellationToken.None).ToListAsync());
+        await Should.ThrowAsync<InvalidDataException>(async () => await reader.ReadAsync(TestContext.Current.CancellationToken).ToListAsync());
     }
 
     [Fact]
@@ -220,9 +220,9 @@ public sealed class DbnReaderTests
         await using var reader = await DbnReader.OpenAsync(new MemoryStream(
             [.. DbnBytes.Compress(DbnBytes.Metadata(Dataset, Requested, Mappings)),
                 .. DbnBytes.Compress(Order(FrontId)), .. ZstdFrames.Skippable, .. DbnBytes.Compress(Order(NextId))]),
-            CancellationToken.None);
+            TestContext.Current.CancellationToken);
 
-        var records = await reader.ReadAsync(CancellationToken.None).ToListAsync();
+        var records = await reader.ReadAsync(TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken);
 
         records.Select(r => r.InstrumentId).ShouldBe([FrontId, NextId]);
     }
@@ -234,9 +234,9 @@ public sealed class DbnReaderTests
     public async Task Bytes_after_the_last_record_that_are_not_zstd_are_refused_as_damaged(int junk)
     {
         await using var reader = await DbnReader.OpenAsync(
-            new MemoryStream([.. File(Order(FrontId)).ToArray(), .. ZstdFrames.Junk(junk)]), CancellationToken.None);
+            new MemoryStream([.. File(Order(FrontId)).ToArray(), .. ZstdFrames.Junk(junk)]), TestContext.Current.CancellationToken);
 
-        await Should.ThrowAsync<InvalidDataException>(async () => await reader.ReadAsync(CancellationToken.None).ToListAsync());
+        await Should.ThrowAsync<InvalidDataException>(async () => await reader.ReadAsync(TestContext.Current.CancellationToken).ToListAsync());
     }
 
     [Fact]
@@ -245,9 +245,9 @@ public sealed class DbnReaderTests
         var records = DbnBytes.Compress(Order(FrontId), Order(NextId));
         await using var reader = await DbnReader.OpenAsync(
             new MemoryStream([.. DbnBytes.Compress(DbnBytes.Metadata(Dataset, Requested, Mappings)), .. records[..^TailCut]]),
-            CancellationToken.None);
+            TestContext.Current.CancellationToken);
 
-        await Should.ThrowAsync<InvalidDataException>(async () => await reader.ReadAsync(CancellationToken.None).ToListAsync());
+        await Should.ThrowAsync<InvalidDataException>(async () => await reader.ReadAsync(TestContext.Current.CancellationToken).ToListAsync());
     }
 
     [Fact]
@@ -255,7 +255,7 @@ public sealed class DbnReaderTests
     {
         var failing = new FailingStream(new IOException(DiskFailed), File());
 
-        await Should.ThrowAsync<IOException>(() => DbnReader.OpenAsync(failing, CancellationToken.None));
+        await Should.ThrowAsync<IOException>(() => DbnReader.OpenAsync(failing, TestContext.Current.CancellationToken));
     }
 
     private const string DiskFailed = "the disk went away";

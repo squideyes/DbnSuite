@@ -20,7 +20,7 @@ public sealed class DashboardPasswordTests(CaddyProxy caddy) : IClassFixture<Cad
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         response.Headers.WwwAuthenticate.ShouldContain(h => h.Scheme == "Basic");
-        (await response.Content.ReadAsStringAsync()).ShouldNotContain(CaddyProxy.BehindIt);
+        (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).ShouldNotContain(CaddyProxy.BehindIt);
     }
 
     [Theory]
@@ -39,6 +39,6 @@ public sealed class DashboardPasswordTests(CaddyProxy caddy) : IClassFixture<Cad
         var response = await caddy.GetDashboardAsync(CaddyProxy.User, CaddyProxy.Password);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await response.Content.ReadAsStringAsync()).ShouldBe(CaddyProxy.BehindIt);
+        (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).ShouldBe(CaddyProxy.BehindIt);
     }
 }

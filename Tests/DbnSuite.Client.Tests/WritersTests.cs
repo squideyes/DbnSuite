@@ -285,7 +285,7 @@ public sealed class WritersTests : IDisposable
         await using (var writer = Writers.Create(OutputFormat.NinjaTrader, path, BarColumns, format, Compression.None, null, dateOnly: true))
             writer.Write(BarRow(sessionStart, sessionEnd), []);
 
-        (await File.ReadAllTextAsync(path)).ShouldBe("20261028;100.25;101;100;100.5;7\r\n");
+        (await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken)).ShouldBe("20261028;100.25;101;100;100.5;7\r\n");
     }
 
     [Fact]

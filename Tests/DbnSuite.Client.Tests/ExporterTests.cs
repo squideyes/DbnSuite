@@ -88,10 +88,10 @@ public sealed class ExporterTests : IDisposable
     [Fact]
     public async Task A_contract_keeps_only_its_records_with_two_digit_names()
     {
-        var summary = (await new Exporter(archive).RunAsync(Request("ESZ26", SessionKind.Eth), null, CancellationToken.None)).Value;
+        var summary = (await new Exporter(archive).RunAsync(Request("ESZ26", SessionKind.Eth), null, TestContext.Current.CancellationToken)).Value;
 
         summary.Rows.ShouldBe(3);
-        var lines = await File.ReadAllLinesAsync(summary.Files.Single());
+        var lines = await File.ReadAllLinesAsync(summary.Files.Single(), TestContext.Current.CancellationToken);
         lines[0].ShouldBe("ts_event,symbol,instrument_id,open,high,low,close,volume");
         lines[2].ShouldBe("2026-10-28T08:30:00.000000000-05:00,ESZ26,101,6000,6002,5999,6001,10");
     }
@@ -109,7 +109,7 @@ public sealed class ExporterTests : IDisposable
 
         var request = Request("ESZ26", SessionKind.Eth) with { Schema = DbnArchive.DefinitionSchema };
 
-        var summary = (await new Exporter(archive).RunAsync(request, null, CancellationToken.None)).Value;
+        var summary = (await new Exporter(archive).RunAsync(request, null, TestContext.Current.CancellationToken)).Value;
 
         summary.Rows.ShouldBe(1);
     }
@@ -123,7 +123,7 @@ public sealed class ExporterTests : IDisposable
 
         await Should.ThrowAsync<Exception>(async () =>
         {
-            var result = await new Exporter(archive).RunAsync(request, null, CancellationToken.None);
+            var result = await new Exporter(archive).RunAsync(request, null, TestContext.Current.CancellationToken);
 
             if (!result.IsSuccess)
                 throw new InvalidDataException(result.Error!.Message);
@@ -137,9 +137,9 @@ public sealed class ExporterTests : IDisposable
     {
         var request = Request("ESZ26", SessionKind.Rth) with { Bars = BarSpec.Parse(OneMinute).Value };
 
-        var summary = (await new Exporter(archive).RunAsync(request, null, CancellationToken.None)).Value;
+        var summary = (await new Exporter(archive).RunAsync(request, null, TestContext.Current.CancellationToken)).Value;
 
-        var lines = await File.ReadAllLinesAsync(summary.Files.Single());
+        var lines = await File.ReadAllLinesAsync(summary.Files.Single(), TestContext.Current.CancellationToken);
         lines.Length.ShouldBe(2);
         lines[1].ShouldBe("2026-10-28T08:30:00.000000000-05:00,2026-10-28T08:31:00.000000000-05:00,ESZ26,6000,6003,5999,6002,15");
     }
@@ -149,7 +149,7 @@ public sealed class ExporterTests : IDisposable
     {
         var request = Request(Es, SessionKind.Eth) with { Spreads = false };
 
-        var summary = (await new Exporter(archive).RunAsync(request, null, CancellationToken.None)).Value;
+        var summary = (await new Exporter(archive).RunAsync(request, null, TestContext.Current.CancellationToken)).Value;
 
         summary.Rows.ShouldBe(3);
     }
@@ -159,9 +159,9 @@ public sealed class ExporterTests : IDisposable
     {
         var request = Request("ESZ26", SessionKind.Rth) with { Prices = PriceMode.Ticks, Columns = [Close] };
 
-        var summary = (await new Exporter(archive).RunAsync(request, null, CancellationToken.None)).Value;
+        var summary = (await new Exporter(archive).RunAsync(request, null, TestContext.Current.CancellationToken)).Value;
 
-        (await File.ReadAllLinesAsync(summary.Files.Single())).ShouldBe(["close", "24004", "24008"]);
+        (await File.ReadAllLinesAsync(summary.Files.Single(), TestContext.Current.CancellationToken)).ShouldBe(["close", "24004", "24008"]);
     }
 
     [Fact]
@@ -169,17 +169,17 @@ public sealed class ExporterTests : IDisposable
     {
         var request = Request("ESZ26", SessionKind.Eth, OutputFormat.Parquet);
 
-        var summary = (await new Exporter(archive).RunAsync(request, null, CancellationToken.None)).Value;
+        var summary = (await new Exporter(archive).RunAsync(request, null, TestContext.Current.CancellationToken)).Value;
 
         await using var file = File.OpenRead(summary.Files.Single());
-        await using var reader = await ParquetReader.CreateAsync(file);
+        await using var reader = await ParquetReader.CreateAsync(file, cancellationToken: TestContext.Current.CancellationToken);
         var fields = reader.Schema.GetDataFields();
         var group = reader.OpenRowGroupReader(0);
         var close = new double?[3];
         var symbols = new string?[3];
 
-        await group.ReadAsync<double>(fields.Single(f => f.Name == "close"), close);
-        await group.ReadAsync(fields.Single(f => f.Name == "symbol"), symbols.AsMemory());
+        await group.ReadAsync<double>(fields.Single(f => f.Name == "close"), close, cancellationToken: TestContext.Current.CancellationToken);
+        await group.ReadAsync(fields.Single(f => f.Name == "symbol"), symbols.AsMemory(), cancellationToken: TestContext.Current.CancellationToken);
 
         reader.RowGroupCount.ShouldBe(1);
         close.ShouldBe([6000d, 6001d, 6002d]);
@@ -189,7 +189,7 @@ public sealed class ExporterTests : IDisposable
     [Fact]
     public async Task Ninjatrader_needs_bars()
     {
-        var result = await new Exporter(archive).RunAsync(Request("ESZ26", SessionKind.Eth, OutputFormat.NinjaTrader), null, CancellationToken.None);
+        var result = await new Exporter(archive).RunAsync(Request("ESZ26", SessionKind.Eth, OutputFormat.NinjaTrader), null, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe("input.bad_format");
     }
@@ -199,7 +199,7 @@ public sealed class ExporterTests : IDisposable
     {
         using var other = DbnArchive.Open(new ArchiveOptions { Location = archiveFolder, Dataset = OtherDataset }, null);
 
-        var result = await new Exporter(other).RunAsync(Request("ESZ26", SessionKind.Eth), null, CancellationToken.None);
+        var result = await new Exporter(other).RunAsync(Request("ESZ26", SessionKind.Eth), null, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.UnsupportedDataset);
         result.Error.Message.ShouldContain(OtherDataset);
@@ -211,7 +211,7 @@ public sealed class ExporterTests : IDisposable
         using var other = DbnArchive.Open(new ArchiveOptions { Location = archiveFolder, Dataset = OtherDataset }, null);
 
         var result = await RollSchedule.BuildAsync(other, SymbolSpec.Parse("ES.v.0").Value,
-            new DateSpan(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 30)), 0, null, CancellationToken.None);
+            new DateSpan(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 30)), 0, null, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.UnsupportedDataset);
     }
@@ -223,7 +223,7 @@ public sealed class ExporterTests : IDisposable
     {
         var request = Request("ESZ26", SessionKind.Eth) with { Columns = ["nope"] };
 
-        var result = await new Exporter(archive).RunAsync(request, null, CancellationToken.None);
+        var result = await new Exporter(archive).RunAsync(request, null, TestContext.Current.CancellationToken);
 
         result.Error!.Message.ShouldContain("nope");
     }
@@ -333,7 +333,7 @@ public sealed class ExporterTests : IDisposable
     {
         using var opened = folder.Open();
 
-        return await new Exporter(opened).RunAsync(request, progress, CancellationToken.None);
+        return await new Exporter(opened).RunAsync(request, progress, TestContext.Current.CancellationToken);
     }
 
     private async Task<ExportSummary> Export(ExportRequest request) => (await Try(request)).Value;
@@ -485,7 +485,7 @@ public sealed class ExporterTests : IDisposable
         using var failing = folder.OpenFailing(key => key.Contains("20261209", StringComparison.Ordinal),
             new Error(Errors.Unreachable, Errors.Unreachable));
 
-        var result = await new Exporter(failing).RunAsync(Ask(Ohlcv, Es, Dec(9), Dec(9)), null, CancellationToken.None);
+        var result = await new Exporter(failing).RunAsync(Ask(Ohlcv, Es, Dec(9), Dec(9)), null, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Unreachable);
     }
@@ -497,7 +497,7 @@ public sealed class ExporterTests : IDisposable
         using var failing = folder.OpenFailing(key => key.Contains("/definition/", StringComparison.Ordinal),
             new Error(Errors.Denied, Errors.Denied));
 
-        var result = await new Exporter(failing).RunAsync(Ask(Ohlcv, Es, Dec(9), Dec(9)), null, CancellationToken.None);
+        var result = await new Exporter(failing).RunAsync(Ask(Ohlcv, Es, Dec(9), Dec(9)), null, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Denied);
     }
@@ -509,7 +509,7 @@ public sealed class ExporterTests : IDisposable
         using var failing = folder.OpenFailing(key => key.Contains("/statistics/", StringComparison.Ordinal),
             new Error(Errors.Unreachable, Errors.Unreachable));
 
-        var result = await new Exporter(failing).RunAsync(Ask(Ohlcv, Calendar, Dec(9), Dec(9)), null, CancellationToken.None);
+        var result = await new Exporter(failing).RunAsync(Ask(Ohlcv, Calendar, Dec(9), Dec(9)), null, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Unreachable);
     }
@@ -893,7 +893,7 @@ public sealed class ExporterTests : IDisposable
         var path = summary.Files.Single();
         Path.GetRelativePath(output, path).Replace('\\', '/').ShouldBe("series=ESZ26/date=2026-12-09/ohlcv-1s.parquet");
         await using var file = File.OpenRead(path);
-        await using var reader = await ParquetReader.CreateAsync(file);
+        await using var reader = await ParquetReader.CreateAsync(file, cancellationToken: TestContext.Current.CancellationToken);
         reader.Metadata!.NumRows.ShouldBe(1);
     }
 
@@ -919,9 +919,9 @@ public sealed class ExporterTests : IDisposable
 
         var path = summary.Files.Single();
         path.ShouldEndWith(".dbn.zst");
-        await using var reader = await DbnReader.OpenAsync(File.OpenRead(path), CancellationToken.None);
+        await using var reader = await DbnReader.OpenAsync(File.OpenRead(path), TestContext.Current.CancellationToken);
         reader.Metadata.Dataset.ShouldBe(Dataset);
-        (await reader.ReadRawAsync(CancellationToken.None).Select(r => r.ToArray()).ToListAsync()).ShouldHaveSingleItem().ShouldBe(kept);
+        (await reader.ReadRawAsync(TestContext.Current.CancellationToken).Select(r => r.ToArray()).ToListAsync(TestContext.Current.CancellationToken)).ShouldHaveSingleItem().ShouldBe(kept);
     }
 
     [Fact]
@@ -941,7 +941,7 @@ public sealed class ExporterTests : IDisposable
 
         var path = summary.Files.Single();
         Path.GetFileName(path).ShouldBe("ES 12-26.Last.txt");
-        (await File.ReadAllTextAsync(path)).ShouldBe("20261209 100100;100;101;99;100;5\r\n20261210 100100;101;102;100;101;5\r\n");
+        (await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken)).ShouldBe("20261209 100100;100;101;99;100;5\r\n20261210 100100;101;102;100;101;5\r\n");
     }
 
     [Fact]
@@ -957,7 +957,7 @@ public sealed class ExporterTests : IDisposable
             Zone = Zones.Find(Zones.Default).Value
         });
 
-        (await File.ReadAllTextAsync(summary.Files.Single())).ShouldBe("20261028 083000 0000000;100;2\r\n");
+        (await File.ReadAllTextAsync(summary.Files.Single(), TestContext.Current.CancellationToken)).ShouldBe("20261028 083000 0000000;100;2\r\n");
     }
 
     [Fact]
@@ -1021,8 +1021,8 @@ public sealed class ExporterTests : IDisposable
 
         var summary = await Export(Ask(Mbp1, Front, Dec(9), Dec(9)) with { Format = OutputFormat.Dbn, Compression = Compression.Zstd });
 
-        await using var reader = await DbnReader.OpenAsync(File.OpenRead(summary.Files.Single()), CancellationToken.None);
-        (await reader.ReadRawAsync(CancellationToken.None).Select(r => r.ToArray()).ToListAsync()).ShouldHaveSingleItem().ShouldBe(record);
+        await using var reader = await DbnReader.OpenAsync(File.OpenRead(summary.Files.Single()), TestContext.Current.CancellationToken);
+        (await reader.ReadRawAsync(TestContext.Current.CancellationToken).Select(r => r.ToArray()).ToListAsync(TestContext.Current.CancellationToken)).ShouldHaveSingleItem().ShouldBe(record);
     }
 
     [Fact]
@@ -1156,7 +1156,7 @@ public sealed class ExporterTests : IDisposable
 
         var summary = await Export(Ask(Mbo, FrontSeries, Dec(9), Dec(10)) with { Format = OutputFormat.Dbn, Compression = Compression.Zstd });
 
-        await using var reader = await DbnReader.OpenAsync(File.OpenRead(summary.Files[^1]), CancellationToken.None);
+        await using var reader = await DbnReader.OpenAsync(File.OpenRead(summary.Files[^1]), TestContext.Current.CancellationToken);
         reader.Metadata.SymbolOf(NextNumber).ShouldBe(FrontSeries);
     }
 
@@ -1374,6 +1374,6 @@ public sealed class ExporterTests : IDisposable
             Zone = Zones.Find(Zones.Default).Value
         });
 
-        (await File.ReadAllTextAsync(summary.Files.Single())).ShouldBe(line);
+        (await File.ReadAllTextAsync(summary.Files.Single(), TestContext.Current.CancellationToken)).ShouldBe(line);
     }
 }

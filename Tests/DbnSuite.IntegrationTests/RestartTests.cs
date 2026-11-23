@@ -73,7 +73,7 @@ public sealed class RestartTests(RustFs s3)
         };
 
         sync.Clock.Advance(sync.Delay);
-        await downloading.Task.WaitAsync(GraceToReachGateway);
+        await downloading.Task.WaitAsync(GraceToReachGateway, TestContext.Current.CancellationToken);
         await sync.StopAsync();
         var afterStop = await sync.Archive.KeysAsync(ArchiveKeys.Folder(Dataset, Mbo, Mnq));
         sync.Gateway.OnDownload = null;

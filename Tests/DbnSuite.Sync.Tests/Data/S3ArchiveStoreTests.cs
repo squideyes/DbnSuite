@@ -41,7 +41,7 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
     private IAmazonS3 s3 = null!;
     private S3ArchiveStore store = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await server.StartAsync();
 
@@ -59,10 +59,10 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
         s3 = S3ArchiveStore.CreateClient(options);
         store = new S3ArchiveStore(s3, Options.Create(options), new SyncOptions { Dataset = Dataset });
 
-        await store.EnsureBucketAsync(CancellationToken.None);
+        await store.EnsureBucketAsync(TestContext.Current.CancellationToken);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         s3.Dispose();
 
@@ -73,11 +73,11 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
     public async Task Files_and_empty_markers_both_count_as_held()
     {
         var path = Path.GetTempFileName();
-        await System.IO.File.WriteAllBytesAsync(path, [1, 2, 3]);
+        await System.IO.File.WriteAllBytesAsync(path, [1, 2, 3], TestContext.Current.CancellationToken);
 
-        await store.PutFileAsync(Mbo, Root, Day(10, 30), path, CancellationToken.None);
-        await store.PutEmptyAsync(Mbo, Root, Day(10, 31), CancellationToken.None);
-        var held = await store.ListHeldAsync(Mbo, Root, CancellationToken.None);
+        await store.PutFileAsync(Mbo, Root, Day(10, 30), path, TestContext.Current.CancellationToken);
+        await store.PutEmptyAsync(Mbo, Root, Day(10, 31), TestContext.Current.CancellationToken);
+        var held = await store.ListHeldAsync(Mbo, Root, TestContext.Current.CancellationToken);
 
         held.ShouldBe([Day(10, 30), Day(10, 31)], ignoreOrder: true);
         System.IO.File.Delete(path);
@@ -86,9 +86,9 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
     [Fact]
     public async Task Everything_lands_under_the_prefix()
     {
-        await store.PutEmptyAsync(Mbo, Root, Day(10, 31), CancellationToken.None);
+        await store.PutEmptyAsync(Mbo, Root, Day(10, 31), TestContext.Current.CancellationToken);
 
-        var listing = await s3.ListObjectsV2Async(new() { BucketName = Bucket });
+        var listing = await s3.ListObjectsV2Async(new() { BucketName = Bucket }, TestContext.Current.CancellationToken);
 
         listing.S3Objects.ShouldAllBe(o => o.Key.StartsWith(Prefix + "/", StringComparison.Ordinal));
     }
@@ -102,7 +102,7 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
         // the worker itself uploads two files at a time.
         await Parallel.ForEachAsync(days, new ParallelOptions { MaxDegreeOfParallelism = 4 },
             async (day, token) => await store.PutEmptyAsync(Definition, Root, day, token));
-        var held = await store.ListHeldAsync(Definition, Root, CancellationToken.None);
+        var held = await store.ListHeldAsync(Definition, Root, TestContext.Current.CancellationToken);
 
         held.Count.ShouldBe(days.Count);
     }
@@ -112,10 +112,10 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
     {
         var job = new PendingJob(JobId, Root, Mbo, new DayRange(Day(10, 1), Day(10, 5)), Now);
 
-        await store.SavePendingAsync(job, CancellationToken.None);
-        var saved = await store.ListPendingAsync(CancellationToken.None);
-        await store.DeletePendingAsync(JobId, CancellationToken.None);
-        var after = await store.ListPendingAsync(CancellationToken.None);
+        await store.SavePendingAsync(job, TestContext.Current.CancellationToken);
+        var saved = await store.ListPendingAsync(TestContext.Current.CancellationToken);
+        await store.DeletePendingAsync(JobId, TestContext.Current.CancellationToken);
+        var after = await store.ListPendingAsync(TestContext.Current.CancellationToken);
 
         saved.ShouldBe([job]);
         after.ShouldBeEmpty();
@@ -128,12 +128,12 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
         var reserved = new SpendEntry("20261101120000000-a1", Now, Root, Mbo, range, 2.5m);
         var lastMonth = new SpendEntry("20261031120000000-b2", Now.AddDays(-1), Root, Mbo, range, 4m, "OLDJOB");
 
-        await store.SaveSpendAsync(reserved, CancellationToken.None);
-        await store.SaveSpendAsync(reserved with { JobId = JobId }, CancellationToken.None);
-        await store.SaveSpendAsync(lastMonth, CancellationToken.None);
-        var november = await store.ListSpendAsync(Today, CancellationToken.None);
-        await store.DeleteSpendAsync(reserved, CancellationToken.None);
-        var after = await store.ListSpendAsync(Today, CancellationToken.None);
+        await store.SaveSpendAsync(reserved, TestContext.Current.CancellationToken);
+        await store.SaveSpendAsync(reserved with { JobId = JobId }, TestContext.Current.CancellationToken);
+        await store.SaveSpendAsync(lastMonth, TestContext.Current.CancellationToken);
+        var november = await store.ListSpendAsync(Today, TestContext.Current.CancellationToken);
+        await store.DeleteSpendAsync(reserved, TestContext.Current.CancellationToken);
+        var after = await store.ListSpendAsync(Today, TestContext.Current.CancellationToken);
 
         november.ShouldBe([reserved with { JobId = JobId }]);
         after.ShouldBeEmpty();
@@ -143,11 +143,11 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
     public async Task Stored_days_carry_their_size_and_whether_they_are_empty()
     {
         var path = Path.GetTempFileName();
-        await System.IO.File.WriteAllBytesAsync(path, [1, 2, 3]);
+        await System.IO.File.WriteAllBytesAsync(path, [1, 2, 3], TestContext.Current.CancellationToken);
 
-        await store.PutFileAsync(Mbo, Root, Day(10, 30), path, CancellationToken.None);
-        await store.PutEmptyAsync(Mbo, Root, Day(10, 31), CancellationToken.None);
-        var days = await store.ListDaysAsync(Mbo, Root, CancellationToken.None);
+        await store.PutFileAsync(Mbo, Root, Day(10, 30), path, TestContext.Current.CancellationToken);
+        await store.PutEmptyAsync(Mbo, Root, Day(10, 31), TestContext.Current.CancellationToken);
+        var days = await store.ListDaysAsync(Mbo, Root, TestContext.Current.CancellationToken);
 
         days.ShouldBe([new StoredDay(Day(10, 30), 3, Empty: false), new StoredDay(Day(10, 31), 0, Empty: true)],
             ignoreOrder: true);
@@ -162,9 +162,9 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
         var older = Pass(Now.AddDays(-1), []);
         var newer = Pass(Now, [issue]);
 
-        await store.SavePassAsync(older, CancellationToken.None);
-        await store.SavePassAsync(newer, CancellationToken.None);
-        var passes = await store.ListPassesAsync(Today.AddDays(-1), Today, CancellationToken.None);
+        await store.SavePassAsync(older, TestContext.Current.CancellationToken);
+        await store.SavePassAsync(newer, TestContext.Current.CancellationToken);
+        var passes = await store.ListPassesAsync(Today.AddDays(-1), Today, TestContext.Current.CancellationToken);
 
         passes.Select(p => p.StartedAt).ShouldBe([newer.StartedAt, older.StartedAt]);
         passes[0].Issues.ShouldBe([issue]);
@@ -181,7 +181,7 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
             .ThrowsAsync(new AmazonS3Exception("gone") { StatusCode = HttpStatusCode.NotFound });
         var reader = new S3ArchiveStore(racing, Options.Create(new StoreOptions { Bucket = Bucket }), new SyncOptions());
 
-        var pending = await reader.ListPendingAsync(CancellationToken.None);
+        var pending = await reader.ListPendingAsync(TestContext.Current.CancellationToken);
 
         pending.ShouldBeEmpty();
     }
@@ -196,7 +196,7 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
             .ThrowsAsync(new AmazonS3Exception("denied") { StatusCode = HttpStatusCode.Forbidden });
         var reader = new S3ArchiveStore(failing, Options.Create(new StoreOptions { Bucket = Bucket }), new SyncOptions());
 
-        await Should.ThrowAsync<AmazonS3Exception>(() => reader.ListPendingAsync(CancellationToken.None));
+        await Should.ThrowAsync<AmazonS3Exception>(() => reader.ListPendingAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -217,7 +217,7 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
             using var client = S3ArchiveStore.CreateClient(options);
             var made = new S3ArchiveStore(client, Options.Create(options), new SyncOptions { Dataset = Dataset });
 
-            await made.EnsureBucketAsync(CancellationToken.None);
+            await made.EnsureBucketAsync(TestContext.Current.CancellationToken);
 
             (await AmazonS3Util.DoesS3BucketExistV2Async(s3, MadeBucket)).ShouldBeTrue();
         }
@@ -230,9 +230,9 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
     [Fact]
     public async Task Ensuring_a_bucket_twice_is_harmless()
     {
-        await store.EnsureBucketAsync(CancellationToken.None);
+        await store.EnsureBucketAsync(TestContext.Current.CancellationToken);
 
-        (await store.ListPendingAsync(CancellationToken.None)).ShouldBeEmpty();
+        (await store.ListPendingAsync(TestContext.Current.CancellationToken)).ShouldBeEmpty();
     }
 
     [Fact]
@@ -243,9 +243,9 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
             BucketName = Bucket,
             Key = $"{Prefix}/{ArchiveKeys.Folder(Dataset, Mbo, Root)}notes.txt",
             ContentBody = ""
-        });
+        }, TestContext.Current.CancellationToken);
 
-        var days = await store.ListDaysAsync(Mbo, Root, CancellationToken.None);
+        var days = await store.ListDaysAsync(Mbo, Root, TestContext.Current.CancellationToken);
 
         days.ShouldBeEmpty();
     }
@@ -256,10 +256,10 @@ public sealed class S3ArchiveStoreTests : IAsyncLifetime
     [Fact]
     public async Task Schemas_and_roots_do_not_see_each_others_days()
     {
-        await store.PutEmptyAsync(Mbo, Root, Day(10, 31), CancellationToken.None);
+        await store.PutEmptyAsync(Mbo, Root, Day(10, 31), TestContext.Current.CancellationToken);
 
-        var otherRoot = await store.ListHeldAsync(Mbo, OtherRoot, CancellationToken.None);
-        var otherSchema = await store.ListHeldAsync(Trades, Root, CancellationToken.None);
+        var otherRoot = await store.ListHeldAsync(Mbo, OtherRoot, TestContext.Current.CancellationToken);
+        var otherSchema = await store.ListHeldAsync(Trades, Root, TestContext.Current.CancellationToken);
 
         otherRoot.ShouldBeEmpty();
         otherSchema.ShouldBeEmpty();

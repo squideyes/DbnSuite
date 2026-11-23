@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using DbnSuite.Client.Calendars;
 using DbnSuite.Client.Tape;
 using DbnSuite.Client.Time;
@@ -11,7 +12,8 @@ public sealed class TapesFactAttribute : FactAttribute
 {
     public const string Variable = "DBNSUITE_TAPES";
 
-    public TapesFactAttribute()
+    public TapesFactAttribute([CallerFilePath] string? sourceFilePath = null, [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
     {
         if (Environment.GetEnvironmentVariable(Variable) is not { Length: > 0 } folder || !Directory.Exists(folder))
             Skip = $"Set {Variable} to a tape folder to run this.";
@@ -77,7 +79,7 @@ public sealed class RuleCalendarOnTapesTests
 
     private static async Task<List<string>> MismatchesAsync(string root)
     {
-        var loaded = await Catalog.LoadAsync(Catalog.PathOf(TapesFactAttribute.Folder, Sessions.Dataset, root), CancellationToken.None);
+        var loaded = await Catalog.LoadAsync(Catalog.PathOf(TapesFactAttribute.Folder, Sessions.Dataset, root), TestContext.Current.CancellationToken);
 
         loaded.Error.ShouldBeNull();
 

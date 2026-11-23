@@ -180,7 +180,7 @@ public sealed class OutputFilesTests : IDisposable
         }
 
         files.Files.ShouldHaveSingleItem();
-        (await File.ReadAllLinesAsync(files.Files.Single())).Length.ShouldBe(3);
+        (await File.ReadAllLinesAsync(files.Files.Single(), TestContext.Current.CancellationToken)).Length.ShouldBe(3);
     }
 
     [Fact]
@@ -242,7 +242,7 @@ public sealed class OutputFilesTests : IDisposable
             await files.CompleteAsync();
         }
 
-        (await File.ReadAllLinesAsync(files.Files.Single())).ShouldBe(["volume,close", "7,100.25"]);
+        (await File.ReadAllLinesAsync(files.Files.Single(), TestContext.Current.CancellationToken)).ShouldBe(["volume,close", "7,100.25"]);
     }
 
     [Fact]
@@ -259,7 +259,7 @@ public sealed class OutputFilesTests : IDisposable
             await files.CompleteAsync();
         }
 
-        (await File.ReadAllBytesAsync(files.Files.Single())).ShouldBe([.. metadata, .. raw]);
+        (await File.ReadAllBytesAsync(files.Files.Single(), TestContext.Current.CancellationToken)).ShouldBe([.. metadata, .. raw]);
     }
 
     [Fact]
@@ -327,7 +327,7 @@ public sealed class OutputFilesTests : IDisposable
     {
         var files = await WrittenWithALateRow(Request(Contract, OutputFormat.JsonLines));
 
-        (await File.ReadAllLinesAsync(files.Files[0])).Length.ShouldBe(2);
+        (await File.ReadAllLinesAsync(files.Files[0], TestContext.Current.CancellationToken)).Length.ShouldBe(2);
     }
 
     [Fact]
@@ -336,7 +336,7 @@ public sealed class OutputFilesTests : IDisposable
         var files = await WrittenWithALateRow(Request(Contract, OutputFormat.Parquet));
 
         await using var file = File.OpenRead(files.Files[0]);
-        await using var reader = await ParquetReader.CreateAsync(file);
+        await using var reader = await ParquetReader.CreateAsync(file, cancellationToken: TestContext.Current.CancellationToken);
         var volume = reader.Schema.GetDataFields().Single(f => f.Name == Volume);
         var read = new List<long?>();
 
@@ -345,7 +345,7 @@ public sealed class OutputFilesTests : IDisposable
             using var rows = reader.OpenRowGroupReader(group);
             var values = new long?[1];
 
-            await rows.ReadAsync<long>(volume, values);
+            await rows.ReadAsync<long>(volume, values, cancellationToken: TestContext.Current.CancellationToken);
             read.Add(values[0]);
         }
 
@@ -360,7 +360,7 @@ public sealed class OutputFilesTests : IDisposable
 
         var files = await WrittenWithALateRow(Request(Contract, OutputFormat.Dbn), metadata);
 
-        (await File.ReadAllBytesAsync(files.Files[0])).ShouldBe([.. metadata, 1, 3]);
+        (await File.ReadAllBytesAsync(files.Files[0], TestContext.Current.CancellationToken)).ShouldBe([.. metadata, 1, 3]);
     }
 
     [Fact]
@@ -378,7 +378,7 @@ public sealed class OutputFilesTests : IDisposable
             await files.CompleteAsync();
         }
 
-        (await File.ReadAllLinesAsync(files.Files[0])).Length.ShouldBe(2);
+        (await File.ReadAllLinesAsync(files.Files[0], TestContext.Current.CancellationToken)).Length.ShouldBe(2);
     }
 
     [Fact]
@@ -386,7 +386,7 @@ public sealed class OutputFilesTests : IDisposable
     {
         var files = await WrittenWithALateRow(Request(Contract, layout: FileLayout.Partitioned));
 
-        (await File.ReadAllLinesAsync(files.Files[0])).Length.ShouldBe(3);
+        (await File.ReadAllLinesAsync(files.Files[0], TestContext.Current.CancellationToken)).Length.ShouldBe(3);
     }
 
     [Fact]
@@ -403,11 +403,11 @@ public sealed class OutputFilesTests : IDisposable
     {
         var request = Request(Contract, template: "all.{ext}");
         Directory.CreateDirectory(folder);
-        await File.WriteAllTextAsync(Path.Combine(folder, "all.csv"), "left from another export\n");
+        await File.WriteAllTextAsync(Path.Combine(folder, "all.csv"), "left from another export\n", TestContext.Current.CancellationToken);
 
         var files = await WrittenWithALateRow(request);
 
-        (await File.ReadAllLinesAsync(files.Files[0])).Length.ShouldBe(4);
+        (await File.ReadAllLinesAsync(files.Files[0], TestContext.Current.CancellationToken)).Length.ShouldBe(4);
     }
 
     [Fact]

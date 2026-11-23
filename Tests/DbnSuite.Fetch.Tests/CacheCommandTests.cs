@@ -236,8 +236,8 @@ public sealed class CacheCommandTests : IDisposable
     {
         await PullEverythingAsync();
         var path = Cached(MboKey);
-        var bytes = await File.ReadAllBytesAsync(path);
-        await File.WriteAllBytesAsync(path, new byte[bytes.Length]);
+        var bytes = await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken);
+        await File.WriteAllBytesAsync(path, new byte[bytes.Length], TestContext.Current.CancellationToken);
 
         var broken = await dbnf.RunAsync($"show {Mbo} {Root} {Date}");
         var pulled = await dbnf.RunAsync($"pull {Mbo} {Root} --from {Date} --force");

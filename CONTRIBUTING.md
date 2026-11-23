@@ -33,7 +33,7 @@ dotnet build DbnSuite.slnx
 ```
 
 ```bash
-dotnet test DbnSuite.slnx
+dotnet test --solution DbnSuite.slnx
 ```
 
 For the Python client, Python 3.10 or later:
@@ -56,7 +56,7 @@ same for Python. If you change an example, change the page that shows it in the 
 request. To run one product's tests, name its project:
 
 ```bash
-dotnet test Tests/DbnSuite.Client.Tests
+dotnet test --project Tests/DbnSuite.Client.Tests
 ```
 `Tests/DbnSuite.IntegrationTests` runs the real worker against a real S3 server
 and a fake Databento gateway. The site is `Core/DbnSuite.Site`, a Blazor
