@@ -12,7 +12,7 @@ internal static class TapePullCommand
     private const string DateFormat = "yyyyMMdd";
     private const int DatePart = 2;
 
-    private static readonly string[] Kinds = ["s1", "trade", "l1"];
+    internal static readonly string[] Kinds = ["s1", "trade", "l1"];
 
     public static Command Create(Session session)
     {
@@ -33,43 +33,21 @@ internal static class TapePullCommand
             if (wanted.FirstOrDefault(k => !Kinds.Contains(k)) is { } bad)
                 return await session.FailAsync(new DbnSuite.Client.Error("input.bad_tape_kind", $"\"{bad}\" is not a kind. A kind is s1, trade or l1.")).ConfigureAwait(false);
 
-            var catalog = await archive.Store.FindAsync($"{archive.Dataset}/catalog/{root}.catalog.json", cancel).ConfigureAwait(false);
+            var planned = await PlanAsync(archive, root, folder, parse.GetValue(from), parse.GetValue(to), wanted, cancel).ConfigureAwait(false);
 
-            if (catalog is null)
-                return await session.FailAsync(new DbnSuite.Client.Error("tape.no_catalog", $"The store holds no catalog for {root}.")).ConfigureAwait(false);
+            if (!planned.IsSuccess)
+                return await session.FailAsync(planned.Error!).ConfigureAwait(false);
 
-            var copied = await CopyAsync(archive.Store, catalog, folder, cancel).ConfigureAwait(false) ? 1 : 0;
-            var skipped = 1 - copied;
-            var bytes = copied * catalog.Size;
-            var rules = await Catalog.LoadAsync(TargetOf(folder, catalog.Key), cancel).ConfigureAwait(false);
-
-            if (!rules.IsSuccess)
-                return await session.FailAsync(rules.Error!).ConfigureAwait(false);
+            var plan = planned.Value;
 
             // Only full ETH days have tapes: anything else here, or still in the store, is left out.
-            var removed = TapePaths.RemoveExcluded(folder, rules.Value).Count;
+            var removed = TapePaths.RemoveExcluded(folder, plan.Rules).Count;
 
-            foreach (var kind in wanted)
-            {
-                await foreach (var stored in archive.Store.ObjectsAsync($"{archive.Dataset}/{kind}/{root}/", cancel).ConfigureAwait(false))
-                {
-                    if (!InSpan(stored.Key, parse.GetValue(from), parse.GetValue(to)))
-                        continue;
+            await CopyAllAsync(archive.Store, plan, folder, null, cancel).ConfigureAwait(false);
 
-                    if (TapePaths.TradeDateOf(stored.Key) is { } date && rules.Value.Judges(date) && !rules.Value.IsFullDay(date))
-                        continue;
-
-                    if (await CopyAsync(archive.Store, stored, folder, cancel).ConfigureAwait(false))
-                    {
-                        copied++;
-                        bytes += stored.Size;
-                    }
-                    else
-                    {
-                        skipped++;
-                    }
-                }
-            }
+            var copied = (plan.CatalogCopied ? 1 : 0) + plan.Copy.Count;
+            var skipped = (plan.CatalogCopied ? 0 : 1) + plan.Skipped;
+            var bytes = (plan.CatalogCopied ? plan.CatalogSize : 0) + plan.Bytes;
 
             await session.Out.WriteLineAsync($"{root}: {Text.Count(copied)} files copied, {Text.Bytes(bytes)}, {Text.Count(skipped)} already here").ConfigureAwait(false);
 
@@ -80,6 +58,70 @@ internal static class TapePullCommand
         }, cancel));
 
         return command;
+    }
+
+    /// <summary>
+    /// What a tape pull would copy. The catalog comes down first, since its rules say which dates have
+    /// tapes; the tapes wait for <see cref="CopyAllAsync"/>.
+    /// </summary>
+    /// <param name="Copy">The tapes the folder lacks, or holds at another size.</param>
+    /// <param name="Skipped">The tapes the folder already holds.</param>
+    internal sealed record TapePullPlan(Catalog Rules, bool CatalogCopied, long CatalogSize, IReadOnlyList<StoredObject> Copy, int Skipped)
+    {
+        /// <summary>How much there is to copy, besides the catalog.</summary>
+        public long Bytes => Copy.Sum(s => s.Size);
+    }
+
+    /// <summary>Copies a root's catalog into the folder, then works out which of its tapes in the span to copy.</summary>
+    /// <param name="kinds">The kinds wanted, each s1, trade or l1.</param>
+    internal static async Task<DbnSuite.Client.Result<TapePullPlan>> PlanAsync(DbnArchive archive, string root, string folder,
+        DateOnly? from, DateOnly? to, IReadOnlyList<string> kinds, CancellationToken cancel)
+    {
+        var catalog = await archive.Store.FindAsync($"{archive.Dataset}/catalog/{root}.catalog.json", cancel).ConfigureAwait(false);
+
+        if (catalog is null)
+            return new DbnSuite.Client.Error("tape.no_catalog", $"The store holds no catalog for {root}.");
+
+        var copied = await CopyAsync(archive.Store, catalog, folder, cancel).ConfigureAwait(false);
+        var rules = await Catalog.LoadAsync(TargetOf(folder, catalog.Key), cancel).ConfigureAwait(false);
+
+        if (!rules.IsSuccess)
+            return rules.Error!;
+
+        var copy = new List<StoredObject>();
+        var skipped = 0;
+
+        foreach (var kind in kinds)
+        {
+            await foreach (var stored in archive.Store.ObjectsAsync($"{archive.Dataset}/{kind}/{root}/", cancel).ConfigureAwait(false))
+            {
+                if (!InSpan(stored.Key, from, to))
+                    continue;
+
+                if (TapePaths.TradeDateOf(stored.Key) is { } date && rules.Value.Judges(date) && !rules.Value.IsFullDay(date))
+                    continue;
+
+                var existing = new FileInfo(TargetOf(folder, stored.Key));
+
+                if (existing.Exists && existing.Length == stored.Size)
+                    skipped++;
+                else
+                    copy.Add(stored);
+            }
+        }
+
+        return new TapePullPlan(rules.Value, copied, catalog.Size, copy, skipped);
+    }
+
+    /// <summary>Copies a plan's tapes into the folder, telling <paramref name="progress"/> each one as it lands.</summary>
+    internal static async Task CopyAllAsync(IObjectStore store, TapePullPlan plan, string folder, IProgress<StoredObject>? progress,
+        CancellationToken cancel)
+    {
+        foreach (var stored in plan.Copy)
+        {
+            await CopyAsync(store, stored, folder, cancel).ConfigureAwait(false);
+            progress?.Report(stored);
+        }
     }
 
     /// <summary>True when a tape's trade date, which its name carries, is in the span.</summary>

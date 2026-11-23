@@ -82,6 +82,29 @@ public sealed class TapeTests
     }
 
     [Fact]
+    public async Task AHeaderReadsWithoutItsBody()
+    {
+        var bytes = await SmallTapeAsync(compress: false);
+        using var stream = new ForwardOnlyStream(bytes[..TapeHeader.Size]);
+
+        var header = await Tape.ReadHeaderAsync(stream, CancellationToken.None);
+
+        header.Value.Symbol.ShouldBe(TapeFixture.Symbol);
+        header.Value.TradeDate.ShouldBe(TapeFixture.TradeDate);
+        header.Value.ShouldBe((await TapeFixture.LoadAsync(bytes)).Value.Header);
+    }
+
+    [Fact]
+    public async Task AHeaderOfSomethingElseIsNotATape()
+    {
+        using var stream = new MemoryStream("This is not a tape."u8.ToArray());
+
+        var header = await Tape.ReadHeaderAsync(stream, CancellationToken.None);
+
+        header.Error!.Code.ShouldBe(TapeErrors.NotATape);
+    }
+
+    [Fact]
     public async Task AWrongMagicIsNotATape()
     {
         var bytes = await SmallTapeAsync(compress: false);

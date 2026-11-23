@@ -74,6 +74,21 @@ public sealed class Tape
         }
     }
 
+    /// <summary>Reads only a tape's header, leaving its body unread, so a large tape in a store costs 192 bytes.</summary>
+    /// <param name="stream">The tape, positioned at its header.</param>
+    /// <param name="cancel">Stops the read.</param>
+    public static async Task<Result<TapeHeader>> ReadHeaderAsync(Stream stream, CancellationToken cancel)
+    {
+        try
+        {
+            return await HeaderAsync(stream, cancel).ConfigureAwait(false);
+        }
+        catch (Exception problem) when (problem is IOException or UnauthorizedAccessException)
+        {
+            return new Error(TapeErrors.Io, $"Could not read the tape: {problem.Message}");
+        }
+    }
+
     /// <summary>Loads a tape from a file.</summary>
     public static async Task<Result<Tape>> LoadAsync(string path, CancellationToken cancel, bool verifyHash = true)
     {

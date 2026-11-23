@@ -355,6 +355,19 @@ dbnf export ohlcv-1s ES.v.0 --bars 5m --session rth --since 2026-01-01 --adjust 
 - **Files:** one per trade date; `--single` for one file, `--partition` for
   `series=`/`date=` folders, `--name` for names of your own.
 
+**Let an AI agent ask about the archive.** `dbnf mcp` is a Model Context
+Protocol server for Claude Code and other agents, reading the archive your
+login reads. By default it answers facts only: what the archive holds,
+coverage, contracts, rolls, the trading calendar, tapes and daily volume.
+`--allow-data` adds tools that return market data, which goes to the AI
+model's provider, so turn it on only if your Databento agreement allows it.
+`--out <folder>` adds export and pull, writing only inside that folder. See
+[MCP server](https://dbnsuite.squideyes.com/docs/dbnfetch#mcp).
+
+```bash
+claude mcp add dbnf -- dbnf mcp
+```
+
 ### DbnTape
 
 DbnTape's tapes are compact, stream-only files for backtesting CME futures,

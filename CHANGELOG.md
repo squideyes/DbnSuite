@@ -18,6 +18,18 @@ versions follow [Semantic Versioning](https://semver.org).
   secret into the keyring. ([#68](https://github.com/squideyes/DbnSuite/issues/68))
 - **Native `dbnf` for Intel Macs and ARM Linux:** `osx-x64` and `linux-arm64`
   binaries and NuGet tool packages. ([#69](https://github.com/squideyes/DbnSuite/issues/69))
+- **`dbnf mcp`, an MCP server for AI agents.** Add it to Claude Code with
+  `claude mcp add dbnf -- dbnf mcp`. It reads the archive your login reads and
+  answers facts about it: status, series, coverage, contracts, rolls, the
+  trading calendar, tape catalogs and headers, and daily volume.
+  `--allow-data` adds `show_records` and `bars`, whose results go to the AI
+  model's provider, so it's off unless your Databento agreement allows it.
+  `--out <folder>` adds `export`, `pull` and `tape_pull`, which write only
+  inside that folder and ask before going over `--max-gb`. Nothing it offers
+  logs in, deletes, builds tapes or spends.
+  ([#75](https://github.com/squideyes/DbnSuite/issues/75))
+- **`Tape.ReadHeaderAsync`** reads only a tape's header, so a large tape in a
+  store costs 192 bytes to describe.
 
 ### Changed
 

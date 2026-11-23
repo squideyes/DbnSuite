@@ -80,11 +80,10 @@ public static class CoverageCommand
         var byDay = days.ToDictionary(d => d.Day);
         var first = days[0].Day;
         var last = days[^1].Day;
-        var missing = last.DayNumber - first.DayNumber + 1 - days.Count;
-        var stored = days.Count(d => !d.Empty);
+        var held = Classify(days, first, last);
 
         yield return Text.Invariant(
-            $"{root} {schema}: {Text.Count(stored)} days stored, {Text.Count(days.Count - stored)} no data, {Text.Count(missing)} missing, {Text.Day(first)} to {Text.Day(last)}");
+            $"{root} {schema}: {Text.Count(held.Stored.Count)} days stored, {Text.Count(held.NoData.Count)} no data, {Text.Count(held.Missing.Count)} missing, {Text.Day(first)} to {Text.Day(last)}");
         yield return "         1        10        20         31";
 
         var start = new DateOnly(last.Year, last.Month, 1).AddMonths(1 - Math.Min(months, 12 * (last.Year - first.Year + 1)));
@@ -106,4 +105,22 @@ public static class CoverageCommand
             yield return line.ToString().TrimEnd();
         }
     }
+
+    /// <summary>What a series holds of each day from <paramref name="from"/> to <paramref name="to"/>.</summary>
+    /// <param name="days">The series' stored days, oldest first.</param>
+    internal static Coverage Classify(IReadOnlyList<StoredDay> days, DateOnly from, DateOnly to)
+    {
+        var byDay = days.ToDictionary(d => d.Day);
+        var coverage = new Coverage([], [], []);
+
+        for (var day = from; day <= to; day = day.AddDays(1))
+        {
+            (byDay.TryGetValue(day, out var d) ? d.Empty ? coverage.NoData : coverage.Stored : coverage.Missing).Add(day);
+        }
+
+        return coverage;
+    }
+
+    /// <summary>Days a series holds a file for, days it holds a marker for because they had no data, and days it lacks.</summary>
+    internal sealed record Coverage(List<DateOnly> Stored, List<DateOnly> NoData, List<DateOnly> Missing);
 }

@@ -86,122 +86,182 @@ public static class ExportCommand
             return Session.Ok;
         }, cancel));
 
-        Result<ExportRequest> Request(ParseResult parse)
+        Result<ExportRequest> Request(ParseResult parse) => ExportCommand.Request(new ExportChoices
         {
-            var spec = SymbolSpec.Parse(parse.GetValue(symbol)!);
-            var schemaName = Session.Schema(parse.GetValue(schema)!);
-            var span = range.Resolve(parse);
-            var tz = Zones.Find(parse.GetValue(zone)!);
+            Schema = parse.GetValue(schema)!,
+            Symbol = parse.GetValue(symbol)!,
+            TradeDates = range.Resolve(parse),
+            Output = parse.GetValue(output)!,
+            Format = parse.GetValue(format)!,
+            Compress = parse.GetValue(compress)!,
+            Zone = parse.GetValue(zone)!,
+            Time = parse.GetValue(time)!,
+            SplitTime = parse.GetValue(splitTime),
+            Price = parse.GetValue(price)!,
+            Session = Given(parse, sessionKind) ? parse.GetValue(sessionKind) : null,
+            Hours = parse.GetValue(hours),
+            HoursZone = Given(parse, hoursZone) ? parse.GetValue(hoursZone) : null,
+            Bars = parse.GetValue(bars),
+            As = parse.GetValue(asSchema),
+            Adjust = parse.GetValue(adjust)!,
+            RollDays = parse.GetValue(rollDays),
+            Single = parse.GetValue(single),
+            Partition = parse.GetValue(partition),
+            Name = parse.GetValue(name),
+            Columns = parse.GetValue(columns),
+            NoSpreads = parse.GetValue(noSpreads)
+        });
 
-            foreach (var error in new[] { spec.Error, schemaName.Error, span.Error, tz.Error })
-            {
-                if (error is not null)
-                    return error;
-            }
-
-            var kind = Pick(parse.GetValue(sessionKind)!, "session", ("eth", SessionKind.Eth), ("rth", SessionKind.Rth));
-
-            if (!kind.IsSuccess)
-                return kind.Error!;
-
-            (Hours, TimeZoneInfo)? custom = null;
-
-            // An option that would be quietly ignored is refused, so nobody is misled about what they got.
-            if (parse.GetValue(hours) is null && Given(hoursZone))
-                return new Error("input.bad_session", "--hours-tz says which zone --hours is in, so it needs --hours.");
-
-            if (parse.GetValue(hours) is not null && Given(sessionKind))
-                return new Error("input.bad_session", "--hours takes the place of --session, so give only one of them.");
-
-            if (parse.GetValue(hours) is { } text)
-            {
-                var window = Hours.Parse(text);
-                var windowZone = Zones.Find(parse.GetValue(hoursZone)!);
-
-                if (!window.IsSuccess)
-                    return window.Error!;
-
-                if (!windowZone.IsSuccess)
-                    return windowZone.Error!;
-
-                custom = (window.Value, windowZone.Value);
-            }
-
-            var sessions = SessionFilter.Create(span.Value, custom is null ? kind.Value : SessionKind.Custom, spec.Value.Root, custom);
-
-            if (!sessions.IsSuccess)
-                return sessions.Error!;
-
-            BarSpec? barSpec = null;
-
-            if (parse.GetValue(bars) is { } barText)
-            {
-                var parsed = BarSpec.Parse(barText);
-
-                if (!parsed.IsSuccess)
-                    return parsed.Error!;
-
-                barSpec = parsed.Value;
-            }
-
-            var outputFormat = Pick(parse.GetValue(format)!, "format", ("csv", OutputFormat.Csv), ("parquet", OutputFormat.Parquet),
-                ("jsonl", OutputFormat.JsonLines), ("dbn", OutputFormat.Dbn), ("nt8", OutputFormat.NinjaTrader));
-            var compression = Pick(parse.GetValue(compress)!, "compression", ("none", Compression.None), ("gzip", Compression.Gzip), ("zstd", Compression.Zstd));
-            var timeMode = Pick(parse.GetValue(time)!, "time", ("iso", TimeMode.Iso), ("unix-ns", TimeMode.UnixNanos),
-                ("unix-ms", TimeMode.UnixMillis), ("excel", TimeMode.Excel));
-            var priceMode = Pick(parse.GetValue(price)!, "price", ("decimal", PriceMode.Decimal), ("ticks", PriceMode.Ticks), ("raw", PriceMode.Raw));
-            var adjustment = Pick(parse.GetValue(adjust)!, "adjustment", ("none", Adjustment.None), ("difference", Adjustment.Difference), ("ratio", Adjustment.Ratio));
-
-            foreach (var error in new[] { outputFormat.Error, compression.Error, timeMode.Error, priceMode.Error, adjustment.Error })
-            {
-                if (error is not null)
-                    return error;
-            }
-
-            if (parse.GetValue(single) && parse.GetValue(partition))
-                return new Error("input.bad_layout", "--single and --partition cannot both be given.");
-
-            if (parse.GetValue(partition) && parse.GetValue(name) is not null)
-                return new Error("input.bad_layout", "--partition names the files itself, so --name cannot be given with it.");
-
-            if (compression.Value != Compression.None && outputFormat.Value is OutputFormat.Parquet or OutputFormat.NinjaTrader)
-            {
-                return new Error("input.bad_compression", outputFormat.Value == OutputFormat.Parquet
-                    ? "--compress is for csv, jsonl and dbn. A Parquet file is always compressed inside."
-                    : "--compress is for csv, jsonl and dbn. NinjaTrader imports plain text only.");
-            }
-
-            if (parse.GetValue(splitTime) && timeMode.Value != TimeMode.Iso)
-                return new Error("input.bad_time", "--split-time splits an iso time into a date and a time, so it cannot be given with another --time.");
-
-            return new ExportRequest
-            {
-                Schema = schemaName.Value,
-                Symbol = spec.Value,
-                TradeDates = span.Value,
-                Sessions = sessions.Value,
-                Output = parse.GetValue(output)!,
-                Format = outputFormat.Value,
-                Compression = compression.Value,
-                Layout = parse.GetValue(single) ? FileLayout.Single : parse.GetValue(partition) ? FileLayout.Partitioned : FileLayout.PerDay,
-                NameTemplate = parse.GetValue(name),
-                Zone = tz.Value,
-                Time = timeMode.Value,
-                SplitTime = parse.GetValue(splitTime),
-                Prices = priceMode.Value,
-                Columns = parse.GetValue(columns) is { } list ? [.. PullCommand.Split(list, lower: true)] : [],
-                Bars = barSpec,
-                As = parse.GetValue(asSchema)?.ToLowerInvariant(),
-                Adjustment = adjustment.Value,
-                RollDays = parse.GetValue(rollDays),
-                Spreads = !parse.GetValue(noSpreads)
-            };
-
-            // True when the option was typed, not just left at its default.
-            bool Given(Option option) => parse.GetResult(option) is { Implicit: false };
-        }
+        // True when the option was typed, not just left at its default.
+        static bool Given(ParseResult parse, Option option) => parse.GetResult(option) is { Implicit: false };
 
         return command;
+    }
+
+    /// <summary>What an export asks for, as typed: the options of <c>dbnf export</c>, or the arguments of the MCP tool.</summary>
+    internal sealed record ExportChoices
+    {
+        public required string Schema { get; init; }
+        public required string Symbol { get; init; }
+        public required Result<DateSpan> TradeDates { get; init; }
+        public required string Output { get; init; }
+        public string Format { get; init; } = "csv";
+        public string Compress { get; init; } = "none";
+        public string Zone { get; init; } = Zones.Default;
+        public string Time { get; init; } = "iso";
+        public bool SplitTime { get; init; }
+        public string Price { get; init; } = "decimal";
+
+        /// <summary>eth or rth; null when not given, which is eth.</summary>
+        public string? Session { get; init; }
+
+        public string? Hours { get; init; }
+
+        /// <summary>The zone <see cref="Hours"/> is in; null when not given, which is Chicago.</summary>
+        public string? HoursZone { get; init; }
+
+        public string? Bars { get; init; }
+        public string? As { get; init; }
+        public string Adjust { get; init; } = "none";
+        public int? RollDays { get; init; }
+        public bool Single { get; init; }
+        public bool Partition { get; init; }
+        public string? Name { get; init; }
+        public string? Columns { get; init; }
+        public bool NoSpreads { get; init; }
+    }
+
+    /// <summary>The export the choices ask for, or the first thing wrong with them.</summary>
+    internal static Result<ExportRequest> Request(ExportChoices c)
+    {
+        var spec = SymbolSpec.Parse(c.Symbol);
+        var schemaName = Session.Schema(c.Schema);
+        var span = c.TradeDates;
+        var tz = Zones.Find(c.Zone);
+
+        foreach (var error in new[] { spec.Error, schemaName.Error, span.Error, tz.Error })
+        {
+            if (error is not null)
+                return error;
+        }
+
+        var kind = Pick(c.Session ?? "eth", "session", ("eth", SessionKind.Eth), ("rth", SessionKind.Rth));
+
+        if (!kind.IsSuccess)
+            return kind.Error!;
+
+        (Hours, TimeZoneInfo)? custom = null;
+
+        // An option that would be quietly ignored is refused, so nobody is misled about what they got.
+        if (c.Hours is null && c.HoursZone is not null)
+            return new Error("input.bad_session", "--hours-tz says which zone --hours is in, so it needs --hours.");
+
+        if (c.Hours is not null && c.Session is not null)
+            return new Error("input.bad_session", "--hours takes the place of --session, so give only one of them.");
+
+        if (c.Hours is { } text)
+        {
+            var window = Hours.Parse(text);
+            var windowZone = Zones.Find(c.HoursZone ?? Zones.Default);
+
+            if (!window.IsSuccess)
+                return window.Error!;
+
+            if (!windowZone.IsSuccess)
+                return windowZone.Error!;
+
+            custom = (window.Value, windowZone.Value);
+        }
+
+        var sessions = SessionFilter.Create(span.Value, custom is null ? kind.Value : SessionKind.Custom, spec.Value.Root, custom);
+
+        if (!sessions.IsSuccess)
+            return sessions.Error!;
+
+        BarSpec? barSpec = null;
+
+        if (c.Bars is { } barText)
+        {
+            var parsed = BarSpec.Parse(barText);
+
+            if (!parsed.IsSuccess)
+                return parsed.Error!;
+
+            barSpec = parsed.Value;
+        }
+
+        var outputFormat = Pick(c.Format, "format", ("csv", OutputFormat.Csv), ("parquet", OutputFormat.Parquet),
+            ("jsonl", OutputFormat.JsonLines), ("dbn", OutputFormat.Dbn), ("nt8", OutputFormat.NinjaTrader));
+        var compression = Pick(c.Compress, "compression", ("none", Compression.None), ("gzip", Compression.Gzip), ("zstd", Compression.Zstd));
+        var timeMode = Pick(c.Time, "time", ("iso", TimeMode.Iso), ("unix-ns", TimeMode.UnixNanos),
+            ("unix-ms", TimeMode.UnixMillis), ("excel", TimeMode.Excel));
+        var priceMode = Pick(c.Price, "price", ("decimal", PriceMode.Decimal), ("ticks", PriceMode.Ticks), ("raw", PriceMode.Raw));
+        var adjustment = Pick(c.Adjust, "adjustment", ("none", Adjustment.None), ("difference", Adjustment.Difference), ("ratio", Adjustment.Ratio));
+
+        foreach (var error in new[] { outputFormat.Error, compression.Error, timeMode.Error, priceMode.Error, adjustment.Error })
+        {
+            if (error is not null)
+                return error;
+        }
+
+        if (c.Single && c.Partition)
+            return new Error("input.bad_layout", "--single and --partition cannot both be given.");
+
+        if (c.Partition && c.Name is not null)
+            return new Error("input.bad_layout", "--partition names the files itself, so --name cannot be given with it.");
+
+        if (compression.Value != Compression.None && outputFormat.Value is OutputFormat.Parquet or OutputFormat.NinjaTrader)
+        {
+            return new Error("input.bad_compression", outputFormat.Value == OutputFormat.Parquet
+                ? "--compress is for csv, jsonl and dbn. A Parquet file is always compressed inside."
+                : "--compress is for csv, jsonl and dbn. NinjaTrader imports plain text only.");
+        }
+
+        if (c.SplitTime && timeMode.Value != TimeMode.Iso)
+            return new Error("input.bad_time", "--split-time splits an iso time into a date and a time, so it cannot be given with another --time.");
+
+        return new ExportRequest
+        {
+            Schema = schemaName.Value,
+            Symbol = spec.Value,
+            TradeDates = span.Value,
+            Sessions = sessions.Value,
+            Output = c.Output,
+            Format = outputFormat.Value,
+            Compression = compression.Value,
+            Layout = c.Single ? FileLayout.Single : c.Partition ? FileLayout.Partitioned : FileLayout.PerDay,
+            NameTemplate = c.Name,
+            Zone = tz.Value,
+            Time = timeMode.Value,
+            SplitTime = c.SplitTime,
+            Prices = priceMode.Value,
+            Columns = c.Columns is { } list ? [.. PullCommand.Split(list, lower: true)] : [],
+            Bars = barSpec,
+            As = c.As?.ToLowerInvariant(),
+            Adjustment = adjustment.Value,
+            RollDays = c.RollDays,
+            Spreads = !c.NoSpreads
+        };
     }
 
     /// <summary>One of a few named choices, or an error listing them.</summary>

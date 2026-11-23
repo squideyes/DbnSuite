@@ -20,6 +20,7 @@
         <li><a href="docs/dbnfetch#platforms">Into trading platforms</a></li>
         <li><a href="docs/dbnfetch#rolls">Rolls</a></li>
         <li><a href="docs/dbnfetch#tapes">Tapes</a></li>
+        <li><a href="docs/dbnfetch#mcp">MCP server</a></li>
         <li><a href="docs/dbnfetch#cache">The cache</a></li>
         <li><a href="docs/dbnfetch#unattended">Running unattended</a></li>
         <li><a href="docs/dbnfetch#exit">Exit codes</a></li>
@@ -227,6 +228,61 @@
 </p>
 <CodeBlock Title="Any terminal" Text="dbnf tape build ES --tapes tapes --from 2026-10-29" />
 
+<h2 id="mcp">MCP server</h2>
+<p>
+    <code>dbnf mcp</code> runs dbnf as a <a href="@Links.Mcp">Model Context Protocol</a> server
+    on standard input and output, so Claude Code and other AI agents can ask about your archive. It reads the archive
+    every other command reads: the login, or <code>--profile</code>, <code>--archive</code>, the <code>DBNF_</code>
+    variables and <code>--cache</code>. Log in first; nothing the server offers logs in or out, touches a key,
+    deletes anything, builds tapes or spends money, and no result or error ever shows a key.
+</p>
+<CodeBlock Title="Add it to Claude Code" Text="@McpAdd" />
+<p>
+    By default it offers only facts about the archive. Two options add more, and each is your choice to make:
+</p>
+<ul>
+    <li>
+        <strong><code>--allow-data</code></strong> adds the tools that return market data. A tool's result goes to the
+        AI model's provider, which is passing Databento data to a third party, so turn this on only if your Databento
+        agreement allows it. Without it, those tools aren't offered at all.
+    </li>
+    <li>
+        <strong><code>--out &lt;folder&gt;</code></strong> adds the tools that write files, only inside that folder. A path
+        that would leave it, rooted or with <code>..</code>, is refused. They return paths, row counts and sizes, never
+        the data. Each first weighs what it would read or copy, and refuses more than <code>--max-gb</code> (2 GB by
+        default) unless the call confirms, which the agent should only do once you agree.
+    </li>
+</ul>
+<CodeBlock Title="Or, with more tools" Text="@McpMore" />
+<p>
+    Tapes usually live in a tape store with a login of their own: add a second server with that
+    <code>--profile</code>, or give <code>--tapes</code> a folder of tapes.
+</p>
+<div class="table">
+    <table>
+        <thead><tr><th>Tool</th><th>Offered</th><th>What it does</th></tr></thead>
+        <tbody>
+            <tr><td><code>archive_status</code></td><td>always</td><td>Which archive, whether the login reaches it, the clock, and the cache and its free space, as <code>doctor</code> checks them.</td></tr>
+            <tr><td><code>list_series</code></td><td>always</td><td>Roots and schemas with days held, days with no data, size, first and last day, as <code>ls</code>.</td></tr>
+            <tr><td><code>coverage</code></td><td>always</td><td>A root and schema's days in a range: how many hold a file, the days with no data, and the days never fetched.</td></tr>
+            <tr><td><code>contracts</code></td><td>always</td><td>A root's contracts with expiry and tick size.</td></tr>
+            <tr><td><code>rolls</code></td><td>always</td><td>A continuous series' rolls, with settlements and gaps.</td></tr>
+            <tr><td><code>trading_calendar</code></td><td>always</td><td>Sessions over a range of trade dates: open and close, early closes, holidays, halts and RTH, for the US equity index futures.</td></tr>
+            <tr><td><code>tape_catalog</code>, <code>tape_info</code></td><td>always</td><td>Which trade dates have tapes, the contract each holds, and a tape's header. They read catalogs; they never build one.</td></tr>
+            <tr><td><code>volume_by_day</code></td><td>always</td><td>Each trade date's total volume and most traded contract: the <code>ohlcv-1s</code> bars of outright contracts, summed. Daily totals only.</td></tr>
+            <tr><td><code>show_records</code></td><td><code>--allow-data</code></td><td>Up to 200 of a day's records, as <code>show</code>.</td></tr>
+            <tr><td><code>bars</code></td><td><code>--allow-data</code></td><td>Up to 200 OHLCV bars of one trade date, built as <code>export --bars</code> builds them.</td></tr>
+            <tr><td><code>export</code></td><td><code>--out</code></td><td>As <code>export</code>, into the folder.</td></tr>
+            <tr><td><code>pull</code></td><td><code>--out</code></td><td>As <code>pull --out</code>, into the folder.</td></tr>
+            <tr><td><code>tape_pull</code></td><td><code>--out</code></td><td>As <code>tape pull</code>, into the folder, but never removing a tape.</td></tr>
+        </tbody>
+    </table>
+</div>
+<p>
+    Standard output belongs to the protocol while it serves, and the server ends when the agent closes it. Long
+    exports and pulls report progress, and stop if the agent cancels them.
+</p>
+
 <h2 id="cache">The cache</h2>
 <p>
     Raw files are cached in <code>%LOCALAPPDATA%\DbnFetch\cache</code> on Windows and
@@ -302,6 +358,7 @@
             <tr><td><code>rolls &lt;series&gt;</code></td><td>List a continuous series' rolls.</td></tr>
             <tr><td><code>tape</code></td><td>Build, inspect and prove tapes: <code>catalog</code>, <code>build</code>, <code>verify</code>, <code>pull</code>, <code>info</code>, <code>schema</code>, <code>bench</code>.</td></tr>
             <tr><td><code>cache</code>, <code>cache clear</code></td><td>Show or clear the local cache.</td></tr>
+            <tr><td><code>mcp</code></td><td>Serve the archive to AI agents over the <a href="docs/dbnfetch#mcp">Model Context Protocol</a>.</td></tr>
         </tbody>
     </table>
 </div>
@@ -343,6 +400,16 @@
         systemctl --user daemon-reload
         systemctl --user enable --now dbnf-pull.timer
         loginctl enable-linger "$USER"
+        """;
+
+    private const string McpAdd = """
+        claude mcp add dbnf -- dbnf mcp
+        """;
+
+    private const string McpMore = """
+        claude mcp add dbnf -- dbnf mcp --allow-data
+        claude mcp add dbnf -- dbnf mcp --out "$HOME/dbnf-out" --max-gb 5
+        claude mcp add dbnf-tapes -- dbnf mcp --profile tapes
         """;
 
     private const string ToolsPath = """

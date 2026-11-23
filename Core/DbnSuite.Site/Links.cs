@@ -21,4 +21,5 @@ public static class Links
     public const string DotNet = "https://dotnet.microsoft.com/download/dotnet/11.0";
     public const string Docker = "https://docs.docker.com/engine/install/";
     public const string DbnFormat = "https://github.com/databento/dbn";
+    public const string Mcp = "https://modelcontextprotocol.io";
 }

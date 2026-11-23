@@ -25,11 +25,7 @@ public static class ContractsCommand
             if (!found.IsSuccess)
                 return await session.FailAsync(found.Error!).ConfigureAwait(false);
 
-            var now = DateTimeOffset.UtcNow;
-            var contracts = found.Value
-                .Where(c => parse.GetValue(spreads) || !c.IsSpread)
-                .Where(c => !parse.GetValue(active) || c.Expiration is null || c.Expiration > now)
-                .ToList();
+            var contracts = Select(found.Value, parse.GetValue(spreads), parse.GetValue(active), DateTimeOffset.UtcNow);
 
             if (contracts.Count == 0)
             {
@@ -53,6 +49,12 @@ public static class ContractsCommand
 
         return command;
     }
+
+    /// <summary>The outright contracts, and the spreads too when asked; only those still trading at <paramref name="now"/> when <paramref name="active"/>.</summary>
+    internal static List<Contract> Select(IEnumerable<Contract> contracts, bool spreads, bool active, DateTimeOffset now) =>
+        [.. contracts
+            .Where(c => spreads || !c.IsSpread)
+            .Where(c => !active || c.Expiration is null || c.Expiration > now)];
 
     private static string Tick(Contract c) =>
         c.TickSize is { } t ? t.ToString("0.#########", System.Globalization.CultureInfo.InvariantCulture) : "-";
