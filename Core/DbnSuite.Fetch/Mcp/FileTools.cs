@@ -5,6 +5,7 @@ using DbnSuite.Client.Export;
 using DbnSuite.Client.Time;
 using DbnSuite.Fetch.Commands;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace DbnSuite.Fetch.Mcp;
@@ -53,9 +54,11 @@ internal sealed class FileTools(ToolHost host)
         [Description("For a root: false leaves out spreads.")] bool spreads = true,
         [Description(DryRun)] bool dry_run = false,
         [Description(Confirm)] bool confirm = false,
-        IProgress<ProgressNotificationValue>? progress = null,
+        RequestContext<CallToolRequestParams>? call = null,
         CancellationToken cancel = default)
     {
+        await using var progress = OrderedProgress.For(call);
+
         var output = Folder(folder);
 
         var request = ExportCommand.Request(new ExportCommand.ExportChoices
@@ -128,9 +131,11 @@ internal sealed class FileTools(ToolHost host)
         [Description("Also write the archive's .empty markers for days with no data, so the folder can be read as an archive.")] bool markers = false,
         [Description(DryRun)] bool dry_run = false,
         [Description(Confirm)] bool confirm = false,
-        IProgress<ProgressNotificationValue>? progress = null,
+        RequestContext<CallToolRequestParams>? call = null,
         CancellationToken cancel = default)
     {
+        await using var progress = OrderedProgress.For(call);
+
         var output = Folder(folder);
         var span = Range(from, to);
 
@@ -189,9 +194,11 @@ internal sealed class FileTools(ToolHost host)
         [Description(Subfolder)] string? folder = null,
         [Description(DryRun)] bool dry_run = false,
         [Description(Confirm)] bool confirm = false,
-        IProgress<ProgressNotificationValue>? progress = null,
+        RequestContext<CallToolRequestParams>? call = null,
         CancellationToken cancel = default)
     {
+        await using var progress = OrderedProgress.For(call);
+
         var output = Folder(folder);
         var name = root.Trim().ToUpperInvariant();
         var wanted = kinds is { Length: > 0 } named ? named.Select(k => k.Trim().ToLowerInvariant()).ToArray() : TapePullCommand.Kinds;

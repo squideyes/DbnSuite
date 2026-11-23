@@ -25,7 +25,8 @@ versions follow [Semantic Versioning](https://semver.org).
   `--allow-data` adds `show_records` and `bars`, whose results go to the AI
   model's provider, so it's off unless your Databento agreement allows it.
   `--out <folder>` adds `export`, `pull` and `tape_pull`, which write only
-  inside that folder and ask before going over `--max-gb`. Nothing it offers
+  inside that folder and ask before going over `--max-gb`. They report progress
+  as they go, all of it sent before their result. Nothing it offers
   logs in, deletes, builds tapes or spends.
   ([#75](https://github.com/squideyes/DbnSuite/issues/75))
 - **`Tape.ReadHeaderAsync`** reads only a tape's header, so a large tape in a
