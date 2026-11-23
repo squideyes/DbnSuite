@@ -129,6 +129,7 @@ public sealed class SessionsTests
     [InlineData("MGC", 7, 20, 12, 30)]
     [InlineData("ZN", 7, 20, 14, 0)]
     [InlineData("6E", 7, 20, 14, 0)]
+    [InlineData("M6E", 7, 20, 14, 0)]
     public void Each_root_has_its_own_regular_hours(string root, int startHour, int startMinute, int endHour, int endMinute)
     {
         Sessions.RegularHours(root).ShouldBe(new Hours(new TimeOnly(startHour, startMinute), new TimeOnly(endHour, endMinute)));
