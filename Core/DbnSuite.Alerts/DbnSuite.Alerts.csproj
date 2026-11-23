@@ -7,7 +7,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="DbnSuite.UnitTests" />
+    <InternalsVisibleTo Include="DbnSuite.Alerts.Tests" />
   </ItemGroup>
 
 </Project>

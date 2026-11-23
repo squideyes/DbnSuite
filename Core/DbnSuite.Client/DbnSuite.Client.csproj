@@ -15,7 +15,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="DbnSuite.UnitTests" />
+    <InternalsVisibleTo Include="DbnSuite.Client.Tests" />
+    <InternalsVisibleTo Include="DbnSuite.Fetch.Tests" />
+    <InternalsVisibleTo Include="DbnSuite.Spool.Tests" />
   </ItemGroup>
 
   <!-- The calendars RuleCalendar carries, such as RuleCalendar.CmeUsEquityIndex. -->
