@@ -114,7 +114,8 @@
 </p>
 <p>
     With the <a href="docs/dbnsync#alert-emails">alert email settings</a> in <code>.env</code>, DbnSpool emails you
-    when dates are set aside, tapes can't be made, or a root's pass fails, once a day at most for each problem. Set up
+    when dates are set aside, tapes can't be made, the tape store still holds old-format tapes, or a root's pass
+    fails, once a day at most for each problem. Set up
     the <a href="docs/dbnsync#alerts">DigitalOcean alerts</a> as well: they email you when memory or disk runs high, or
     the Droplet stops answering.
 </p>
@@ -124,13 +125,14 @@
     <table>
         <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
         <tbody>
-            <tr><td><code>Archive__Location</code>, <code>Archive__Bucket</code>, <code>Archive__AccessKey</code>, <code>Archive__SecretKey</code></td><td>none, <code>dbn</code></td><td>The archive to read.</td></tr>
-            <tr><td><code>Tapes__Location</code>, <code>Tapes__Bucket</code>, <code>Tapes__AccessKey</code>, <code>Tapes__SecretKey</code></td><td>none, <code>dbn</code></td><td>Where tapes go, which must not be the archive itself. The Compose file sets the bucket to <code>dbn-tapes</code>.</td></tr>
-            <tr><td><code>DbnSpool__Roots</code></td><td>the 12 default roots</td><td>The roots to spool.</td></tr>
-            <tr><td><code>DbnSpool__Interval</code></td><td><code>01:00:00</code></td><td>How long to wait between looks at the archive.</td></tr>
+            <tr><td><code>Archive__Location</code>, <code>Archive__Bucket</code>, <code>Archive__AccessKey</code>, <code>Archive__SecretKey</code></td><td>required, <code>dbn</code></td><td>The archive to read. The keys are required for an S3 store.</td></tr>
+            <tr><td><code>Archive__Prefix</code>, <code>Archive__Region</code>, <code>Tapes__Prefix</code>, <code>Tapes__Region</code></td><td>empty, <code>us-east-1</code></td><td>A folder in each bucket, and each store's region.</td></tr>
+            <tr><td><code>Tapes__Location</code>, <code>Tapes__Bucket</code>, <code>Tapes__AccessKey</code>, <code>Tapes__SecretKey</code></td><td>required, <code>dbn</code></td><td>Where tapes go, which must not be the archive itself. The Compose file sets the bucket to <code>dbn-tapes</code>.</td></tr>
+            <tr><td><code>DbnSpool__Roots</code></td><td>the 12 default roots</td><td>The roots to spool. In the DigitalOcean <code>.env</code>, <code>DBNSPOOL_ROOTS</code>.</td></tr>
+            <tr><td><code>DbnSpool__Interval</code></td><td><code>01:00:00</code></td><td>How long to wait between looks at the archive: 1 minute to 30 days.</td></tr>
             <tr><td><code>DbnSpool__Compress</code></td><td><code>true</code></td><td>Compress tapes with zstd.</td></tr>
             <tr><td><code>DbnSpool__Prove</code></td><td><code>true</code></td><td>Prove each date before uploading it.</td></tr>
-            <tr><td><code>DbnSpool__MostAttempts</code></td><td><code>2</code></td><td>How many times a date may stop DbnSpool before it is set aside.</td></tr>
+            <tr><td><code>DbnSpool__MostAttempts</code></td><td><code>2</code></td><td>How many times a date may stop DbnSpool before it is set aside: at least 1.</td></tr>
             <tr><td><code>DbnSpool__WorkPath</code></td><td><code>/work</code></td><td>The folder for tapes being built and cached archive files.</td></tr>
             <tr><td><code>Alerts__Host</code>, <code>Alerts__Port</code>, <code>Alerts__User</code>, <code>Alerts__Password</code>, <code>Alerts__From</code>, <code>Alerts__To</code></td><td>off, <code>465</code></td><td><a href="docs/dbnsync#alert-emails">Alert emails</a>. The Compose file fills them from the <code>SMTP_</code> and <code>ALERT_</code> lines of <code>.env</code>, with port 2465.</td></tr>
             <tr><td><code>Alerts__Every</code></td><td><code>1.00:00:00</code></td><td>How long before the same problem is emailed again.</td></tr>

@@ -31,7 +31,8 @@
 <h2 id="install">Install</h2>
 <p>
     There are two ways. The .NET tool is easiest to keep up to date; the standalone binary needs nothing else
-    installed. Both are the same native program.
+    installed. On the six platforms below both are the same native program; elsewhere the .NET tool runs a portable
+    build.
 </p>
 
 <h3 id="install-tool">As a .NET tool</h3>
@@ -85,7 +86,7 @@
 <CodeBlock Title="Any terminal" Text="@Login" />
 <ul>
     <li><strong>Where it is kept:</strong> the login is in <code>%APPDATA%\DbnFetch</code> on Windows, <code>~/Library/Application Support/DbnFetch</code> on macOS and <code>~/.config/DbnFetch</code> on Linux. The secret is encrypted for your Windows user, in your macOS Keychain, or in your Linux keyring (the Secret Service: GNOME Keyring or KWallet). Where there is no keyring, as on a server, it is in a file only you can read, and <code>dbnf login</code> says so.</li>
-    <li><strong>Check everything:</strong> <code>dbnf doctor</code> tests the login, the archive, your clock (S3 refuses requests from a clock more than 15 minutes out) and the cache, which fails the check with under 10 GB free on its drive.</li>
+    <li><strong>Check everything:</strong> <code>dbnf doctor</code> tests the login, the archive, your clock (S3 refuses requests from a clock more than 15 minutes out, so <code>doctor</code> fails the check at 5) and the cache, which fails the check with under 10 GB free on its drive.</li>
     <li><strong>Another bucket:</strong> <code>login --bucket</code> names a bucket other than <code>dbn</code>, and <code>--prefix</code> a folder inside it that holds the archive.</li>
     <li><strong>More than one archive:</strong> add <code>--profile work</code> to <code>login</code> and to every later command.</li>
     <li><strong>Scripts and CI:</strong> set <code>DBNF_LOCATION</code>, <code>DBNF_ACCESS_KEY</code> and <code>DBNF_SECRET_KEY</code> (and <code>DBNF_BUCKET</code> if it isn't <code>dbn</code>) instead of logging in, or pipe the secret with <code>--secret-stdin</code>.</li>
@@ -138,7 +139,7 @@
     A roll is decided from the last complete session and takes effect at the next open. The schedule starts a week
     before the first date asked for, so a date holds the same contract whatever span it is asked in. <code>--adjust difference</code>
     adds each roll's settlement gap to every earlier price (back-adjustment); <code>--adjust ratio</code> scales them,
-    keeping percentage moves. Adjustment applies to bars: order book events keep raw prices, so <code>--adjust</code>
+    keeping percentage moves. Adjustment applies to bars and to the records of a continuous series: order book events keep raw prices, so <code>--adjust</code>
     on an <code>mbo</code> series is refused. A roll's gap takes both settlements from one session, the latest before
     the roll that both contracts settled. A roll with no such session has no gap, so an adjusted
     export that crosses it is refused, naming the roll and the contracts; export it unadjusted, or add that session's
@@ -149,7 +150,8 @@
     <code>--session eth</code> (the default) is the whole Globex session, with the hour after the close where settlement
     and status messages land; <code>--session rth</code> is the root's
     regular hours; or give your own with <code>--hours 09:30-16:00 --hours-tz America/New_York</code>. Times are written
-    in Chicago unless <code>--tz</code> names another zone, such as <code>UTC</code> or <code>America/New_York</code>.
+    in Chicago unless <code>--tz</code> names another zone, such as <code>UTC</code>, <code>America/New_York</code> or
+    <code>local</code>, this computer's own.
 </p>
 <h3 id="bars">Bars</h3>
 <p>
@@ -197,7 +199,9 @@
     <code>--format nt8</code> writes NinjaTrader's import text: bars from <code>--bars</code>, or ticks from
     <code>--as trades</code>. Bars are stamped with their end; a bar of a day or longer has the date alone, whatever the
     session. A contract's file is named for NinjaTrader's instrument, such as <code>ES 12-26.Last.txt</code>, which is
-    how NinjaTrader knows where to put it. NinjaTrader's layout is fixed, so <code>--columns</code> is refused.
+    how NinjaTrader knows where to put it. NinjaTrader's layout is fixed, so <code>--columns</code> is refused. Name a
+    contract or a continuous series, since a root's contracts would be mixed into one file, and the whole range goes in
+    one file.
 </p>
 <CodeBlock Title="Any terminal" Text="@Nt8" />
 <ol class="steps-list">
@@ -217,7 +221,8 @@
     <code>dbnf rolls</code> lists a continuous series' rolls: the first trade date the new contract is used, the
     contracts, and the settlement gap that <code>--adjust</code> uses. A roll decided by Friday's volume shows Monday,
     since Sunday's open belongs to Monday's trade date. Exchange holidays are not known, so one is not skipped. A roll
-    with no settlement shows dashes.
+    with no settlement shows dashes. It takes the same dates as <code>export</code> (<code>--from</code>/<code>--to</code>,
+    <code>--last</code> or <code>--since</code>), and <code>--roll-days</code> changes a <code>.c.</code> series' rule.
 </p>
 <CodeBlock Title="Any terminal" Text="dbnf rolls ES.v.0 --since 2025-01-01" />
 
@@ -226,7 +231,7 @@
     <code>dbnf tape</code> builds compact files for backtesting from the archive, and proves them against it. See
     <a href="docs/dbntape">DbnTape</a>.
 </p>
-<CodeBlock Title="Any terminal" Text="dbnf tape build ES --tapes tapes --from 2026-10-29" />
+<CodeBlock Title="Any terminal" Text="@TapeBuild" />
 
 <h2 id="mcp">MCP server</h2>
 <p>
@@ -250,13 +255,16 @@
         <strong><code>--out &lt;folder&gt;</code></strong> adds the tools that write files, only inside that folder. A path
         that would leave it, rooted or with <code>..</code>, is refused. They return paths, row counts and sizes, never
         the data. Each first weighs what it would read or copy, and refuses more than <code>--max-gb</code> (2 GB by
-        default) unless the call confirms, which the agent should only do once you agree.
+        default) unless the call confirms, which the agent should only do once you agree. Each also takes
+        <code>dry_run</code>, to only weigh the job, and <code>folder</code>, a subfolder of <code>--out</code>.
     </li>
 </ul>
 <CodeBlock Title="Or, with more tools" Text="@McpMore" />
 <p>
     Tapes usually live in a tape store with a login of their own: add a second server with that
-    <code>--profile</code>, or give <code>--tapes</code> a folder of tapes.
+    <code>--profile</code>, or give <code>--tapes</code> a folder of tapes. <code>--tapes</code> is read by
+    <code>tape_catalog</code> and <code>tape_info</code>; <code>tape_pull</code> copies from the server's own login,
+    which must be the tape store's.
 </p>
 <div class="table">
     <table>
@@ -272,7 +280,7 @@
             <tr><td><code>volume_by_day</code></td><td>always</td><td>Each trade date's total volume and most traded contract: the <code>ohlcv-1s</code> bars of outright contracts, summed. Daily totals only.</td></tr>
             <tr><td><code>show_records</code></td><td><code>--allow-data</code></td><td>Up to 200 of a day's records, as <code>show</code>.</td></tr>
             <tr><td><code>bars</code></td><td><code>--allow-data</code></td><td>Up to 200 OHLCV bars of one trade date, built as <code>export --bars</code> builds them.</td></tr>
-            <tr><td><code>export</code></td><td><code>--out</code></td><td>As <code>export</code>, into the folder.</td></tr>
+            <tr><td><code>export</code></td><td><code>--out</code></td><td>Most of <code>export</code>'s options, into the folder; <code>--hours</code> is always Chicago time.</td></tr>
             <tr><td><code>pull</code></td><td><code>--out</code></td><td>As <code>pull --out</code>, into the folder.</td></tr>
             <tr><td><code>tape_pull</code></td><td><code>--out</code></td><td>As <code>tape pull</code>, into the folder, but never removing a tape.</td></tr>
         </tbody>
@@ -422,6 +430,11 @@
         [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";$dir", "User")
         """;
 
+    private const string TapeBuild = """
+        dbnf tape catalog ES --tapes tapes
+        dbnf tape build ES --tapes tapes --from 2026-10-29
+        """;
+
     private const string BinaryMac = """
         unzip dbnf-osx-arm64.zip -d ~/.local/bin
         chmod +x ~/.local/bin/dbnf
@@ -446,9 +459,9 @@
         """;
 
     private const string ShowOutput = """
-        2026-10-25T07:00:06.845623025-05:00  MESZ26   clear  -      0 @ -     order 0
-        2026-10-25T07:00:06.845623025-05:00  MESZ26   add    ask    1 @ 7820  order 6883391723797
-        2026-10-25T07:00:06.845623025-05:00  MESZ26   add    ask    2 @ 7820  order 6883401784619
+        2026-10-25T07:00:06.845623025-05:00  MESZ26         clear  -        0 @ -            order 0
+        2026-10-25T07:00:06.845623025-05:00  MESZ26         add    ask      1 @ 7820         order 6883391723797
+        2026-10-25T07:00:06.845623025-05:00  MESZ26         add    ask      2 @ 7820         order 6883401784619
         """;
 
     private const string Pull = """

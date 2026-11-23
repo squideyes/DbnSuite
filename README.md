@@ -8,8 +8,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![.NET 11](https://img.shields.io/badge/.NET-11-512BD4)](https://dotnet.microsoft.com/)
 
-Five open-source tools for keeping and using Databento® market data, by
-SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**. MIT licensed.
+Five open-source tools, and a contributed Python client, for keeping and using
+Databento® market data, by SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**. MIT licensed.
 
 > **Independent project.** DbnSuite has no official connection with Databento;
 > it is not made, endorsed or supported by Databento. Databento is a registered
@@ -28,6 +28,7 @@ SquidEyes. Website: **[dbnsuite.squideyes.com](https://dbnsuite.squideyes.com)**
 | **DbnSync** | Keeps a growing archive of Databento data in any S3-compatible store. By default it spends nothing at Databento | `ghcr.io/squideyes/dbnsync-worker` (Docker) |
 | **DbnSuite.Fetch** (`dbnf`) | Downloads raw files from the archive and exports bars, rebuilt order books and, for futures, sessions and back-adjusted continuous series, as Parquet, CSV or JSON Lines for research tools and trading platforms, DBN, or NinjaTrader 8's own import format | [NuGet](https://www.nuget.org/packages/DbnSuite.Fetch): `dotnet tool install -g DbnSuite.Fetch` |
 | **DbnSuite.Client** | The engine under DbnSuite.Fetch, as a C# library | [NuGet](https://www.nuget.org/packages/DbnSuite.Client): `dotnet add package DbnSuite.Client` |
+| **Python client** (`dbnsuite`) | Contributed and largely untested: reads the archive and DbnTape tapes into numpy and pandas, and deals Monte Carlo sessions as C# does | [Clients/python](Clients/python/README.md): not on PyPI yet, so `pip install -e "Clients/python[dbn,pandas]"` from a clone |
 | **DbnTape** | Compact tapes of each trade date, for its most traded contract, for fast, exact backtests: one-second bars, every trade, and top of book with trading state, proved against the archive | `dbnf tape` in DbnSuite.Fetch and `DbnSuite.Client.Tape` in DbnSuite.Client |
 | **DbnSpool** | Optional. A worker that keeps tapes up to date in a second, private S3 store, building, proving and uploading each new trade date | `ghcr.io/squideyes/dbnspool-worker` (Docker) |
 
@@ -39,7 +40,9 @@ through anyone else.
 [DbnSuite.Fetch](https://www.nuget.org/packages/DbnSuite.Fetch), and need the .NET 11 SDK. Native `dbnf`
 binaries that need no .NET are attached to each
 [release](https://github.com/squideyes/DbnSuite/releases). DbnSync and DbnSpool
-are Docker images on GitHub's container registry.
+are Docker images on GitHub's container registry. The contributed Python client
+needs Python 3.10 or later and installs from a clone (see
+[Clients/python](Clients/python/README.md)).
 
 ### Datasets
 
@@ -134,8 +137,9 @@ nest (per job ≤ per day ≤ per month):
 - `DbnSync__ReachBackTo` (under the worker's `environment:` in the compose
   file) plans L1 and book days older than the Standard windows. Without a paid
   policy they are fetched only if your plan quotes them at $0.
-- The dashboard shows the policy, and what the ledger says was spent today and
-  this month; the worker logs a warning with the policy when it starts. The
+- The dashboard shows the policy and, when paid jobs are on, what the ledger
+  says was spent today and this month; the worker logs the policy when it
+  starts, as a warning when paid jobs are on. The
   ledger is DbnSync's count of Databento's quotes, not Databento's bill.
 
 ## What it keeps
@@ -144,7 +148,7 @@ Defaults, all configurable:
 
 | Schema | Level | Free window | Instruments | Days per job |
 |---|---|---|---|---|
-| `mbo` | L3 | 1 month | the 2 leading outrights by open interest (`MNQ.n.0`, `MNQ.n.1`) | 5 |
+| `mbo` | L3 | 1 month | the 2 leading outrights by open interest (`MNQ.n.0`, `MNQ.n.1`) and the volume leader (`MNQ.v.0`), which tapes follow | 5 |
 | `ohlcv-1s` | L0 | back to 2020 | every instrument (`MNQ.FUT`) | 92 |
 | `definition`, `statistics`, `status` | L0 | back to 2020 | every instrument | 366 |
 
@@ -167,8 +171,8 @@ here. Choose your own with `DBNSYNC_ROOTS`.
 
   Any of these can be switched on in `Schemas`.
 
-The work is ordered by what expires first: the book, then L0, and the oldest
-days first within each.
+The work is ordered by what expires first: the book, then L1, then L0, and the
+oldest days first within each.
 
 ### Sizes
 
@@ -188,10 +192,12 @@ smaller. At that ratio the defaults come to:
 | L0 since 2020 | ~25 GB | ~5 GB |
 | **Total** | **~90 GB** | **~750 GB** |
 
-To keep the book for fewer roots, narrow one schema without touching the rest:
+To keep the book for fewer roots, narrow one schema without touching the rest.
+Add it under `environment:` for the `dbnsync` service in `docker-compose.yml`,
+then `docker compose up -d`:
 
-```
-DbnSync__RootsBySchema__mbo=MNQ,MES,MGC,MCL
+```yaml
+DbnSync__RootsBySchema__mbo: MNQ,MES,MGC,MCL
 ```
 
 ### How it is stored
@@ -221,7 +227,7 @@ reader opens the files. Nothing needs DbnSync to be running.
 |---|---|
 | Endpoint | `http://<nas>:9000` on the LAN, or your HTTPS name from outside |
 | Bucket | `dbn` |
-| Region | `us-east-1` (any value works; RustFS ignores it) |
+| Region | `us-east-1`, RustFS's own. Set it in your client; some otherwise take it from `AWS_REGION` |
 | Addressing | path-style |
 | Key | a read-only key for the `dbn` bucket (see [Keys](#keys)) |
 
@@ -263,7 +269,7 @@ dbnf login --location https://s3.example.com --access-key dbn-reader
 
 `dbnf doctor` checks the login, the archive, your clock and the cache, and
 `dbnf logout` forgets the login. `--profile` keeps more than one login.
-Scripts can set `DBNF_LOCATION`, `DBNF_ACCESS_KEY` and
+Scripts can set `DBNF_LOCATION`, `DBNF_BUCKET`, `DBNF_ACCESS_KEY` and
 `DBNF_SECRET_KEY` instead.
 
 **What the archive holds:**
@@ -291,9 +297,9 @@ dbnf show mbo MESZ26 2026-10-30 --limit 3
 ```
 
 ```
-2026-10-25T07:00:06.845623025-05:00  MESZ26   clear  -      0 @ -     order 0
-2026-10-25T07:00:06.845623025-05:00  MESZ26   add    ask    1 @ 7820  order 6883391723797
-2026-10-25T07:00:06.845623025-05:00  MESZ26   add    ask    2 @ 7820  order 6883401784619
+2026-10-25T07:00:06.845623025-05:00  MESZ26         clear  -        0 @ -            order 0
+2026-10-25T07:00:06.845623025-05:00  MESZ26         add    ask      1 @ 7820         order 6883391723797
+2026-10-25T07:00:06.845623025-05:00  MESZ26         add    ask      2 @ 7820         order 6883401784619
 ```
 
 Each day's `mbo` opens with a snapshot of the book: a clear, then every resting
@@ -308,7 +314,8 @@ dbnf pull mbo,definition MNQ --from 2026-10-01 --to 2026-10-31 --out dbn
 
 Files land in a cache unless `--out` names a folder. The cache is
 `%LOCALAPPDATA%\DbnFetch\cache` on Windows and `~/.cache/DbnFetch` on macOS
-and Linux. A file already there is skipped, an interrupted download carries on
+and Linux, or `$XDG_CACHE_HOME/DbnFetch` on Linux when that is set, in a
+folder for each login. A file already there is skipped, an interrupted download carries on
 where it stopped, and `--dry-run` shows what would come down and how many GB.
 A folder filled by `pull --out` is an archive in its own right:
 `dbnf --archive dbn ls`. `dbnf cache` shows what the cache holds, and
@@ -351,7 +358,8 @@ dbnf export ohlcv-1s ES.v.0 --bars 5m --session rth --since 2026-01-01 --adjust 
 - **Columns:** Databento's field names; `symbol` names the contract
   (`ESZ26`) and `series` the continuous name. `--columns ts_event,close`
   keeps some, `--price ticks` or `raw` changes the units, and
-  `--time unix-ns`, `unix-ms` or `excel` (with `--split-time`) changes the times.
+  `--time unix-ns`, `unix-ms` or `excel` changes the times, and `--split-time`
+  writes an ISO time as a date column and a time column.
 - **Files:** one per trade date; `--single` for one file, `--partition` for
   `series=`/`date=` folders, `--name` for names of your own.
 
@@ -361,7 +369,7 @@ login reads. By default it answers facts only: what the archive holds,
 coverage, contracts, rolls, the trading calendar, tapes and daily volume.
 `--allow-data` adds tools that return market data, which goes to the AI
 model's provider, so turn it on only if your Databento agreement allows it.
-`--out <folder>` adds export and pull, writing only inside that folder. See
+`--out <folder>` adds `export`, `pull` and `tape_pull`, writing only inside that folder. See
 [MCP server](https://dbnsuite.squideyes.com/docs/dbnfetch#mcp).
 
 ```bash
@@ -542,7 +550,8 @@ settled in 24 hours it reads **Unknown**, and once nothing is left, **Caught up*
 
 Log links open Seq filtered to the job, or to the minutes around an issue
 that has no job. They need `Dashboard__LogsUrl`, Seq's address as your browser
-reaches it, so they work only on the LAN. A pass that crashes keeps its stack
+reaches it, so they work only where that address is reachable, such as the LAN
+or an SSH tunnel. A pass that crashes keeps its stack
 trace only in the logs.
 
 A day is in one of five states:
@@ -579,15 +588,24 @@ aspire run --apphost Aspire/AppHost/DbnSuite.AppHost.csproj
 ```
 
 The AppHost starts a RustFS S3 server and Seq, and links the dashboard to Seq.
+DbnSpool is there too, and starts only when you start it from the Aspire
+dashboard.
 In Development, DbnSync only fetches MCL `mbo` and `definition` from
 20 October 2026 (`appsettings.Development.json`), so the local volume stays
 small.
 
 ```bash
-dotnet test DbnSuite.slnx
+dotnet build DbnSuite.slnx -c Release
+dotnet test DbnSuite.slnx -c Release --no-build
 ```
 
 The S3 tests start RustFS containers through Testcontainers, so Docker must be running.
+The Python client's tests need Python 3.10 or later:
+
+```bash
+pip install -e "Clients/python[test]"
+pytest Clients/python
+```
 
 ## Deploy with Claude Code
 
@@ -615,8 +633,9 @@ A Droplet runs the worker and Seq, and a DigitalOcean Space is the S3 store.
    chmod 600 .env
    ```
 
-4. Fill in `.env`: the Databento key, the Space's endpoint and name, the Spaces
-   key, and a Seq admin password.
+4. Fill in `.env`: `DBNSUITE_VERSION` (the full commit id of a build on `main`
+   whose CI passed), the Databento key, the Space's endpoint and name, the
+   Spaces key, and a Seq admin password.
 5. Start it:
 
    ```text
@@ -713,12 +732,13 @@ sudo docker compose pull
 sudo docker compose up -d
 ```
 
-| Port | What |
-|---|---|
-| 9000 | S3 API: point any S3 client here, path-style |
-| 9001 | S3 console: users, keys and policies |
-| 8080 | DbnSync dashboard, `/status` and `/health` |
-| 5341 | Seq: the worker's logs. Set a retention policy in its Settings; it keeps everything otherwise |
+| Port | Setting | What |
+|---|---|---|
+| 9000 | `S3_PORT` | S3 API: point any S3 client here, path-style |
+| 9001 | `S3_CONSOLE_PORT` | S3 console: users, keys and policies |
+| 8080 | `DBNSYNC_PORT` | DbnSync dashboard, `/status` and `/health` |
+| 5341 | `SEQ_PORT` | Seq: the worker's logs. Set a retention policy in its Settings; it keeps everything otherwise |
+| 8443 | `HTTPS_PORT` | Caddy's HTTPS, when you [reach it from the internet](#reaching-it-from-the-internet) |
 
 ### About MinIO
 
@@ -726,7 +746,8 @@ MinIO no longer publishes public images: `minio/minio` on Docker Hub returns
 404, and quay.io requires a login. The compose file uses **RustFS**, an
 Apache-2.0 server with MinIO's layout, ports and console. DbnSync speaks only
 the S3 API, so MinIO (if you have an image), Garage, SeaweedFS or DigitalOcean
-Spaces work the same way. Change `Store__ServiceUrl` and the keys.
+Spaces work the same way. Set `S3_SERVICE_URL` and `DBNSYNC_ACCESS_KEY` /
+`DBNSYNC_SECRET_KEY` in `.env` (`Store__*` in the worker).
 
 Whichever server you use, read and write the archive **through S3**. None of
 them treats a file copied into its data folder as an object.
@@ -844,11 +865,11 @@ keep SSH off when you are not using it.
 | `ReachBackTo` | none | oldest day asked for at L1 and above, when older than the Standard windows |
 | `Spend__AllowPaidJobs` | `false` | see [Spending](#spending-0-by-default); read its caveats first |
 | `Spend__MaxPerJob`, `Spend__MaxPerDay`, `Spend__MaxPerMonth` | `0` | spend limits in US dollars |
-| `Interval` | `06:00:00` | between passes once caught up |
-| `BusyInterval` | `00:05:00` | between passes while work is pending |
-| `MaxPendingJobs` | `30` | jobs in flight |
-| `DownloadConcurrency` | `2` | files downloaded at once per job |
-| `Depth` | `2` | leading outrights for book and L1 schemas |
+| `Interval` | `06:00:00` | between passes once caught up; 5 minutes to 30 days |
+| `BusyInterval` | `00:05:00` | between passes while work is pending; 1 minute to 30 days |
+| `MaxPendingJobs` | `30` | jobs in flight; 1 to 500 |
+| `DownloadConcurrency` | `2` | files downloaded at once per job; 1 to 16 |
+| `Depth` | `2` | leading outrights by open interest for `mbo`, `mbp-10`, `mbp-1`, `tbbo` and `bbo-*`, 1 to 4; the volume leader is always added |
 | `ScratchPath` | `/scratch` in the image | where a file sits between download and upload |
 
 `Store` section: `ServiceUrl`, `Bucket` (`dbn`), `Prefix`, `AccessKey`,
@@ -861,6 +882,11 @@ a byte arriving before it is given up, for the next pass to fetch again, and
 
 `Dashboard__LogsUrl`: Seq's address as a browser reaches it, for the log links.
 Logs go to Seq when `ConnectionStrings__seq` is set.
+
+`Alerts` section, for alert emails: `Host`, `Port` (`465`), `User`,
+`Password`, `From`, `To` and `Every` (`1.00:00:00`, how long before the same
+problem is emailed again). Alerts are on once `Host` and `To` are set; ports
+465 and 2465 use TLS from the start, and any other must offer STARTTLS.
 
 ## Layout of the code
 

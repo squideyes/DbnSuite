@@ -1,7 +1,7 @@
 # dbnsuite for Python
 
 Read a [DbnSync](https://dbnsuite.squideyes.com) archive of Databento® files, and DbnTape tapes,
-from Python.
+from Python. Documentation: [dbnsuite.squideyes.com/docs/python](https://dbnsuite.squideyes.com/docs/python).
 
 > **Contributed and largely untested.** This client is new. Its tests check it against the C#
 > code on synthetic tapes and a stand-in archive, but nobody has yet used it for real research.
@@ -31,7 +31,8 @@ engine, in C#, keeps every language's numbers the same.
 
 ## Install
 
-It isn't on PyPI yet. From a clone of the repository:
+It needs Python 3.10 or later, and depends on boto3, numpy, xxhash and zstandard. It isn't on
+PyPI yet. From a clone of the repository:
 
 ```bash
 pip install -e "Clients/python[dbn,pandas]"
@@ -54,9 +55,15 @@ for s in archive.series("ES"):
 
 archive.missing("mbo", "ES", date(2026, 10, 1), date(2026, 10, 31))  # never fetched
 
-store = archive.open("mbo", "ES", date(2026, 10, 28))  # Databento's DBNStore, or None for no data
-frame = store.to_df()
+store = archive.open("mbo", "ES", date(2026, 10, 28))  # Databento's DBNStore; MissingDay if never fetched
+if store is not None:  # None: a day with no data
+    frame = store.to_df()
 ```
+
+Days are copied into a cache folder, from S3 or a folder archive alike, so reading a day twice
+fetches it once. It's `DBNSUITE_CACHE` if that's set, else `%LOCALAPPDATA%\dbnsuite\cache` on
+Windows, `~/Library/Caches/dbnsuite` on macOS and `~/.cache/dbnsuite` (or
+`$XDG_CACHE_HOME/dbnsuite`) on Linux, or pass `cache=` to `Archive`.
 
 ## Tapes
 

@@ -334,7 +334,7 @@
 </ol>
 <p>
     The dashboard shows the policy at the top of the Corpus page and, when paid jobs are on, what the ledger says was
-    spent today and this month. The worker logs a warning with the policy each time it starts. The ledger is
+    spent today and this month. The worker logs the policy each time it starts, as a warning when paid jobs are on. The ledger is
     DbnSync's own count of Databento's quotes, not Databento's bill; the bill is what you pay.
 </p>
 <p>
@@ -349,7 +349,7 @@
     <li><strong>Read the store.</strong> It lists what the bucket holds, day by day. A day counts as held when its data file or its <code>.empty</code> marker exists, so planning never trusts a record of its own over what is actually there.</li>
     <li><strong>Collect finished jobs.</strong> Each file of a finished Databento job is downloaded, checked against Databento's size and SHA-256, and uploaded. A job's <code>.empty</code> markers, for days with no data, are written only after all its files have landed.</li>
     <li><strong>Plan what is missing</strong>, ordered by what leaves the plan first: order books, then L1, then L0, oldest days first within each. Days older than the plan includes, with <code>ReachBackTo</code>, come after all of those, newest first.</li>
-    <li><strong>Quote, then submit.</strong> Each job is quoted with <code>metadata.get_cost</code> just before it is submitted, and submitted only at exactly $0 unless the <a href="docs/dbnsync#spend">spend policy</a> allows more. A book job that straddles the edge of its window sheds its oldest day and is quoted again, up to three times; anything else that quotes above the policy is logged and skipped. When Databento answers that it has no data for several days at once, each day is asked for again on its own, and only a day it has nothing for when asked alone gets an <code>.empty</code> marker, so one wrong answer cannot empty a week. To have a day asked for again, delete its <code>.empty</code> marker.</li>
+    <li><strong>Quote, then submit.</strong> Each job is quoted with <code>metadata.get_cost</code> just before it is submitted, and submitted only at exactly $0 unless the <a href="docs/dbnsync#spend">spend policy</a> allows more. A book or L1 job that straddles the edge of its window sheds its oldest day and is quoted again, up to three times; anything else that quotes above the policy is logged and skipped. When Databento answers that it has no data for several days at once, each day is asked for again on its own, and only a day it has nothing for when asked alone gets an <code>.empty</code> marker, so one wrong answer cannot empty a week. To have a day asked for again, delete its <code>.empty</code> marker.</li>
 </ol>
 <p>Passes run every five minutes while work is pending, and every six hours once caught up.</p>
 
@@ -381,8 +381,11 @@
 
 <h2 id="configuration">Configuration</h2>
 <p>
-    Settings go in <code>.env</code>, which the Compose file passes to the containers. These are the Compose file's own
-    names:
+    Settings go in <code>.env</code>, which the Compose file passes to the containers. These are the home-server
+    Compose file's own names. On DigitalOcean, <code>SPACES_URL</code> and <code>SPACES_BUCKET</code> take the place of
+    <code>S3_SERVICE_URL</code> and <code>S3_BUCKET</code>, <code>DBNSUITE_VERSION</code> (the full commit id of a build
+    whose CI passed) picks the images, <code>DBNSPOOL_ROOTS</code> sets DbnSpool's roots, and the logs address, ports
+    and images are fixed in its Compose file.
 </p>
 <div class="table">
     <table>
@@ -399,6 +402,7 @@
             <tr><td><code>DBNSYNC_SCHEMAS</code></td><td><code>mbo,ohlcv-1s,definition,statistics,status</code></td><td>Comma-separated schemas.</td></tr>
             <tr><td><code>S3_SERVICE_URL</code></td><td><code>http://s3:9000</code></td><td>Another S3 store, such as Spaces.</td></tr>
             <tr><td><code>S3_BUCKET</code></td><td><code>dbn</code></td><td>The bucket.</td></tr>
+            <tr><td><code>COMPOSE_PROJECT_NAME</code></td><td><code>dbnsync</code></td><td>The Compose project's name. Change it only to run a second copy beside the first.</td></tr>
             <tr><td><code>DBNSYNC_IMAGE</code></td><td><code>ghcr.io/squideyes/dbnsync-worker:latest</code></td><td>Pin a build by its commit: every image is also tagged with the full commit id it was built from.</td></tr>
             <tr><td><code>S3_DOMAIN</code>, <code>DASHBOARD_DOMAIN</code>, <code>DASHBOARD_USER</code>, <code>DASHBOARD_PASSWORD_HASH</code></td><td>empty</td><td>HTTPS through Caddy.</td></tr>
             <tr><td><code>DBNSYNC_ALLOW_PAID_JOBS</code>, <code>DBNSYNC_MAX_PER_JOB</code>, <code>DBNSYNC_MAX_PER_DAY</code>, <code>DBNSYNC_MAX_PER_MONTH</code></td><td>off, $0</td><td>The <a href="docs/dbnsync#spend">spend policy</a>. Read its caveats first.</td></tr>
@@ -409,20 +413,24 @@
 <h3 id="alert-emails">Alert emails</h3>
 <p>
     DbnSync emails you when a pass meets a problem that needs a person: Databento refusing the key or a request, an
-    answer it can't read, a job abandoned after seven days of failing, or a pass that crashed. Problems it handles by itself, such
+    answer it can't read, a file for a day it didn't ask for, a job abandoned after seven days of failing, or a pass
+    that crashed. Problems it handles by itself, such
     as Databento being unreachable for a while, stay on the dashboard. DbnSpool emails you when dates are set aside,
-    tapes can't be made, or a root's pass fails. Each problem is emailed once a day at most, for as long as it lasts.
+    tapes can't be made, the tape store still holds old-format tapes, or a root's pass fails. Each problem is emailed once a day at most, for as long as it lasts.
 </p>
 <p>
     Any SMTP service works, and the mail is always encrypted. Resend's free plan, 3,000 emails a month, is plenty: add a
     sending domain such as <code>alerts.example.com</code>, make an API key with sending access, and set
     <code>SMTP_HOST=smtp.resend.com</code>, <code>SMTP_USER=resend</code> and the key as <code>SMTP_PASSWORD</code>.
-    Port 465 uses TLS from the start, and any other port must offer STARTTLS. DigitalOcean blocks the usual mail ports,
-    so its Compose file uses 2465, which Resend also serves. The log says at startup where alerts go, or that they are
+    Ports 465 and 2465 use TLS from the start, and any other port must offer STARTTLS. DigitalOcean blocks the usual
+    mail ports, so its Compose file uses 2465, which Resend also serves. Alerts are on once <code>SMTP_HOST</code> and
+    <code>ALERT_TO</code> are both set; <code>ALERT_FROM</code> and <code>ALERT_TO</code> must then be email addresses,
+    or the worker won't start. The log says at startup where alerts go, or that they are
     off.
 </p>
 <p>
-    The worker reads more settings as <code>DbnSync__*</code> environment variables. To set one, add it under
+    The worker reads more settings as environment variables (<code>DbnSync__*</code>, <code>Databento__*</code>,
+    <code>Store__*</code>, <code>Alerts__*</code>). To set one, add it under
     <code>environment:</code> for the <code>dbnsync</code> service in <code>docker-compose.yml</code>.
 </p>
 <div class="table">
@@ -434,20 +442,28 @@
             <tr><td><code>DbnSync__RootsBySchema__&lt;schema&gt;</code></td><td>none</td><td>Replaces the roots for one schema.</td></tr>
             <tr><td><code>DbnSync__HistoryStart</code></td><td><code>2020-01-01</code></td><td>The oldest day ever asked for.</td></tr>
             <tr><td><code>DbnSync__ReachBackTo</code></td><td>none</td><td>The oldest day asked for at L1 and above, when older than the Standard windows.</td></tr>
-            <tr><td><code>DbnSync__Interval</code></td><td><code>06:00:00</code></td><td>Time between passes once caught up.</td></tr>
-            <tr><td><code>DbnSync__BusyInterval</code></td><td><code>00:05:00</code></td><td>Time between passes while work is pending.</td></tr>
+            <tr><td><code>DbnSync__Interval</code></td><td><code>06:00:00</code></td><td>Time between passes once caught up: 5 minutes to 30 days.</td></tr>
+            <tr><td><code>DbnSync__BusyInterval</code></td><td><code>00:05:00</code></td><td>Time between passes while work is pending: 1 minute to 30 days.</td></tr>
             <tr><td><code>Databento__StallTimeout</code></td><td><code>00:05:00</code></td><td>How long a download may go without a byte arriving before it is given up, for the next pass to fetch again.</td></tr>
             <tr><td><code>Databento__CallTimeout</code></td><td><code>00:05:00</code></td><td>How long any other call to Databento may take.</td></tr>
-            <tr><td><code>DbnSync__MaxPendingJobs</code></td><td><code>30</code></td><td>Databento jobs in flight at once.</td></tr>
-            <tr><td><code>DbnSync__DownloadConcurrency</code></td><td><code>2</code></td><td>Files downloaded at once per job.</td></tr>
-            <tr><td><code>DbnSync__Depth</code></td><td><code>2</code></td><td>Leading outrights kept for book and L1 schemas.</td></tr>
+            <tr><td><code>DbnSync__MaxPendingJobs</code></td><td><code>30</code></td><td>Databento jobs in flight at once: 1 to 500.</td></tr>
+            <tr><td><code>DbnSync__DownloadConcurrency</code></td><td><code>2</code></td><td>Files downloaded at once per job: 1 to 16.</td></tr>
+            <tr><td><code>DbnSync__Depth</code></td><td><code>2</code></td><td>Leading outrights by open interest kept for <code>mbo</code>, <code>mbp-10</code>, <code>mbp-1</code>, <code>tbbo</code> and <code>bbo-*</code>, 1 to 4; the volume leader is always added.</td></tr>
             <tr><td><code>Store__Prefix</code></td><td>empty</td><td>A folder in the bucket to keep the archive under.</td></tr>
+            <tr><td><code>Store__Region</code></td><td><code>us-east-1</code></td><td>The store's region, used to sign requests and to create the bucket.</td></tr>
+            <tr><td><code>Databento__ApiKey</code></td><td>none</td><td>Your Databento key, instead of <code>DATABENTO_API_KEY</code>.</td></tr>
+            <tr><td><code>DbnSync__ScratchPath</code></td><td><code>/scratch</code></td><td>Where a file sits between download and upload; the image sets <code>/scratch</code>.</td></tr>
+            <tr><td><code>Alerts__Every</code></td><td><code>1.00:00:00</code></td><td>How long before the same problem is emailed again.</td></tr>
         </tbody>
     </table>
 </div>
 
 <h2 id="operating">Updating and day-to-day</h2>
-<p>A new worker image is published on every change to <code>main</code>. To update:</p>
+<p>
+    A new worker image is published on every change to <code>main</code>. To update, pull and restart. On DigitalOcean,
+    first set <code>DBNSUITE_VERSION</code> to the new build, and add <code>--profile spool</code> to both commands if
+    DbnSpool runs there.
+</p>
 <CodeBlock Title="Shell on the server, in the dbnsync folder" Text="@Start" />
 <ul>
     <li><strong>Logs:</strong> <code>docker compose logs -f dbnsync</code>, or search them in Seq at port 5341. Seq keeps everything until you set a retention policy in its Settings; 30 days is plenty.</li>
@@ -563,7 +579,7 @@
         """;
 
     private const string HashPassword = """
-        docker run --rm caddy:2.10.2 caddy hash-password --plaintext 'your password' | base64 -w0
+        docker run --rm caddy:2.11 caddy hash-password --plaintext 'your password' | base64 -w0
         """;
 
     private const string InternetEnv = """

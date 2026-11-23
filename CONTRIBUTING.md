@@ -36,10 +36,18 @@ dotnet build DbnSuite.slnx
 dotnet test DbnSuite.slnx
 ```
 
+For the Python client, Python 3.10 or later:
+
+```bash
+pip install -e "Clients/python[test]"
+pytest Clients/python
+```
+
 Warnings are errors. `Tests/DbnSuite.UnitTests` holds the unit tests.
 `Tests/DbnSuite.IntegrationTests` runs the real worker against a real S3 server
 and a fake Databento gateway. The site is `Core/DbnSuite.Site`, a Blazor
-WebAssembly app.
+WebAssembly app. `Clients/python/tests` holds the Python client's tests, against
+fixtures the C# tests write.
 
 ## What a good pull request looks like
 
@@ -53,7 +61,7 @@ WebAssembly app.
 - **Documented.** If behaviour changes, change the docs in the same pull request:
   the site, the README and, for deployment, the `dbnsync-deploy` skill. The data
   layout is a versioned promise, so changing it needs an issue first.
-- **In the changelog,** if it changes what DbnClient or DbnFetch does: add a line
+- **In the changelog,** if it changes what DbnSuite.Client or DbnSuite.Fetch does: add a line
   under `## Unreleased` in [CHANGELOG.md](CHANGELOG.md), written for the
   package's users, with breaking changes first.
 - **In the style around it.** File-scoped namespaces, nullable reference types,

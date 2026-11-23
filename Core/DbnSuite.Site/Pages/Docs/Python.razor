@@ -1,0 +1,153 @@
+@page "/docs/python"
+
+<PageTitle>Python client docs: DbnSuite</PageTitle>
+
+<h1>Python client</h1>
+<p class="lead">
+    Read an archive, and DbnTape tapes, from Python: list and fetch days by the layout's rules, load tapes into numpy
+    or pandas, and deal Monte Carlo sessions exactly as C# does.
+</p>
+
+<div class="note warn"><p>
+    <strong>Contributed and largely untested.</strong> Its tests check it against the C# code on synthetic tapes and a
+    stand-in archive, but nobody has yet used it for real research. It needs people who work in Python to adopt it,
+    review it, try it on their own archives and tapes, and say what's wrong or missing, in
+    <a href="@Links.PythonIssues">issues with the python label</a> or a pull request. Expect its API to change. Use it
+    at your own risk.
+</p></div>
+
+<nav class="toc" aria-label="On this page">
+    <p>On this page</p>
+    <ul>
+        <li><a href="docs/python#what">What it does, and doesn't</a></li>
+        <li><a href="docs/python#install">Install</a></li>
+        <li><a href="docs/python#archive">Read an archive</a></li>
+        <li><a href="docs/python#tapes">Tapes</a></li>
+        <li><a href="docs/python#sessions">Monte Carlo sessions</a></li>
+        <li><a href="docs/python#tests">Tests</a></li>
+    </ul>
+</nav>
+
+<h2 id="what">What it does, and doesn't</h2>
+<ul>
+    <li><strong>Archive access.</strong> It lists what an archive holds, finds the days that were never fetched, and downloads a day into a local cache, where Databento's own <code>databento</code> package opens it. The archive can be in S3 or a folder. It follows the <a href="docs/layout">data layout</a>'s rules, so a day never fetched is never taken for a day without trading.</li>
+    <li><strong>Tapes.</strong> It reads S1, Trade and L1 tapes into numpy structured arrays or pandas DataFrames, checking each tape's checksums as C# does.</li>
+    <li><strong>Monte Carlo runs.</strong> It deals sessions with the same seeded shuffle as C#, so a seed gives the same sessions in both languages, and stitches them end to end with the same offsets.</li>
+</ul>
+<p>
+    It does <strong>not</strong> rebuild order books, make bars, back-adjust or write NinjaTrader files. For those, run
+    <a href="docs/dbnfetch#export"><code>dbnf export</code></a> and read its Parquet. One engine, in C#, keeps every
+    language's numbers the same.
+</p>
+
+<h2 id="install">Install</h2>
+<p>
+    The package is <code>dbnsuite</code>, for Python 3.10 or later, in
+    <a href="@Links.PythonClient">Clients/python</a>. It isn't on PyPI yet, so install it from a clone of the
+    repository:
+</p>
+<CodeBlock Title="From the repository's folder" Text="@Install" />
+<p>
+    <code>[dbn]</code> adds Databento's <code>databento</code> package, for opening raw days, and <code>[pandas]</code>
+    adds pandas. Without them it needs only boto3, numpy, xxhash and zstandard.
+</p>
+
+<h2 id="archive">Read an archive</h2>
+<p>
+    <code>Archive</code> takes the archive's S3 address and a read-only key, or a folder, such as one
+    <code>dbnf pull --out</code> filled. <code>Archive.from_env()</code> reads the same <code>DBNF_*</code> variables
+    as <code>dbnf</code>. Days are copied into a cache folder, from S3 or a folder archive alike, so reading a day
+    twice fetches it once.
+</p>
+<CodeBlock Title="Python" Text="@Archive" />
+<p>
+    <code>archive.days(schema, root)</code> lists one series' days, each with its stored object, and
+    <code>archive.path(...)</code> gives a cached day's local file without opening it. A day never fetched raises
+    <code>MissingDay</code>, and a day with no data gives <code>None</code>. Never put a secret in source: read it
+    from the environment.
+</p>
+<p>
+    The cache is <code>DBNSUITE_CACHE</code> if that's set, else <code>%LOCALAPPDATA%\dbnsuite\cache</code> on
+    Windows, <code>~/Library/Caches/dbnsuite</code> on macOS and <code>~/.cache/dbnsuite</code> (or
+    <code>$XDG_CACHE_HOME/dbnsuite</code>) on Linux; <code>cache=</code> picks another. It's separate from
+    <code>dbnf</code>'s.
+</p>
+
+<h2 id="tapes">Tapes</h2>
+<CodeBlock Title="Python" Text="@Tapes" />
+<p>
+    Times are microseconds since the UNIX epoch. Prices are whole ticks; multiply by
+    <code>tape.header.price_scale</code> for the price. Every field keeps its last value until an event changes it, as
+    a C# cursor does. The decoder is plain Python, at about a second per hundred thousand events, so an L1 day can take
+    a while. See <a href="docs/dbntape">DbnTape</a> for what each kind holds.
+</p>
+
+<h2 id="sessions">Monte Carlo sessions</h2>
+<p>
+    <code>SessionSampler</code> deals a run's sessions: warm-up sessions drawn at random, then every day once in a
+    random order, or with <code>sampling="bootstrap"</code>, drawn with replacement. <code>SessionStream</code> loads
+    each session's tape and works out the offset that stitches it onto the one before.
+</p>
+<CodeBlock Title="Python" Text="@Sessions" />
+<p>
+    <code>sampler.fingerprint</code> is a hash of the days. Keep it with a seed, because the same seed deals
+    differently once new tapes arrive.
+</p>
+
+<h2 id="tests">Tests</h2>
+<CodeBlock Title="From the repository's folder" Text="@Tests" />
+<p>
+    The fixtures are synthetic: generated prices, not market data. C# writes them and checks them in
+    <code>PythonFixturesTests</code>, so a change to the tape format or the sampler that breaks Python fails the C#
+    build too. The <a href="@Links.Contributing">contributing guide</a> covers clients in other languages.
+</p>
+
+<div class="next"><a href="docs/dbnclient">← DbnSuite.Client</a><a href="docs/archive">The archive →</a></div>
+
+@code {
+    private const string Install = """
+        pip install -e "Clients/python[dbn,pandas]"
+        """;
+
+    private const string Archive = """
+        from datetime import date
+        from dbnsuite import Archive
+
+        archive = Archive.from_env()  # DBNF_LOCATION, DBNF_BUCKET, DBNF_ACCESS_KEY, DBNF_SECRET_KEY
+        # or: Archive("https://nyc3.digitaloceanspaces.com", bucket="dbn", access_key=..., secret_key=...)
+        # or: Archive("/data/dbn"), a folder that dbnf pull --out filled
+
+        for s in archive.series("ES"):
+            print(s.schema, s.days, s.empty_days, s.first, s.last)
+
+        archive.missing("mbo", "ES", date(2026, 10, 1), date(2026, 10, 31))  # never fetched
+
+        store = archive.open("mbo", "ES", date(2026, 10, 28))  # Databento's DBNStore; MissingDay if never fetched
+        if store is not None:  # None: a day with no data
+            frame = store.to_df()
+        """;
+
+    private const string Tapes = """
+        from dbnsuite import Tape
+
+        tape = Tape.load("tapes/GLBX.MDP3/l1/ES/2026/ES.l1.20261029.tape")
+        events = tape.events()    # numpy structured array: kind, time, bid_price, ask_price, ...
+        frame = tape.to_pandas()  # with a UTC timestamp and prices in dollars beside the ticks
+        """;
+
+    private const string Sessions = """
+        from dbnsuite import SessionSampler, SessionStream
+
+        stream = SessionStream("tapes", "GLBX.MDP3", "ES", "l1")
+        sampler = SessionSampler(stream.days(), seed=42, warmup=5)
+
+        for session in stream.run(sampler, run=0):
+            events = session.tape.events()
+            # add session.offset ticks to this session's prices to stitch it onto the one before
+        """;
+
+    private const string Tests = """
+        pip install -e "Clients/python[test]"
+        pytest Clients/python
+        """;
+}

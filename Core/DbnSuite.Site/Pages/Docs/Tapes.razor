@@ -40,7 +40,7 @@
 <p>
     A trade date has one tape of each kind, and each holds the same one contract: the one that traded the most in
     the previous session. A tape stands alone: one file replays without any other.
-    Prices and sizes are exact, and times are kept to the microsecond on <code>ts_event</code>. Tapes are never merged
+    Prices and sizes are exact, and times are kept on <code>ts_event</code>, to the microsecond on Trade and L1 tapes and to the second on S1. Tapes are never merged
     or appended to, and a tape can't be sought: the only ways in are its start and its RTH mark. Spreads, options and
     equities are out of scope, and version 1 covers <code>GLBX.MDP3</code> outright futures only.
 </p>
@@ -58,7 +58,7 @@
         <thead><tr><th>Command</th><th>What it does</th></tr></thead>
         <tbody>
             <tr><td><code>tape catalog &lt;root&gt;</code></td><td>Build a root's catalog: its contracts, and each trade date's sessions, settlements, open interest and cleared volume.</td></tr>
-            <tr><td><code>tape build &lt;root&gt;</code></td><td>Build tapes for <code>--from</code> to <code>--to</code>. <code>--zstd</code> compresses the bodies. Dates the catalog doesn't reach are an error, so run <code>tape catalog</code> first.</td></tr>
+            <tr><td><code>tape build &lt;root&gt;</code></td><td>Build tapes for <code>--from</code> to <code>--to</code>. <code>--zstd</code> compresses the bodies. A span the catalog doesn't reach at all is an error, and one it partly reaches is cut to the catalog's dates, so run <code>tape catalog</code> first.</td></tr>
             <tr><td><code>tape verify &lt;root&gt;</code></td><td>Prove built tapes against the archive, over the same span. See <a href="docs/dbntape#proof">Prove them</a>.</td></tr>
             <tr><td><code>tape pull &lt;root&gt;</code></td><td>Copy a root's tapes and catalog down from a tape store. See <a href="docs/dbnspool#read">DbnSpool</a>.</td></tr>
             <tr><td><code>tape info &lt;file&gt;</code></td><td>Show a tape's header.</td></tr>
@@ -89,14 +89,14 @@
 </p>
 <CodeBlock Title="C#" Text="@Replay" />
 <p>
-    From Python, the <a href="@Links.PythonClient">Python client</a> reads tapes into numpy arrays and deals the same
+    From Python, the <a href="docs/python">Python client</a> reads tapes into numpy arrays and deals the same
     sessions for the same seed. It is contributed and largely untested, so check what it gives against C# before
     relying on it.
 </p>
 <p>
     <code>S1Cursor</code> and <code>TradeCursor</code> work the same way. A cursor is a <code>ref struct</code>, so it
     lives in the replay loop and can't be stored. A compressed tape is unpacked once at load, and a damaged body fails
-    the load, because its hash is checked.
+    the load, because its hash is checked, unless only the RTH bytes are loaded or <code>verifyHash</code> is false.
 </p>
 
 <h2 id="sessions">Sessions, ETH and RTH</h2>
@@ -114,15 +114,16 @@
 </p>
 <p>
     The catalog keeps the dates left out, since their settlements still count for rolls. <code>Catalog.FullDays</code>
-    lists the dates that have tapes, and <code>Catalog.Excluded(date)</code> says why any other has none, such as
+    lists the full ETH days, as <code>CatalogDay</code> records: the only dates tapes are made for. A full day can
+    still lack a Trade or L1 tape, when its contract had no activity. <code>Catalog.Excluded(date)</code> says why any other date has none, such as
     <em>its session closed Fri 12:15, not 16:00</em>. <code>tape build</code> lists the dates it leaves out.
     <code>tape build</code>, <code>tape pull</code> and DbnSpool also delete any tape an older version left for such a
     date, so a tape folder or store holds only what the rule allows.
 </p>
 <p>
     RTH is a marked stretch of the same file, because <code>status</code> has no RTH event. The hours come from
-    <code>Sessions.RegularHours</code> for each root, and RTH ends at the session's close on an early close. A date with
-    no regular session has no marks, and asking for RTH replays nothing.
+    <code>Sessions.RegularHours</code> for each root, cut to the session. A root with no regular hours there has no
+    marks, and asking for RTH replays nothing.
 </p>
 <div class="table">
     <table>
@@ -130,7 +131,7 @@
         <tbody>
             <tr><td><code>Window.Eth</code></td><td>The whole session, which is the default. <code>cursor.InRth</code> says whether an event is inside RTH, for a strategy that warms up overnight.</td></tr>
             <tr><td><code>Window.Rth</code></td><td>Starts at the mark, skipping the earlier bytes.</td></tr>
-            <tr><td><code>Window.Hours(from, to)</code></td><td>Your own hours, Chicago time. Hours that end before they start run past midnight.</td></tr>
+            <tr><td><code>Window.Hours(from, to)</code></td><td>Your own hours, Chicago time. Hours that end before they start run past midnight, and hours from 17:00 on are the evening before the trade date.</td></tr>
         </tbody>
     </table>
 </div>
@@ -194,11 +195,13 @@
             <tr><td>L1 against DbnClient</td><td>Replaying <code>MboTransform</code> gives the same quotes and trades. After a mid-session snapshot that moved the top, the tape's quote at the next event is checked against DbnSuite.Client's book instead, since the transform has no row for it.</td></tr>
             <tr><td>Crossed book</td><td>No crossed or locked quote appears during trading.</td></tr>
             <tr><td>File boundary</td><td>The top of book is unchanged across the 00:00 UTC snapshot, or the difference is reported.</td></tr>
-            <tr><td>Sessions</td><td>Every tape's events fall inside its session, and no trade falls in a stated break.</td></tr>
+            <tr><td>Date has a session</td><td>No date the archive traded on is missing from the catalog's sessions.</td></tr>
+            <tr><td>Source inside session</td><td>Everything the archive's bars traded on the date lies inside its session, so the tape lost none of it. Bars a receive clock puts just before the open are reported.</td></tr>
+            <tr><td>Sessions (per kind)</td><td>Every tape's events fall inside its session, and no trade falls in a stated break.</td></tr>
             <tr><td>RTH marks</td><td>Starting at the mark gives exactly the events of decoding from the start and filtering by time.</td></tr>
             <tr><td>Bar streams</td><td>Every spec equals what <code>BarBuilder</code> makes from the same bars.</td></tr>
             <tr><td>Held contract</td><td>Every tape of the date holds the contract the catalog holds that day.</td></tr>
-            <tr><td>Tape exists</td><td>If <code>mbo</code> holds the day.s contract all day, and it was active in its session outside a snapshot, it has its L1 tape. One with resting orders and no activity rightly has none.</td></tr>
+            <tr><td>Tape exists</td><td>If <code>mbo</code> holds the day's contract all day, and it was active in its session outside a snapshot, it has its L1 tape. One with resting orders and no activity rightly has none.</td></tr>
             <tr><td>Full ETH day</td><td>A date that is not a <a href="docs/dbntape#full-days">full ETH day</a> has no tapes at all.</td></tr>
         </tbody>
     </table>

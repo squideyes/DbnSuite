@@ -29,6 +29,39 @@ or the sampler changes, run that test with `DBNSUITE_WRITE_FIXTURES=1`, then
 `pytest Clients/python`. The client never rebuilds books, bars or back-adjustment: those stay in
 C#, behind `dbnf export`.
 
+## Docs, website and code never drift apart
+
+The website, dbnsuite.squideyes.com, is `Core/DbnSuite.Site`. `pages.yml` deploys it whenever a
+change to that folder reaches `main`. The docs are a promise about the code, so they change in the
+same pull request as the code, never in a later one.
+
+- **Every user-facing change updates its docs in the same PR.** That means a command, option,
+  default, setting, environment variable, port, path, file format, error code, public type or
+  MCP tool. Update every place that describes it:
+
+  | What changed | Where it's described |
+  |---|---|
+  | `dbnf` commands, options, MCP tools | `Pages/Docs/DbnFetch.razor`, the README's DbnSuite.Fetch sections |
+  | DbnSuite.Client's public API | `Pages/Docs/DbnClient.razor`: samples, errors table, namespaces |
+  | Tapes, the catalog, sampling | `Pages/Docs/Tapes.razor`, and the Python client if the format changes |
+  | The archive's keys and layout | `Pages/Docs/Layout.razor`, `Pages/Docs/Archive.razor` |
+  | DbnSync settings, `.env`, Compose | `Pages/Docs/DbnSync.razor`, the README, `Deploy/**/.env.example`, the `dbnsync-deploy` skill |
+  | DbnSpool | `Pages/Docs/DbnSpool.razor`, `Deploy/digitalocean` |
+  | The Python client | `Clients/python/README.md`, `Pages/Docs/Python.razor` |
+  | A new piece, platform or headline feature | `Pages/Home.razor`, `Pages/Docs/Overview.razor`, `Layout/DocsLayout.razor`, the README's table |
+
+- **Check claims against the code, not memory.** Before writing a default, a range or a name,
+  read it in the code. Sample output comes from a real run, and C# samples must compile against
+  the current API.
+- **Renames sweep everything.** After renaming anything user-facing, search the whole repo,
+  including `Core/DbnSuite.Site`, `README.md`, `CONTRIBUTING.md`, `Deploy/` and
+  `Clients/python`, for the old name.
+- **The packages ship the README.** NuGet shows the root `README.md` for both packages, so it
+  must be right on the day of a release.
+- **Audit before a release.** Before tagging, compare each docs page against the code, one
+  page or area at a time, and fix what has drifted in the release PR. After `pages.yml` runs,
+  open the live site and check the pages that changed.
+
 ## Dependencies: always upgrade, never pin back
 
 - **Upgrade, don't hold back.** Never pin, hold back or roll back a package, SDK,
@@ -39,7 +72,7 @@ C#, behind `dbnf export`.
     maintainer. Don't offer a rollback as an option.
 - **Releases are different.** A deploy pinned to a tested build
   (`DBNSUITE_VERSION`) is release control, not holding a dependency back.
-- **Dependabot only sees `Deploy/`.** Image tags written in C#, such as RustFS in
+- **Dependabot sees image tags only in `Deploy/` and the root Dockerfiles.** Image tags written in C#, such as RustFS in
   the AppHost and the tests, and Seq in the AppHost, need bumping by hand. Bump
   them in the same PR as the matching tag in `Deploy/`.
 

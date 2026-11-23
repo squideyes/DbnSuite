@@ -73,7 +73,7 @@
     <li>It holds one UTC day of one schema for one root, as Databento splits a batch job by day.</li>
     <li>Its metadata lists what was requested and maps every <code>instrument_id</code> in it to a requested symbol:
         <ul>
-            <li><code>mbo</code>, <code>mbp-1</code>, <code>mbp-10</code>, <code>tbbo</code>, <code>trades</code> and <code>bbo-*</code> request the leading outrights by open interest, <code>{root}.n.0</code> to <code>{root}.n.{Depth−1}</code> (<code>stype_in</code> continuous). With the default depth, that is <code>.n.0</code> and <code>.n.1</code>.</li>
+            <li><code>mbo</code>, <code>mbp-1</code>, <code>mbp-10</code>, <code>tbbo</code> and <code>bbo-*</code> request the leading outrights by open interest, <code>{root}.n.0</code> to <code>{root}.n.{Depth−1}</code>, and the volume leader <code>{root}.v.0</code> (<code>stype_in</code> continuous); files stored before November 2026 lack <code>.v.0</code>. With the default depth, that is <code>.n.0</code>, <code>.n.1</code> and <code>.v.0</code>.</li>
             <li>Every other schema requests every instrument of the root, <code>{root}.FUT</code> (<code>stype_in</code> parent): outrights and spreads.</li>
         </ul>
     </li>
@@ -82,7 +82,7 @@
 
 <h3 id="raw-rules">Rules for readers and writers</h3>
 <ol class="steps-list">
-    <li><strong>One object per day, never both.</strong> For each dataset, schema, root and UTC day there is a <code>.dbn.zst</code> object, a <code>.empty</code> object, or neither. A writer must not leave both.</li>
+    <li><strong>One object per day, never both.</strong> For each dataset, schema, root and UTC day there is a <code>.dbn.zst</code> object, a <code>.empty</code> object, or neither. A writer should not leave both; where both exist, readers take the data object.</li>
     <li><strong>Neither means not fetched.</strong> Readers must not treat a missing day as a day without trading. Only <code>.empty</code> says that.</li>
     <li><strong>Data objects are immutable.</strong> Once stored, a <code>.dbn.zst</code> object is never rewritten. A reader may cache it by key and ETag indefinitely.</li>
     <li><strong>Everything else is ignored.</strong> Readers must skip any key that does not match the grammar. <code>_dbnsync/</code> belongs to the DbnSync worker (its job, pass and spend records) and its contents may change without a layout version change.</li>
@@ -110,10 +110,10 @@
     </table>
 </div>
 <ul>
-    <li><code>{series}</code> is the symbol as asked for, upper case: a root (<code>ES</code>), a contract (<code>ESZ26</code>) or a continuous name (<code>ES.v.0</code>).</li>
+    <li><code>{series}</code> is the symbol as asked for, normalised, with the root and contract upper case and a continuous name's rule lower case: a root (<code>ES</code>), a contract (<code>ESZ26</code>) or a continuous name (<code>ES.v.0</code>).</li>
     <li><code>{kind}</code> is the <code>--as</code> schema if given, else the <code>--bars</code> size, else the schema: <code>trades</code>, <code>5m</code>, <code>ohlcv-1s</code>.</li>
     <li><code>{from}</code>, <code>{to}</code> and <code>{yyyyMMdd}</code> are trade dates.</li>
-    <li><code>{ext}</code> is <code>csv</code>, <code>parquet</code>, <code>jsonl</code> or <code>dbn</code>, followed by <code>.gz</code> or <code>.zst</code> when compressed.</li>
+    <li><code>{ext}</code> is <code>csv</code>, <code>jsonl</code> or <code>dbn</code>, followed by <code>.gz</code> or <code>.zst</code> when compressed; <code>parquet</code>; or <code>txt</code> for <code>nt8</code>.</li>
     <li>A trade date with no rows writes no file. Days missing from the archive are listed when the export ends and are never filled in.</li>
 </ul>
 
@@ -192,7 +192,7 @@
     <li>Field meanings are Databento's; see the schema reference in its documentation. <code>action</code> and <code>side</code> are single characters (<code>A</code>, <code>C</code>, <code>M</code>, <code>R</code>, <code>T</code>, <code>F</code>; <code>B</code>, <code>A</code>, <code>N</code>).</li>
     <li><code>stat_type</code> is written as a name (<code>settlement_price</code>, <code>open_interest</code>), or the number when DbnSuite.Client doesn't know it. <code>ts_ref</code> and <code>quantity</code> are empty when Databento leaves them undefined.</li>
     <li><code>raw_symbol</code> is CME's own symbol (<code>ESZ6</code>); <code>symbol</code> the two-digit-year form.</li>
-    <li>A record belongs to the trade date of its <code>ts_recv</code> for <code>mbo</code>, and of its <code>ts_event</code> for every other schema. Rows within a file keep the archive's order, which is time order. A record whose <code>ts_event</code> runs back over a trade date goes to the end of that date's file; nothing already there is lost.</li>
+    <li>A record belongs to the trade date of its <code>ts_recv</code> for <code>mbo</code> and <code>definition</code>, and of its <code>ts_event</code> for every other schema. Rows within a file keep the archive's order, which is time order. A record whose <code>ts_event</code> runs back over a trade date goes to the end of that date's file; nothing already there is lost.</li>
 </ul>
 
 <h3 id="bars">Bars</h3>
@@ -200,7 +200,7 @@
 <CodeBlock Title="Bar columns" Text="ts_event, ts_end, symbol, open, high, low, close, volume[, trades][, series]" />
 <ul>
     <li><code>trades</code> is present only for bars built from <code>mbo</code>.</li>
-    <li><strong>Time bars</strong> (<code>5s</code> to <code>1h</code>): <code>ts_event</code> is the bar's start and <code>ts_end</code> its end, exclusive, on a grid that starts at the session's open. A bar is written only if something traded in it; empty bars are never filled in.</li>
+    <li><strong>Time bars</strong> (any count of <code>s</code>, <code>m</code> or <code>h</code>, such as <code>5s</code>, <code>15m</code> or <code>4h</code>): <code>ts_event</code> is the bar's start and <code>ts_end</code> its end, exclusive, on a grid that starts at the open of the hours kept (the session's open, or the RTH or <code>--hours</code> open). A bar the close cuts short ends at the close. A bar is written only if something traded in it; empty bars are never filled in.</li>
     <li><strong><code>1d</code>, <code>1w</code>, <code>1mo</code></strong>: <code>ts_event</code> is the open of the first session in the bar and <code>ts_end</code> the close of the last. Weekly bars run Monday to Friday by trade date; monthly bars by the trade date's calendar month.</li>
     <li><strong>Tick and volume bars</strong> (<code>500t</code>, <code>1000v</code>): <code>ts_event</code> is the first trade's time and <code>ts_end</code> the last's. A bar closes on its count; a volume bar's last trade is not split, so <code>volume</code> may exceed the size. No bar spans two trade dates.</li>
     <li>A bar belongs to one contract. Bars of a root interleave by contract; bars of a continuous series take the contract held on each trade date. So a <code>1w</code> or <code>1mo</code> bar of a continuous series splits at a roll: one bar per contract.</li>
