@@ -40,6 +40,17 @@ pip install -e "Clients/python[dbn,pandas]"
 
 `[dbn]` adds Databento's `databento` package, for opening raw days, and `[pandas]` adds pandas.
 
+## Examples
+
+Each example below is a script in [`examples/`](examples), which the tests run on synthetic fixtures. The
+tests also check this README still quotes them, so the two can't drift apart.
+
+```bash
+cd Clients/python/tests/fixtures
+python ../../examples/tapes.py
+python ../../examples/sessions.py
+```
+
 ## Archive
 
 ```python

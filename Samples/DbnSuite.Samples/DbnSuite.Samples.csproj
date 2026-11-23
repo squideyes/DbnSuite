@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The samples the docs quote. Not shipped: Tests/DbnSuite.Samples.Tests runs them and checks the docs. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\DbnSuite.Client\DbnSuite.Client.csproj" />
+  </ItemGroup>
+
+</Project>

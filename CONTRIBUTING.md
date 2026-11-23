@@ -50,7 +50,10 @@ Warnings are errors. The unit tests are in a project for each product:
 tests, and its namespaces follow its folders under `DbnSuite.Tests.<Product>`.
 Helpers more than one project needs are in `Tests/Shared`, under
 `DbnSuite.Testing`, and each project links the ones it uses.
-To run one product's tests, name its project:
+`Samples/DbnSuite.Samples` holds the C# the docs quote, and `Tests/DbnSuite.Samples.Tests`
+runs it and checks the docs still quote it word for word; `Clients/python/examples` does the
+same for Python. If you change an example, change the page that shows it in the same pull
+request. To run one product's tests, name its project:
 
 ```bash
 dotnet test Tests/DbnSuite.Client.Tests

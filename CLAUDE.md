@@ -23,6 +23,7 @@ and the changelog.
 | `Deploy` | Self-hosting: RustFS, Seq, Caddy | Compose files |
 | `Deploy/digitalocean` | A Droplet with a Space as the store | Compose files |
 | `Clients/python` | A contributed Python client, largely untested | Not published yet |
+| `Samples/DbnSuite.Samples` | The C# the docs quote, as a program | Not shipped |
 
 The Python client reads the archive and tapes, and deals sessions, as C# does. C#'s
 `PythonFixturesTests` writes its fixtures and checks C# still matches them. When the tape format
@@ -43,17 +44,21 @@ same pull request as the code, never in a later one.
   | What changed | Where it's described |
   |---|---|
   | `dbnf` commands, options, MCP tools | `Pages/Docs/DbnFetch.razor`, the README's DbnSuite.Fetch sections, `Core/DbnSuite.Fetch/README.md` |
-  | DbnSuite.Client's public API | `Pages/Docs/DbnClient.razor`: samples, errors table, namespaces; `Core/DbnSuite.Client/README.md` |
-  | Tapes, the catalog, sampling | `Pages/Docs/Tapes.razor`, and the Python client if the format changes |
+  | DbnSuite.Client's public API | `Pages/Docs/DbnClient.razor`: samples, errors table, namespaces; `Core/DbnSuite.Client/README.md`; `Samples/DbnSuite.Samples` |
+  | Tapes, the catalog, sampling | `Pages/Docs/Tapes.razor`, `Samples/DbnSuite.Samples`, and the Python client if the format changes |
   | The archive's keys and layout | `Pages/Docs/Layout.razor`, `Pages/Docs/Archive.razor` |
   | DbnSync settings, `.env`, Compose | `Pages/Docs/DbnSync.razor`, the README, `Deploy/**/.env.example`, the `dbnsync-deploy` skill |
   | DbnSpool | `Pages/Docs/DbnSpool.razor`, `Deploy/digitalocean` |
-  | The Python client | `Clients/python/README.md`, `Pages/Docs/Python.razor` |
+  | The Python client | `Clients/python/README.md`, `Pages/Docs/Python.razor`, `Clients/python/examples` |
   | A new piece, platform or headline feature | `Pages/Home.razor`, `Pages/Docs/Overview.razor`, `Layout/DocsLayout.razor`, the README's table, the package READMEs |
 
 - **Check claims against the code, not memory.** Before writing a default, a range or a name,
-  read it in the code. Sample output comes from a real run, and C# samples must compile against
-  the current API.
+  read it in the code. Sample output comes from a real run.
+- **Code examples are compiled samples.** The C# on the DbnSuite.Client and DbnTape pages is in
+  `Samples/DbnSuite.Samples`, and the Python on the Python client page and README is in
+  `Clients/python/examples`. Change a sample and the page that quotes it together:
+  `DocsQuoteTheSamplesTests` and `test_examples.py` fail when they differ, and the sample tests
+  run each example on synthetic data.
 - **Renames sweep everything.** After renaming anything user-facing, search the whole repo,
   including `Core/DbnSuite.Site`, `README.md`, `CONTRIBUTING.md`, `Deploy/` and
   `Clients/python`, for the old name.
