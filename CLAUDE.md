@@ -93,7 +93,7 @@ same pull request as the code, never in a later one.
   ```
 
   ```bash
-  nice -n 10 dotnet test DbnSuite.slnx -c Release --no-build -- xUnit.MaxParallelThreads=1
+  nice -n 10 dotnet test --solution DbnSuite.slnx -c Release --no-build --max-parallel-test-modules 1 --max-threads 1
   ```
 
 - **One test project per product.** `Tests/DbnSuite.Client.Tests`, `.Fetch.Tests`,

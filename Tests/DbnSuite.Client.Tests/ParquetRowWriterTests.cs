@@ -74,7 +74,7 @@ public sealed class ParquetRowWriterTests
     {
         await using var bytes = await Written(Columns, [Row(T0, "ESZ26", 1m, 1)]);
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         reader.Metadata!.CreatedBy.ShouldBe("DbnClient");
         reader.Metadata.NumRows.ShouldBe(1);
@@ -85,7 +85,7 @@ public sealed class ParquetRowWriterTests
     {
         await using var bytes = await Written(Columns, [Row(T0, "ESZ26", 1m, 1)]);
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         reader.Schema.GetDataFields().Select(f => f.Name).ShouldBe([Time, Symbol, Price, Size]);
         reader.Schema.GetDataFields().ShouldAllBe(f => f.IsNullable);
@@ -96,7 +96,7 @@ public sealed class ParquetRowWriterTests
     {
         await using var bytes = await Written(Columns, [Row(T0, "ESZ26", 1m, 1)]);
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         var types = reader.Metadata!.Schema.Where(s => s.Type is not null).Select(s => s.Type!.Value.ToString()).ToList();
         types.ShouldBe(["INT64", "BYTE_ARRAY", "DOUBLE", "INT64"]);
@@ -107,7 +107,7 @@ public sealed class ParquetRowWriterTests
     {
         await using var bytes = await Written(Columns, [Row(T0, "ESZ26", 1m, 1)]);
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         var times = await Values<DateTime>(reader, Time, 1);
         times[0].ShouldBe(new DateTime(2026, 10, 28, 13, 30, 0, DateTimeKind.Utc).AddTicks(1_234_567));
@@ -118,7 +118,7 @@ public sealed class ParquetRowWriterTests
     {
         await using var bytes = await Written(Columns, [Row(T0, "ESZ26", 6876.25m, 7), Row(T0, "ESH27", -37.63m, 8)]);
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         (await Strings(reader, Symbol, 2)).ShouldBe(["ESZ26", "ESH27"]);
         (await Values<double>(reader, Price, 2)).ShouldBe([6876.25, -37.63]);
@@ -135,7 +135,7 @@ public sealed class ParquetRowWriterTests
             Row(T0, "ESZ26", 3m, 3)
         ]);
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         (await Values<DateTime>(reader, Time, 3))[1].ShouldBeNull();
         (await Strings(reader, Symbol, 3)).ShouldBe(["ESZ26", null, "ESZ26"]);
@@ -150,7 +150,7 @@ public sealed class ParquetRowWriterTests
 
         await using var bytes = await Written(columns, [[Cell.Of((string?)null)], [Cell.Of((string?)null)]]);
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         (await Strings(reader, Symbol, 2)).ShouldBe([null, null]);
     }
@@ -169,7 +169,7 @@ public sealed class ParquetRowWriterTests
 
         await using var bytes = await Written(columns, names.Select(n => new[] { Cell.Of(n) }));
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         (await Strings(reader, Symbol, distinct)).ShouldBe(names);
     }
@@ -183,7 +183,7 @@ public sealed class ParquetRowWriterTests
 
         await using var bytes = await Written(columns, names.Select(n => new[] { Cell.Of(n) }));
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         (await Strings(reader, Symbol, 2 * Run)).ShouldBe(names);
     }
@@ -196,7 +196,7 @@ public sealed class ParquetRowWriterTests
 
         await using var bytes = await Written(columns, [[Cell.Of(Accented)]]);
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         (await Strings(reader, Symbol, 1)).ShouldBe([Accented]);
     }
@@ -210,7 +210,7 @@ public sealed class ParquetRowWriterTests
 
         await using var bytes = await Written(columns, Enumerable.Repeat(row, Limit + 1));
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         reader.RowGroupCount.ShouldBe(2);
         reader.Metadata!.NumRows.ShouldBe(Limit + 1);
@@ -228,7 +228,7 @@ public sealed class ParquetRowWriterTests
 
         await using var bytes = await Written(columns, Enumerable.Repeat(first, Limit).Append(second));
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         (await Strings(reader, Symbol, 1, group: 1)).ShouldBe(["ESH27"]);
     }
@@ -246,7 +246,7 @@ public sealed class ParquetRowWriterTests
 
         await using var bytes = await Written(columns, [row]);
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         reader.Schema.GetDataFields().Length.ShouldBe(columns.Count);
     }
@@ -256,7 +256,7 @@ public sealed class ParquetRowWriterTests
     {
         await using var bytes = await Written(Columns, []);
 
-        await using var reader = await ParquetReader.CreateAsync(bytes);
+        await using var reader = await ParquetReader.CreateAsync(bytes, cancellationToken: TestContext.Current.CancellationToken);
 
         reader.RowGroupCount.ShouldBe(0);
     }

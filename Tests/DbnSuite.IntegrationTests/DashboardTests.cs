@@ -99,7 +99,7 @@ public sealed partial class DashboardTests(RustFs s3)
         await sync.FirstPassAsync();
         await sync.NextPassAsync();
         await sync.Archive.DeleteAsync(ArchiveKeys.Data(Dataset, Mbo, Mnq, Monday));
-        await sync.Corpus.RefreshAsync(CancellationToken.None);
+        await sync.Corpus.RefreshAsync(TestContext.Current.CancellationToken);
 
         var page = await PageAsync(sync, MboSeries);
 
@@ -170,7 +170,7 @@ public sealed partial class DashboardTests(RustFs s3)
         await using var sync = await SyncScenario.CreateAsync(s3);
         await sync.FirstPassAsync();
         await sync.Archive.PutAsync(ArchiveKeys.Job("GLBX-BROKEN"), "not json");
-        await sync.Corpus.RefreshAsync(CancellationToken.None);
+        await sync.Corpus.RefreshAsync(TestContext.Current.CancellationToken);
 
         var page = await PageAsync(sync, Corpus);
 
@@ -184,7 +184,7 @@ public sealed partial class DashboardTests(RustFs s3)
         await sync.FirstPassAsync();
         using var client = sync.Host.CreateClient();
 
-        var response = await client.GetAsync(NoSuchPage);
+        var response = await client.GetAsync(NoSuchPage, TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
@@ -200,8 +200,8 @@ public sealed partial class DashboardTests(RustFs s3)
         var page = await PageAsync(sync, Corpus);
 
         foreach (Match sheet in Stylesheet().Matches(page))
-            (await client.GetAsync("/" + sheet.Groups["href"].Value)).StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await client.GetAsync(BlazorScript)).StatusCode.ShouldBe(HttpStatusCode.OK);
+            (await client.GetAsync("/" + sheet.Groups["href"].Value, TestContext.Current.CancellationToken)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await client.GetAsync(BlazorScript, TestContext.Current.CancellationToken)).StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -211,7 +211,7 @@ public sealed partial class DashboardTests(RustFs s3)
         await sync.FirstPassAsync();
         using var client = sync.Host.CreateClient();
 
-        var response = await client.PostAsync(Negotiate, null);
+        var response = await client.PostAsync(Negotiate, null, TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
@@ -258,7 +258,7 @@ public sealed partial class DashboardTests(RustFs s3)
         await sync.FirstPassAsync();
         using var client = sync.Host.CreateClient();
 
-        var response = await client.SendAsync(new HttpRequestMessage(new HttpMethod(method), Status));
+        var response = await client.SendAsync(new HttpRequestMessage(new HttpMethod(method), Status), TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.MethodNotAllowed);
     }

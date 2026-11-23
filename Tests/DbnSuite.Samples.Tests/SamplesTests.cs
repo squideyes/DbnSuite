@@ -48,7 +48,7 @@ public sealed class SamplesTests : IDisposable
         using var folder = Archive();
         using var archive = folder.Open();
 
-        await ArchiveSamples.ListAsync(archive, CancellationToken.None);
+        await ArchiveSamples.ListAsync(archive, TestContext.Current.CancellationToken);
 
         Lines.ShouldHaveSingleItem().ShouldStartWith("MES  mbo             1 days");
     }
@@ -59,7 +59,7 @@ public sealed class SamplesTests : IDisposable
         using var folder = Archive();
         using var archive = folder.Open();
 
-        await ArchiveSamples.ReadAsync(archive, CancellationToken.None);
+        await ArchiveSamples.ReadAsync(archive, TestContext.Current.CancellationToken);
 
         Lines.ShouldHaveSingleItem().ShouldEndWith($"{Quantity} @ 6850.25");
     }
@@ -70,7 +70,7 @@ public sealed class SamplesTests : IDisposable
         using var folder = Archive();
         using var archive = folder.Open();
 
-        await ArchiveSamples.ErrorsAsync(archive, CancellationToken.None);
+        await ArchiveSamples.ErrorsAsync(archive, TestContext.Current.CancellationToken);
 
         Lines.ShouldBe(["A day with no trading."]);
     }
@@ -88,7 +88,7 @@ public sealed class SamplesTests : IDisposable
 
             // The synthetic archive holds no ES, so the answer is the error saying so; the bars themselves
             // are the exporter's own tests' business. This holds the sample to the API it shows.
-            await Should.NotThrowAsync(() => ArchiveSamples.ExportAsync(archive, CancellationToken.None));
+            await Should.NotThrowAsync(() => ArchiveSamples.ExportAsync(archive, TestContext.Current.CancellationToken));
         }
         finally
         {
@@ -102,7 +102,7 @@ public sealed class SamplesTests : IDisposable
     {
         Environment.CurrentDirectory = Repository.Fixtures;
 
-        await TapeSamples.ReplayAsync(CancellationToken.None);
+        await TapeSamples.ReplayAsync(TestContext.Current.CancellationToken);
 
         Lines.ShouldHaveSingleItem().ShouldMatch(@"^replay: [1-9][\d,]* quotes, [1-9][\d,]* trades .*, [1-9]\d* state changes");
     }
@@ -111,7 +111,7 @@ public sealed class SamplesTests : IDisposable
     public async Task Bars_roll_up_from_an_s1_tape()
     {
         Environment.CurrentDirectory = Repository.Fixtures;
-        var tape = (await Tape.LoadAsync("tapes/GLBX.MDP3/s1/ES/2026/ES.s1.20261029.tape", CancellationToken.None)).Value;
+        var tape = (await Tape.LoadAsync("tapes/GLBX.MDP3/s1/ES/2026/ES.s1.20261029.tape", TestContext.Current.CancellationToken)).Value;
 
         TapeSamples.Bars(tape);
 
@@ -123,7 +123,7 @@ public sealed class SamplesTests : IDisposable
     {
         Environment.CurrentDirectory = Repository.Fixtures;
 
-        await TapeSamples.MonteCarloAsync(CancellationToken.None);
+        await TapeSamples.MonteCarloAsync(TestContext.Current.CancellationToken);
 
         Lines.ShouldHaveSingleItem().ShouldMatch(@"^monte carlo, run 0: 0 quotes, [1-9][\d,]* trades \([1-9][\d,]* tradable\)");
     }

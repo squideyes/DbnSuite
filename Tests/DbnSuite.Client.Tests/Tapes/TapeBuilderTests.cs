@@ -31,14 +31,14 @@ public sealed class TapeBuilderTests : IDisposable
     {
         var builder = new TapeBuilder(archive.Open(), CatalogHolding(Next), tapes);
 
-        var built = await builder.BuildAsync(TradeDate, compress: false, CancellationToken.None);
+        var built = await builder.BuildAsync(TradeDate, compress: false, TestContext.Current.CancellationToken);
 
         var tape = built.Value.Tapes.ShouldHaveSingleItem();
         tape.Error.ShouldBeNull();
         tape.Symbol.ShouldBe(Next);
         tape.Path.ShouldBe(TapePaths.For(tapes, TapeFixture.Dataset, TapeKind.S1, TapeFixture.Root, TradeDate));
         Directory.EnumerateFiles(tapes, "*.tape", SearchOption.AllDirectories).ShouldHaveSingleItem();
-        (await Tape.LoadAsync(tape.Path!, CancellationToken.None)).Value.Header.InstrumentId.ShouldBe(NextId);
+        (await Tape.LoadAsync(tape.Path!, TestContext.Current.CancellationToken)).Value.Header.InstrumentId.ShouldBe(NextId);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class TapeBuilderTests : IDisposable
         File.WriteAllBytes(stale, [1, 2, 3]);
         var builder = new TapeBuilder(archive.Open(), CatalogHolding(Next), tapes);
 
-        var built = await builder.BuildAsync(TradeDate, compress: false, CancellationToken.None);
+        var built = await builder.BuildAsync(TradeDate, compress: false, TestContext.Current.CancellationToken);
 
         File.Exists(stale).ShouldBeFalse();
         built.Value.Removed.ShouldBe([stale]);
@@ -60,7 +60,7 @@ public sealed class TapeBuilderTests : IDisposable
     {
         var builder = new TapeBuilder(archive.Open(), CatalogHolding(null), tapes);
 
-        var built = await builder.BuildAsync(TradeDate, compress: false, CancellationToken.None);
+        var built = await builder.BuildAsync(TradeDate, compress: false, TestContext.Current.CancellationToken);
 
         built.Value.Tapes.ShouldBeEmpty();
         Directory.Exists(tapes).ShouldBeFalse();

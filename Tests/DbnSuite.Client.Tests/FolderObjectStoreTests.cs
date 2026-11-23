@@ -37,7 +37,7 @@ public sealed class FolderObjectStoreTests : IDisposable
     [Fact]
     public async Task Folders_are_listed_with_their_prefix_and_a_slash()
     {
-        var folders = await store.FoldersAsync("GLBX.MDP3/", CancellationToken.None).ToListAsync();
+        var folders = await store.FoldersAsync("GLBX.MDP3/", TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken);
 
         folders.ShouldBe(["GLBX.MDP3/mbo/"]);
     }
@@ -45,14 +45,14 @@ public sealed class FolderObjectStoreTests : IDisposable
     [Fact]
     public async Task A_missing_folder_has_no_folders_or_objects()
     {
-        (await store.FoldersAsync("nothing/", CancellationToken.None).ToListAsync()).ShouldBeEmpty();
-        (await store.ObjectsAsync("nothing/", CancellationToken.None).ToListAsync()).ShouldBeEmpty();
+        (await store.FoldersAsync("nothing/", TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken)).ShouldBeEmpty();
+        (await store.ObjectsAsync("nothing/", TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken)).ShouldBeEmpty();
     }
 
     [Fact]
     public async Task Objects_are_found_at_any_depth_with_forward_slashes()
     {
-        var objects = await store.ObjectsAsync("GLBX.MDP3/", CancellationToken.None).ToListAsync();
+        var objects = await store.ObjectsAsync("GLBX.MDP3/", TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken);
 
         objects.ShouldBe([new StoredObject(Key, Content.Length, ""), new StoredObject(OtherKey, Content.Length, "")]);
     }
@@ -70,17 +70,17 @@ public sealed class FolderObjectStoreTests : IDisposable
     [Fact]
     public async Task One_object_is_described_or_is_not_there()
     {
-        (await store.FindAsync(Key, CancellationToken.None)).ShouldBe(new StoredObject(Key, Content.Length, ""));
-        (await store.FindAsync("no/such/key", CancellationToken.None)).ShouldBeNull();
+        (await store.FindAsync(Key, TestContext.Current.CancellationToken)).ShouldBe(new StoredObject(Key, Content.Length, ""));
+        (await store.FindAsync("no/such/key", TestContext.Current.CancellationToken)).ShouldBeNull();
     }
 
     [Fact]
     public async Task An_object_reads_from_the_offset_asked_for()
     {
-        await using var stream = await store.OpenAsync(Key, 3, CancellationToken.None);
+        await using var stream = await store.OpenAsync(Key, 3, TestContext.Current.CancellationToken);
         var read = new byte[2];
 
-        await stream.ReadExactlyAsync(read);
+        await stream.ReadExactlyAsync(read, TestContext.Current.CancellationToken);
 
         read.ShouldBe([4, 5]);
     }
@@ -108,7 +108,7 @@ public sealed class FolderObjectStoreTests : IDisposable
     {
         var trailing = new FolderObjectStore(folder + Path.DirectorySeparatorChar);
 
-        (await trailing.FindAsync(Key, CancellationToken.None)).ShouldNotBeNull();
-        (await trailing.FoldersAsync("", CancellationToken.None).ToListAsync()).ShouldBe(["GLBX.MDP3/"]);
+        (await trailing.FindAsync(Key, TestContext.Current.CancellationToken)).ShouldNotBeNull();
+        (await trailing.FoldersAsync("", TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken)).ShouldBe(["GLBX.MDP3/"]);
     }
 }

@@ -171,7 +171,7 @@ public sealed class TapeWriterTests : IDisposable
 
         writer.Add(TapeFixture.OpenMicros - 1, Price, 1, TradeSide.Buyer);
 
-        var saved = await writer.SaveAsync(path, CancellationToken.None);
+        var saved = await writer.SaveAsync(path, TestContext.Current.CancellationToken);
 
         saved.Error!.Code.ShouldBe(TapeErrors.Refused);
         Directory.GetFiles(folder).ShouldBeEmpty();
@@ -183,7 +183,7 @@ public sealed class TapeWriterTests : IDisposable
         var path = Path.Combine(folder, TapeName);
         var writer = new L1Writer(TapeFixture.Info());
 
-        var saved = await writer.SaveAsync(path, CancellationToken.None);
+        var saved = await writer.SaveAsync(path, TestContext.Current.CancellationToken);
 
         saved.Error!.Code.ShouldBe(TapeErrors.Empty);
         Directory.GetFiles(folder).ShouldBeEmpty();
@@ -195,8 +195,8 @@ public sealed class TapeWriterTests : IDisposable
         var path = Path.Combine(folder, TapeName);
         var writer = Filled();
 
-        var saved = await writer.SaveAsync(path, CancellationToken.None);
-        var loaded = await Tape.LoadAsync(path, CancellationToken.None);
+        var saved = await writer.SaveAsync(path, TestContext.Current.CancellationToken);
+        var loaded = await Tape.LoadAsync(path, TestContext.Current.CancellationToken);
 
         saved.IsSuccess.ShouldBeTrue();
         loaded.Value.Header.ShouldBe(saved.Value);
@@ -208,15 +208,15 @@ public sealed class TapeWriterTests : IDisposable
     {
         var path = Path.Combine(folder, TapeName);
 
-        await Filled().SaveAsync(path, CancellationToken.None);
+        await Filled().SaveAsync(path, TestContext.Current.CancellationToken);
 
         var writer = new TradeWriter(TapeFixture.Info());
 
         writer.Add(TapeFixture.OpenMicros, Price, 1, TradeSide.Buyer);
 
-        await writer.SaveAsync(path, CancellationToken.None);
+        await writer.SaveAsync(path, TestContext.Current.CancellationToken);
 
-        var loaded = await Tape.LoadAsync(path, CancellationToken.None);
+        var loaded = await Tape.LoadAsync(path, TestContext.Current.CancellationToken);
 
         loaded.Value.Header.Kind.ShouldBe(TapeKind.Trade);
     }

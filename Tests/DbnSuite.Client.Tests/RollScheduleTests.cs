@@ -99,7 +99,7 @@ public sealed class RollScheduleTests : IDisposable
     {
         using var archive = folder.Open();
 
-        var built = await RollSchedule.BuildAsync(archive, SymbolSpec.Parse(series).Value, new DateSpan(from, to), rollDays, null, CancellationToken.None);
+        var built = await RollSchedule.BuildAsync(archive, SymbolSpec.Parse(series).Value, new DateSpan(from, to), rollDays, null, TestContext.Current.CancellationToken);
 
         return built.Value;
     }
@@ -133,7 +133,7 @@ public sealed class RollScheduleTests : IDisposable
         using var archive = folder.Open();
 
         var schedule = (await RollSchedule.BuildAsync(archive, SymbolSpec.Parse("GC.c.0").Value,
-            new DateSpan(new DateOnly(2027, 1, 22), new DateOnly(2027, 1, 25)), null, null, CancellationToken.None)).Value;
+            new DateSpan(new DateOnly(2027, 1, 22), new DateOnly(2027, 1, 25)), null, null, TestContext.Current.CancellationToken)).Value;
 
         schedule.On(new DateOnly(2027, 1, 22))!.Symbol.ShouldBe("GCG27");
         schedule.On(new DateOnly(2027, 1, 25))!.Symbol.ShouldBe("GCJ27");
@@ -742,7 +742,7 @@ public sealed class RollScheduleTests : IDisposable
         using var archive = folder.Open();
 
         await RollSchedule.BuildAsync(archive, SymbolSpec.Parse(ByVolume).Value, new DateSpan(Dec(9), Dec(9)),
-            RollSchedule.DefaultRollDays, progress, CancellationToken.None);
+            RollSchedule.DefaultRollDays, progress, TestContext.Current.CancellationToken);
 
         progress.Received(4).Report(1);
     }
@@ -755,7 +755,7 @@ public sealed class RollScheduleTests : IDisposable
         using var archive = folder.Open();
 
         await Should.ThrowAsync<ArgumentException>(() => RollSchedule.BuildAsync(archive, SymbolSpec.Parse(symbol).Value,
-            new DateSpan(Dec(9), Dec(9)), RollSchedule.DefaultRollDays, null, CancellationToken.None));
+            new DateSpan(Dec(9), Dec(9)), RollSchedule.DefaultRollDays, null, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -766,7 +766,7 @@ public sealed class RollScheduleTests : IDisposable
         using var archive = new DbnArchive(store, null);
 
         var result = await RollSchedule.BuildAsync(archive, SymbolSpec.Parse(Calendar).Value, new DateSpan(Dec(9), Dec(9)),
-            RollSchedule.DefaultRollDays, null, CancellationToken.None);
+            RollSchedule.DefaultRollDays, null, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Denied);
     }
@@ -780,7 +780,7 @@ public sealed class RollScheduleTests : IDisposable
             new Error(Errors.Unreachable, Errors.Unreachable));
 
         var result = await RollSchedule.BuildAsync(archive, SymbolSpec.Parse(series).Value, new DateSpan(Dec(9), Dec(10)),
-            RollSchedule.DefaultRollDays, null, CancellationToken.None);
+            RollSchedule.DefaultRollDays, null, TestContext.Current.CancellationToken);
 
         result.Error!.Code.ShouldBe(Errors.Unreachable);
     }
@@ -859,7 +859,7 @@ public sealed class RollScheduleTests : IDisposable
         using var archive = folder.Open();
 
         var built = await RollSchedule.BuildAsync(archive, SymbolSpec.Parse(Calendar).Value, new DateSpan(Dec(9), Dec(10)),
-            RollSchedule.DefaultRollDays, null, CancellationToken.None);
+            RollSchedule.DefaultRollDays, null, TestContext.Current.CancellationToken);
 
         built.Error!.Code.ShouldBe(Errors.Corrupt);
         built.Error.Message.ShouldContain($"{Es}.{Statistics}.20261209");
@@ -873,7 +873,7 @@ public sealed class RollScheduleTests : IDisposable
         using var archive = folder.Open();
 
         var built = await RollSchedule.BuildAsync(archive, SymbolSpec.Parse(Calendar).Value, new DateSpan(Dec(9), Dec(10)),
-            RollSchedule.DefaultRollDays, null, CancellationToken.None);
+            RollSchedule.DefaultRollDays, null, TestContext.Current.CancellationToken);
 
         built.Error!.Code.ShouldBe(Errors.Corrupt);
     }

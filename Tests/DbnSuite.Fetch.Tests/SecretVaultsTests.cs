@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using DbnSuite.Fetch;
 using Shouldly;
 
@@ -6,7 +7,8 @@ namespace DbnSuite.Tests.Fetch;
 /// <summary>A test that needs macOS's own <c>security</c> tool and a throwaway keychain.</summary>
 public sealed class MacFactAttribute : FactAttribute
 {
-    public MacFactAttribute()
+    public MacFactAttribute([CallerFilePath] string? sourceFilePath = null, [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
     {
         if (!OperatingSystem.IsMacOS())
             Skip = "Runs on macOS only.";

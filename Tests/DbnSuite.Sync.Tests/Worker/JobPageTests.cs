@@ -244,6 +244,6 @@ public sealed class JobPageTests : BunitContext
         databento.GetAvailableEndsAsync(Dataset, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Result<IReadOnlyDictionary<string, DateTimeOffset>>>(new Error(Errors.Unreachable, Unreachable)));
 
-        await index.RefreshAsync(CancellationToken.None);
+        await index.RefreshAsync(Xunit.TestContext.Current.CancellationToken);
     }
 }

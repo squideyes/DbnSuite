@@ -156,8 +156,8 @@ public sealed class RecordTextTests
             DbnBytes.Mbo(frontId, tsEvent, 102_950_000_000, 14, 'A', 'B', 8_068_565_965_852)
         ]);
 
-        await using var reader = await DbnReader.OpenAsync(new MemoryStream(bytes), CancellationToken.None);
-        var record = (await reader.ReadAsync(CancellationToken.None).ToListAsync()).Single();
+        await using var reader = await DbnReader.OpenAsync(new MemoryStream(bytes), TestContext.Current.CancellationToken);
+        var record = (await reader.ReadAsync(TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken)).Single();
 
         var line = RecordText.Format(record, contract, TimeZoneInfo.Utc);
 

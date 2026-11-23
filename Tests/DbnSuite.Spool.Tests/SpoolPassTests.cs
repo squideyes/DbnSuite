@@ -102,23 +102,23 @@ public sealed class SpoolPassTests : IDisposable
     }
 
     private async Task<SpoolLedger> LedgerAsync() =>
-        SpoolLedger.From(await shelf.ReadAsync(LedgerKey, CancellationToken.None));
+        SpoolLedger.From(await shelf.ReadAsync(LedgerKey, TestContext.Current.CancellationToken));
 
     [Fact]
     public async Task A_new_date_reaches_the_shelf_with_its_catalog_and_ledger_entry()
     {
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.ShouldBe(new RootResult(Root, 1, 0, false));
-        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldNotBeNull();
-        (await shelf.ReadAsync(CatalogKey, CancellationToken.None)).ShouldNotBeNull();
+        (await shelf.ReadAsync(TapeKey, TestContext.Current.CancellationToken)).ShouldNotBeNull();
+        (await shelf.ReadAsync(CatalogKey, TestContext.Current.CancellationToken)).ShouldNotBeNull();
         (await LedgerAsync()).Spooled(Tuesday).ShouldBe(new SpooledDate(Tuesday, 2, true));
     }
 
     [Fact]
     public async Task The_work_folder_is_cleared_after_a_date()
     {
-        await Pass().RunAsync(Root, CancellationToken.None);
+        await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         Directory.EnumerateFiles(options.TapeFolder, "*.tape", SearchOption.AllDirectories).ShouldBeEmpty();
         engine.Received(1).Release();
@@ -127,9 +127,9 @@ public sealed class SpoolPassTests : IDisposable
     [Fact]
     public async Task A_second_pass_over_the_same_archive_does_no_work()
     {
-        await Pass().RunAsync(Root, CancellationToken.None);
+        await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Skipped.ShouldBeTrue();
         await engine.Received(1).CatalogAsync(Root, Arg.Any<CancellationToken>());
@@ -141,10 +141,10 @@ public sealed class SpoolPassTests : IDisposable
         engine.ProveAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns([new ProofResult(Symbol, "S1 against source", false, "a bar differs")]);
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Failed.ShouldBe(1);
-        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldBeNull();
+        (await shelf.ReadAsync(TapeKey, TestContext.Current.CancellationToken)).ShouldBeNull();
         (await LedgerAsync()).Spooled(Tuesday).ShouldBeNull();
     }
 
@@ -154,14 +154,14 @@ public sealed class SpoolPassTests : IDisposable
         engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns((Result<BuildReport>)new Error(TapeErrors.Refused, "A source day is missing."));
 
-        await Pass().RunAsync(Root, CancellationToken.None);
+        await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(c => (Result<BuildReport>)Built(c.ArgAt<DateOnly>(1)));
         Archived(Tuesday.AddDays(1));
         Mbos(Monday, Tuesday, Tuesday.AddDays(1));
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Spooled.ShouldBe(1);
     }
@@ -179,10 +179,10 @@ public sealed class SpoolPassTests : IDisposable
             });
         });
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Failed.ShouldBe(1);
-        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldBeNull();
+        (await shelf.ReadAsync(TapeKey, TestContext.Current.CancellationToken)).ShouldBeNull();
     }
 
     [Fact]
@@ -190,31 +190,31 @@ public sealed class SpoolPassTests : IDisposable
     {
         NotHeldOnTuesday();
 
-        var first = await Pass().RunAsync(Root, CancellationToken.None);
+        var first = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         first.Spooled.ShouldBe(1);
         first.Failed.ShouldBe(0);
         (await LedgerAsync()).Spooled(Tuesday).ShouldBe(new SpooledDate(Tuesday, 1, Ticks: false, Mbo: $"{FirstTag}|{FirstTag}"));
-        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldNotBeNull();
+        (await shelf.ReadAsync(TapeKey, TestContext.Current.CancellationToken)).ShouldNotBeNull();
     }
 
     [Fact]
     public async Task A_date_whose_mbo_lacked_its_contract_is_tried_again_only_when_that_mbo_changes()
     {
         NotHeldOnTuesday();
-        await Pass().RunAsync(Root, CancellationToken.None);
+        await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
         Archived(Tuesday, Wednesday);
         mboDays = [Monday, Tuesday, Wednesday];
         engine.DaysAsync(Mbo, Root, Arg.Any<CancellationToken>()).Returns(Stored(mboDays, FirstTag));
 
-        var unchanged = await Pass().RunAsync(Root, CancellationToken.None);
+        var unchanged = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         unchanged.Spooled.ShouldBe(0);
 
         engine.DaysAsync(Mbo, Root, Arg.Any<CancellationToken>())
             .Returns(Stored([Monday, Tuesday, Wednesday], SecondTag));
 
-        var refetched = await Pass().RunAsync(Root, CancellationToken.None);
+        var refetched = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         refetched.Spooled.ShouldBe(1);
         (await LedgerAsync()).Spooled(Tuesday)!.Ticks.ShouldBeTrue();
@@ -223,9 +223,9 @@ public sealed class SpoolPassTests : IDisposable
     [Fact]
     public async Task A_store_of_old_per_contract_tapes_is_refused_until_it_is_emptied()
     {
-        await shelf.PutBytesAsync(OldTapeKey, [1], CancellationToken.None);
+        await shelf.PutBytesAsync(OldTapeKey, [1], TestContext.Current.CancellationToken);
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Spooled.ShouldBe(0);
         result.Shelf.ShouldNotBeNull().ShouldContain("old format");
@@ -235,18 +235,18 @@ public sealed class SpoolPassTests : IDisposable
     [Fact]
     public async Task A_ledger_whose_tapes_were_deleted_starts_again()
     {
-        await Pass().RunAsync(Root, CancellationToken.None);
-        await foreach (var key in shelf.KeysAsync($"{Dataset}/s1/", CancellationToken.None))
-            await shelf.DeleteAsync(key, CancellationToken.None);
-        await foreach (var key in shelf.KeysAsync($"{Dataset}/l1/", CancellationToken.None))
-            await shelf.DeleteAsync(key, CancellationToken.None);
+        await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
+        await foreach (var key in shelf.KeysAsync($"{Dataset}/s1/", TestContext.Current.CancellationToken))
+            await shelf.DeleteAsync(key, TestContext.Current.CancellationToken);
+        await foreach (var key in shelf.KeysAsync($"{Dataset}/l1/", TestContext.Current.CancellationToken))
+            await shelf.DeleteAsync(key, TestContext.Current.CancellationToken);
         Archived(Tuesday, Wednesday);
         Mbos(Monday, Tuesday, Wednesday);
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Spooled.ShouldBe(1);
-        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldNotBeNull();
+        (await shelf.ReadAsync(TapeKey, TestContext.Current.CancellationToken)).ShouldNotBeNull();
     }
 
     /// <summary>The build finds Tuesday's contract missing from mbo, once: later builds have it.</summary>
@@ -274,7 +274,7 @@ public sealed class SpoolPassTests : IDisposable
     {
         options.Prove = false;
 
-        await Pass().RunAsync(Root, CancellationToken.None);
+        await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         await engine.DidNotReceive().ProveAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
     }
@@ -284,7 +284,7 @@ public sealed class SpoolPassTests : IDisposable
     {
         Mbos();
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Spooled.ShouldBe(1);
         (await LedgerAsync()).Spooled(Tuesday)!.Ticks.ShouldBeFalse();
@@ -295,11 +295,11 @@ public sealed class SpoolPassTests : IDisposable
     {
         Mbos();
 
-        await Pass().RunAsync(Root, CancellationToken.None);
+        await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         Mbos(Monday, Tuesday);
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Spooled.ShouldBe(1);
         (await LedgerAsync()).Spooled(Tuesday)!.Ticks.ShouldBeTrue();
@@ -310,7 +310,7 @@ public sealed class SpoolPassTests : IDisposable
     {
         Archived();
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Skipped.ShouldBeTrue();
         await engine.DidNotReceive().CatalogAsync(Root, Arg.Any<CancellationToken>());
@@ -321,7 +321,7 @@ public sealed class SpoolPassTests : IDisposable
     {
         await StoppedAsync(2, Build);
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.ShouldBe(new RootResult(Root, 0, 1, false, SetAsideProblem, SetAside: 1));
         await engine.DidNotReceive().BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
@@ -333,7 +333,7 @@ public sealed class SpoolPassTests : IDisposable
     {
         await StoppedAsync(1, Build);
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Spooled.ShouldBe(1);
         (await LedgerAsync()).Attempt(Tuesday).ShouldBeNull();
@@ -344,7 +344,7 @@ public sealed class SpoolPassTests : IDisposable
     {
         await StoppedAsync(2, EarlierBuild);
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.ShouldBe(new RootResult(Root, 1, 0, false));
         (await LedgerAsync()).Attempt(Tuesday).ShouldBeNull();
@@ -362,7 +362,7 @@ public sealed class SpoolPassTests : IDisposable
             return (Result<BuildReport>)Built(c.ArgAt<DateOnly>(1));
         });
 
-        await Pass().RunAsync(Root, CancellationToken.None);
+        await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         during.ShouldBe(new SpoolAttempt(Tuesday, 1, Build));
     }
@@ -373,7 +373,7 @@ public sealed class SpoolPassTests : IDisposable
         engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns((Result<BuildReport>)new Error(TapeErrors.Refused, "A source day is missing."));
 
-        await Pass().RunAsync(Root, CancellationToken.None);
+        await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         (await LedgerAsync()).Attempt(Tuesday).ShouldBeNull();
     }
@@ -384,7 +384,7 @@ public sealed class SpoolPassTests : IDisposable
         engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromException<Result<BuildReport>>(new IOException(WentAway)));
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Failed.ShouldBe(1);
         result.Trouble.ShouldBe($"2026-10-27: {WentAway}");
@@ -399,12 +399,12 @@ public sealed class SpoolPassTests : IDisposable
         engine.BuildAsync(Arg.Any<Catalog>(), Tuesday, Arg.Any<CancellationToken>())
             .Returns(Task.FromException<Result<BuildReport>>(new IOException(WentAway)));
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Spooled.ShouldBe(1);
         result.Failed.ShouldBe(1);
         (await LedgerAsync()).Spooled(Wednesday).ShouldNotBeNull();
-        (await shelf.ReadAsync(CatalogKey, CancellationToken.None)).ShouldNotBeNull();
+        (await shelf.ReadAsync(CatalogKey, TestContext.Current.CancellationToken)).ShouldNotBeNull();
     }
 
     [Fact]
@@ -413,12 +413,12 @@ public sealed class SpoolPassTests : IDisposable
         engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromException<Result<BuildReport>>(new IOException(WentAway)));
 
-        await Pass().RunAsync(Root, CancellationToken.None);
+        await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(c => (Result<BuildReport>)Built(c.ArgAt<DateOnly>(1)));
 
-        var again = await Pass().RunAsync(Root, CancellationToken.None);
+        var again = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         again.ShouldBe(new RootResult(Root, 1, 0, false));
     }
@@ -431,7 +431,7 @@ public sealed class SpoolPassTests : IDisposable
         engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromException<Result<BuildReport>>(new IOException(WentAway)));
 
-        await Should.ThrowAsync<IOException>(() => Pass().RunAsync(Root, CancellationToken.None));
+        await Should.ThrowAsync<IOException>(() => Pass().RunAsync(Root, TestContext.Current.CancellationToken));
 
         await engine.Received(SpoolPass.MostThrowsInARow).BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
         (await LedgerAsync()).Attempts.ShouldBeEmpty();
@@ -443,10 +443,10 @@ public sealed class SpoolPassTests : IDisposable
         engine.BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromException<Result<BuildReport>>(new OutOfMemoryException()));
 
-        await Should.ThrowAsync<OutOfMemoryException>(() => Pass().RunAsync(Root, CancellationToken.None));
-        await Should.ThrowAsync<OutOfMemoryException>(() => Pass().RunAsync(Root, CancellationToken.None));
+        await Should.ThrowAsync<OutOfMemoryException>(() => Pass().RunAsync(Root, TestContext.Current.CancellationToken));
+        await Should.ThrowAsync<OutOfMemoryException>(() => Pass().RunAsync(Root, TestContext.Current.CancellationToken));
 
-        var third = await Pass().RunAsync(Root, CancellationToken.None);
+        var third = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         third.ShouldBe(new RootResult(Root, 0, 1, false, SetAsideProblem, SetAside: 1));
         await engine.Received(2).BuildAsync(Arg.Any<Catalog>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
@@ -473,9 +473,9 @@ public sealed class SpoolPassTests : IDisposable
     public async Task Dates_set_aside_are_still_reported_when_the_archive_has_not_changed()
     {
         await StoppedAsync(2, Build);
-        await Pass().RunAsync(Root, CancellationToken.None);
+        await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
-        var skipped = await Pass().RunAsync(Root, CancellationToken.None);
+        var skipped = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         skipped.ShouldBe(new RootResult(Root, 0, 1, true, SetAsideProblem, SetAside: 1));
     }
@@ -488,7 +488,7 @@ public sealed class SpoolPassTests : IDisposable
         Days(Tuesday, later);
         Mbos(Monday, Tuesday);
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Spooled.ShouldBe(2);
         (await LedgerAsync()).Spooled(later)!.Ticks.ShouldBeFalse();
@@ -502,7 +502,7 @@ public sealed class SpoolPassTests : IDisposable
         Days(Tuesday, later);
         Mbos(Monday, Tuesday);
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Spooled.ShouldBe(1);
         (await LedgerAsync()).Spooled(later).ShouldBeNull();
@@ -511,10 +511,10 @@ public sealed class SpoolPassTests : IDisposable
     [Fact]
     public async Task The_folder_shelf_leaves_no_temporary_file()
     {
-        await shelf.PutBytesAsync(LedgerKey, [1, 2, 3], CancellationToken.None);
-        await shelf.PutBytesAsync(LedgerKey, [4, 5], CancellationToken.None);
+        await shelf.PutBytesAsync(LedgerKey, [1, 2, 3], TestContext.Current.CancellationToken);
+        await shelf.PutBytesAsync(LedgerKey, [4, 5], TestContext.Current.CancellationToken);
 
-        (await shelf.ReadAsync(LedgerKey, CancellationToken.None)).ShouldBe([4, 5]);
+        (await shelf.ReadAsync(LedgerKey, TestContext.Current.CancellationToken)).ShouldBe([4, 5]);
         Directory.GetFiles(Path.Combine(home, "shelf"), "*.tmp", SearchOption.AllDirectories).ShouldBeEmpty();
     }
 
@@ -532,7 +532,7 @@ public sealed class SpoolPassTests : IDisposable
         Archived(Monday, Tuesday);
         Catalogued(TapeFixture.FullDay(Monday), TapeFixture.ShortDay(Tuesday));
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Spooled.ShouldBe(1);
         (await LedgerAsync()).Spooled(Tuesday).ShouldBeNull();
@@ -542,17 +542,17 @@ public sealed class SpoolPassTests : IDisposable
     [Fact]
     public async Task Tapes_of_a_date_that_is_not_a_full_ETH_day_leave_the_shelf_and_the_ledger()
     {
-        await Pass().RunAsync(Root, CancellationToken.None);
-        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldNotBeNull();
+        await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
+        (await shelf.ReadAsync(TapeKey, TestContext.Current.CancellationToken)).ShouldNotBeNull();
 
         Archived(Monday, Tuesday, Wednesday);
         Mbos(Monday, Tuesday, Wednesday);
         Catalogued(TapeFixture.FullDay(Monday), TapeFixture.ShortDay(Tuesday), TapeFixture.FullDay(Wednesday));
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Problem.ShouldBeNull();
-        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldBeNull();
+        (await shelf.ReadAsync(TapeKey, TestContext.Current.CancellationToken)).ShouldBeNull();
         (await LedgerAsync()).Spooled(Tuesday).ShouldBeNull();
         (await LedgerAsync()).Spooled(Wednesday).ShouldNotBeNull();
     }
@@ -561,16 +561,16 @@ public sealed class SpoolPassTests : IDisposable
     public async Task A_catalog_that_would_empty_the_shelf_takes_nothing_off_it()
     {
         Days(Monday, Tuesday, Wednesday);
-        await Pass().RunAsync(Root, CancellationToken.None);
+        await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         Archived(Monday, Tuesday, Wednesday, Wednesday.AddDays(1));
         Mbos(Monday, Tuesday, Wednesday, Wednesday.AddDays(1));
         Catalogued(TapeFixture.ShortDay(Monday), TapeFixture.ShortDay(Tuesday), TapeFixture.ShortDay(Wednesday));
 
-        var result = await Pass().RunAsync(Root, CancellationToken.None);
+        var result = await Pass().RunAsync(Root, TestContext.Current.CancellationToken);
 
         result.Shelf.ShouldNotBeNull().ShouldContain("nothing was removed");
-        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldNotBeNull();
+        (await shelf.ReadAsync(TapeKey, TestContext.Current.CancellationToken)).ShouldNotBeNull();
         (await LedgerAsync()).Spooled(Tuesday).ShouldNotBeNull();
     }
 
@@ -578,11 +578,11 @@ public sealed class SpoolPassTests : IDisposable
         engine.CatalogAsync(Root, Arg.Any<CancellationToken>()).Returns((Result<Catalog>)new Catalog(Dataset, Root, [], days));
 
     private async Task StoppedAsync(int count, string build) =>
-        await shelf.PutBytesAsync(LedgerKey, new SpoolLedger { Attempts = [new SpoolAttempt(Tuesday, count, build)] }.ToBytes(), CancellationToken.None);
+        await shelf.PutBytesAsync(LedgerKey, new SpoolLedger { Attempts = [new SpoolAttempt(Tuesday, count, build)] }.ToBytes(), TestContext.Current.CancellationToken);
 
     [Fact]
     public async Task A_folder_shelf_answers_null_for_a_key_it_lacks()
     {
-        (await shelf.ReadAsync(TapeKey, CancellationToken.None)).ShouldBeNull();
+        (await shelf.ReadAsync(TapeKey, TestContext.Current.CancellationToken)).ShouldBeNull();
     }
 }

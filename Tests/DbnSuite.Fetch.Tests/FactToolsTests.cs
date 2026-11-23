@@ -311,7 +311,7 @@ public sealed class FactToolsTests : IDisposable
         writer.Add(TapeFixture.OpenMicros, 30_842, 30_843, 30_841, 30_843, 5);
 
         var path = TapePaths.For(tapeRoot, TapeFixture.Dataset, TapeKind.S1, Es, TapeFixture.TradeDate);
-        var saved = await writer.SaveAsync(path, CancellationToken.None);
+        var saved = await writer.SaveAsync(path, TestContext.Current.CancellationToken);
 
         saved.IsSuccess.ShouldBeTrue(saved.Error?.Message);
 
@@ -323,10 +323,10 @@ public sealed class FactToolsTests : IDisposable
     {
         var folder = Path.Combine(dbnf.Home, "tapes");
 
-        (await TapeCatalog().SaveAsync(folder, CancellationToken.None)).IsSuccess.ShouldBeTrue();
+        (await TapeCatalog().SaveAsync(folder, TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         var l1 = TapePaths.For(folder, TapeFixture.Dataset, TapeKind.L1, Es, FullDate);
         Directory.CreateDirectory(Path.GetDirectoryName(l1)!);
-        await File.WriteAllBytesAsync(l1, [1, 2, 3]);
+        await File.WriteAllBytesAsync(l1, [1, 2, 3], TestContext.Current.CancellationToken);
 
         await using var run = await McpRun.OnArchiveAsync(dbnf, $"--tapes \"{folder}\"");
 

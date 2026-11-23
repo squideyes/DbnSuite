@@ -39,11 +39,11 @@ public sealed class WorkerHostTests(RustFs s3)
         await sync.FirstPassAsync();
         using var client = sync.Host.CreateClient();
 
-        var health = await client.GetAsync(Health);
-        var alive = await client.GetAsync(Alive);
+        var health = await client.GetAsync(Health, TestContext.Current.CancellationToken);
+        var alive = await client.GetAsync(Alive, TestContext.Current.CancellationToken);
 
         health.StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await health.Content.ReadAsStringAsync()).ShouldBe(Healthy);
+        (await health.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).ShouldBe(Healthy);
         alive.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
@@ -55,8 +55,8 @@ public sealed class WorkerHostTests(RustFs s3)
         await sync.FirstPassAsync();
         using var client = sync.Host.CreateClient();
 
-        (await client.GetAsync(Health)).StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await client.GetAsync(Alive)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await client.GetAsync(Health, TestContext.Current.CancellationToken)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await client.GetAsync(Alive, TestContext.Current.CancellationToken)).StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -73,9 +73,9 @@ public sealed class WorkerHostTests(RustFs s3)
         };
 
         sync.Start();
-        await submitting.Task.WaitAsync(GraceToReachGateway);
+        await submitting.Task.WaitAsync(GraceToReachGateway, TestContext.Current.CancellationToken);
         using var client = sync.Host.CreateClient();
-        using var during = JsonDocument.Parse(await client.GetStringAsync(Status));
+        using var during = JsonDocument.Parse(await client.GetStringAsync(Status, TestContext.Current.CancellationToken));
         release.SetResult();
 
         during.RootElement.GetProperty("running").GetBoolean().ShouldBeTrue();
@@ -89,7 +89,7 @@ public sealed class WorkerHostTests(RustFs s3)
         await sync.FirstPassAsync();
         using var client = sync.Host.CreateClient();
 
-        using var status = JsonDocument.Parse(await client.GetStringAsync(Status));
+        using var status = JsonDocument.Parse(await client.GetStringAsync(Status, TestContext.Current.CancellationToken));
 
         var root = status.RootElement;
         root.GetProperty("running").GetBoolean().ShouldBeFalse();
@@ -173,12 +173,12 @@ public sealed class WorkerHostTests(RustFs s3)
         await using var sync = await SyncScenario.CreateAsync(s3);
         await sync.FirstPassAsync();
         using (var client = sync.Host.CreateClient())
-            await client.GetAsync(Dashboard);
+            await client.GetAsync(Dashboard, TestContext.Current.CancellationToken);
         var keys = Directory.GetFiles(Path.Combine(sync.ScratchPath, KeysFolder));
 
         await sync.RestartAsync();
         using (var client = sync.Host.CreateClient())
-            await client.GetAsync(Dashboard);
+            await client.GetAsync(Dashboard, TestContext.Current.CancellationToken);
 
         keys.ShouldNotBeEmpty();
         Directory.GetFiles(Path.Combine(sync.ScratchPath, KeysFolder)).ShouldBe(keys, ignoreOrder: true);

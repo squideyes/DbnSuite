@@ -68,7 +68,13 @@ internal sealed class Dbnf : IDisposable
     public Func<ConsoleKeyInfo>? Keyboard { get; set; }
 
     /// <summary>Runs a command line against the saved login, if any.</summary>
-    public async Task<DbnfRun> RunAsync(string line, CancellationToken cancel = default)
+    public Task<DbnfRun> RunAsync(string line) => RunCoreAsync(line, TestContext.Current.CancellationToken);
+
+    /// <summary>Runs a command line that <paramref name="stop"/> may stop partway.</summary>
+    public Task<DbnfRun> StoppedOnArchiveAsync(string line, CancellationToken stop) =>
+        RunCoreAsync($"{line} --archive \"{ArchiveFolder}\"", stop);
+
+    private async Task<DbnfRun> RunCoreAsync(string line, CancellationToken cancel)
     {
         using var output = new StringWriter();
         using var error = new StringWriter();
@@ -96,8 +102,8 @@ internal sealed class Dbnf : IDisposable
     }
 
     /// <summary>Runs a command line against the archive folder, as <c>--archive</c> does.</summary>
-    public Task<DbnfRun> OnArchiveAsync(string line, CancellationToken cancel = default) =>
-        RunAsync($"{line} --archive \"{ArchiveFolder}\"", cancel);
+    public Task<DbnfRun> OnArchiveAsync(string line) =>
+        RunAsync($"{line} --archive \"{ArchiveFolder}\"");
 
     /// <summary>Logs in to an S3 endpoint with a made-up key, and fails the test if that fails.</summary>
     public async Task LogInAsync(FakeS3 s3, string options = "")

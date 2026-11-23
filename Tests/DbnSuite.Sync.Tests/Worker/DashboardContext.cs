@@ -61,7 +61,7 @@ public abstract class DashboardContext : BunitContext
 
     protected SyncStatus Status { get; }
 
-    protected Task ScanAsync() => Index.RefreshAsync(CancellationToken.None);
+    protected Task ScanAsync() => Index.RefreshAsync(Xunit.TestContext.Current.CancellationToken);
 
     protected void Pending(params PendingJob[] jobs) =>
         Store.ListPendingAsync(Arg.Any<CancellationToken>())

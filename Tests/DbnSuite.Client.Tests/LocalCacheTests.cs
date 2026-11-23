@@ -41,20 +41,20 @@ public sealed class LocalCacheTests : IDisposable
     {
         var cache = new LocalCache(cacheFolder);
 
-        var path = await cache.FetchAsync(Store(), Object(), null, CancellationToken.None);
+        var path = await cache.FetchAsync(Store(), Object(), null, TestContext.Current.CancellationToken);
 
         path.ShouldBe(Path.Combine(cacheFolder, Key.Replace('/', Path.DirectorySeparatorChar)));
-        (await File.ReadAllBytesAsync(path)).ShouldBe(Content);
+        (await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken)).ShouldBe(Content);
         cache.Holds(Object()).ShouldBeTrue();
     }
 
     [Fact]
     public async Task A_file_already_held_is_not_fetched_again_even_by_a_new_cache()
     {
-        await new LocalCache(cacheFolder).FetchAsync(Store(), Object(), null, CancellationToken.None);
+        await new LocalCache(cacheFolder).FetchAsync(Store(), Object(), null, TestContext.Current.CancellationToken);
         var store = Store();
 
-        await new LocalCache(cacheFolder).FetchAsync(store, Object(), null, CancellationToken.None);
+        await new LocalCache(cacheFolder).FetchAsync(store, Object(), null, TestContext.Current.CancellationToken);
 
         store.Opens.ShouldBe(0);
     }
@@ -73,10 +73,10 @@ public sealed class LocalCacheTests : IDisposable
     public async Task A_changed_object_is_fetched_again()
     {
         var cache = new LocalCache(cacheFolder);
-        await cache.FetchAsync(Store(), Object(), null, CancellationToken.None);
+        await cache.FetchAsync(Store(), Object(), null, TestContext.Current.CancellationToken);
         var store = Store();
 
-        await cache.FetchAsync(store, Object(OtherETag), null, CancellationToken.None);
+        await cache.FetchAsync(store, Object(OtherETag), null, TestContext.Current.CancellationToken);
 
         store.Opens.ShouldBe(1);
     }
@@ -87,15 +87,15 @@ public sealed class LocalCacheTests : IDisposable
         var cache = new LocalCache(cacheFolder) { StallTimeout = TimeSpan.FromMilliseconds(150) };
         var store = new CountingStore(new FolderObjectStore(archiveFolder), silentAfter: 400);
 
-        var stalled = await Should.ThrowAsync<IOException>(() => cache.FetchAsync(store, Object(), null, CancellationToken.None));
+        var stalled = await Should.ThrowAsync<IOException>(() => cache.FetchAsync(store, Object(), null, TestContext.Current.CancellationToken));
 
         stalled.Message.ShouldContain("stopped arriving");
 
         var resumed = Store();
-        await cache.FetchAsync(resumed, Object(), null, CancellationToken.None);
+        await cache.FetchAsync(resumed, Object(), null, TestContext.Current.CancellationToken);
 
         resumed.Offsets.ShouldBe([400]);
-        (await File.ReadAllBytesAsync(cache.PathOf(Key))).ShouldBe(Content);
+        (await File.ReadAllBytesAsync(cache.PathOf(Key), TestContext.Current.CancellationToken)).ShouldBe(Content);
     }
 
     [Fact]
@@ -114,13 +114,13 @@ public sealed class LocalCacheTests : IDisposable
         var cache = new LocalCache(cacheFolder);
         var store = new CountingStore(new FolderObjectStore(archiveFolder), failAfter: 400);
 
-        await Should.ThrowAsync<IOException>(() => cache.FetchAsync(store, Object(), null, CancellationToken.None));
+        await Should.ThrowAsync<IOException>(() => cache.FetchAsync(store, Object(), null, TestContext.Current.CancellationToken));
 
         var resumed = Store();
-        await cache.FetchAsync(resumed, Object(), null, CancellationToken.None);
+        await cache.FetchAsync(resumed, Object(), null, TestContext.Current.CancellationToken);
 
         resumed.Offsets.ShouldBe([400]);
-        (await File.ReadAllBytesAsync(cache.PathOf(Key))).ShouldBe(Content);
+        (await File.ReadAllBytesAsync(cache.PathOf(Key), TestContext.Current.CancellationToken)).ShouldBe(Content);
     }
 
     [Fact]
@@ -128,10 +128,10 @@ public sealed class LocalCacheTests : IDisposable
     {
         var cache = new LocalCache(cacheFolder);
         var store = new CountingStore(new FolderObjectStore(archiveFolder), failAfter: 400);
-        await Should.ThrowAsync<IOException>(() => cache.FetchAsync(store, Object(OtherETag), null, CancellationToken.None));
+        await Should.ThrowAsync<IOException>(() => cache.FetchAsync(store, Object(OtherETag), null, TestContext.Current.CancellationToken));
 
         var resumed = Store();
-        await cache.FetchAsync(resumed, Object(), null, CancellationToken.None);
+        await cache.FetchAsync(resumed, Object(), null, TestContext.Current.CancellationToken);
 
         resumed.Offsets.ShouldBe([0]);
     }
@@ -141,7 +141,7 @@ public sealed class LocalCacheTests : IDisposable
     {
         var cache = new LocalCache(cacheFolder, flat: true);
 
-        var path = await cache.FetchAsync(Store(), Object(), null, CancellationToken.None);
+        var path = await cache.FetchAsync(Store(), Object(), null, TestContext.Current.CancellationToken);
 
         path.ShouldBe(Path.Combine(cacheFolder, Path.GetFileName(Key)));
     }
@@ -150,7 +150,7 @@ public sealed class LocalCacheTests : IDisposable
     public async Task Clearing_a_prefix_frees_its_files()
     {
         var cache = new LocalCache(cacheFolder);
-        await cache.FetchAsync(Store(), Object(), null, CancellationToken.None);
+        await cache.FetchAsync(Store(), Object(), null, TestContext.Current.CancellationToken);
 
         var freed = cache.Remove("GLBX.MDP3/mbo/");
 
@@ -165,7 +165,7 @@ public sealed class LocalCacheTests : IDisposable
         var cache = new LocalCache(cacheFolder);
         var claimedLonger = new StoredObject(Key, Content.Length + 1, ETag);
 
-        var refused = await Should.ThrowAsync<IOException>(() => cache.FetchAsync(Store(), claimedLonger, null, CancellationToken.None));
+        var refused = await Should.ThrowAsync<IOException>(() => cache.FetchAsync(Store(), claimedLonger, null, TestContext.Current.CancellationToken));
 
         refused.Message.ShouldContain(Key);
         cache.Holds(claimedLonger).ShouldBeFalse();
@@ -177,11 +177,11 @@ public sealed class LocalCacheTests : IDisposable
     {
         var cache = new LocalCache(cacheFolder);
         var store = new CountingStore(new FolderObjectStore(archiveFolder), failAfter: 400);
-        await Should.ThrowAsync<IOException>(() => cache.FetchAsync(store, Object(), null, CancellationToken.None));
-        await File.WriteAllBytesAsync(cache.PathOf(Key) + ".part", Content);
+        await Should.ThrowAsync<IOException>(() => cache.FetchAsync(store, Object(), null, TestContext.Current.CancellationToken));
+        await File.WriteAllBytesAsync(cache.PathOf(Key) + ".part", Content, TestContext.Current.CancellationToken);
 
         var resumed = Store();
-        await cache.FetchAsync(resumed, Object(), null, CancellationToken.None);
+        await cache.FetchAsync(resumed, Object(), null, TestContext.Current.CancellationToken);
 
         resumed.Offsets.ShouldBe([0]);
     }
@@ -192,7 +192,7 @@ public sealed class LocalCacheTests : IDisposable
         var cache = new LocalCache(cacheFolder);
         var progress = Substitute.For<IProgress<long>>();
 
-        await cache.FetchAsync(Store(), Object(), progress, CancellationToken.None);
+        await cache.FetchAsync(Store(), Object(), progress, TestContext.Current.CancellationToken);
 
         progress.Received(1).Report(Content.Length);
     }
@@ -200,8 +200,8 @@ public sealed class LocalCacheTests : IDisposable
     [Fact]
     public async Task A_damaged_index_only_costs_a_download()
     {
-        await new LocalCache(cacheFolder).FetchAsync(Store(), Object(), null, CancellationToken.None);
-        await File.WriteAllTextAsync(Path.Combine(cacheFolder, ".dbnsync.json"), "{ not json");
+        await new LocalCache(cacheFolder).FetchAsync(Store(), Object(), null, TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(cacheFolder, ".dbnsync.json"), "{ not json", TestContext.Current.CancellationToken);
 
         var cache = new LocalCache(cacheFolder);
 
@@ -211,8 +211,8 @@ public sealed class LocalCacheTests : IDisposable
     [Fact]
     public async Task An_index_of_nothing_starts_over_too()
     {
-        await new LocalCache(cacheFolder).FetchAsync(Store(), Object(), null, CancellationToken.None);
-        await File.WriteAllTextAsync(Path.Combine(cacheFolder, ".dbnsync.json"), "null");
+        await new LocalCache(cacheFolder).FetchAsync(Store(), Object(), null, TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(cacheFolder, ".dbnsync.json"), "null", TestContext.Current.CancellationToken);
 
         var cache = new LocalCache(cacheFolder);
 
@@ -223,9 +223,9 @@ public sealed class LocalCacheTests : IDisposable
     public async Task A_file_cut_short_on_disk_is_not_held()
     {
         var cache = new LocalCache(cacheFolder);
-        await cache.FetchAsync(Store(), Object(), null, CancellationToken.None);
+        await cache.FetchAsync(Store(), Object(), null, TestContext.Current.CancellationToken);
 
-        await File.WriteAllBytesAsync(cache.PathOf(Key), [1]);
+        await File.WriteAllBytesAsync(cache.PathOf(Key), [1], TestContext.Current.CancellationToken);
 
         cache.Holds(Object()).ShouldBeFalse();
     }
@@ -234,7 +234,7 @@ public sealed class LocalCacheTests : IDisposable
     public async Task Files_are_listed_with_their_sizes_unless_gone_from_disk()
     {
         var cache = new LocalCache(cacheFolder);
-        await cache.FetchAsync(Store(), Object(), null, CancellationToken.None);
+        await cache.FetchAsync(Store(), Object(), null, TestContext.Current.CancellationToken);
 
         cache.Files().ShouldBe([(Key, (long)Content.Length)]);
 
@@ -247,7 +247,7 @@ public sealed class LocalCacheTests : IDisposable
     public async Task Clearing_leaves_other_prefixes_and_counts_nothing_for_a_file_already_gone()
     {
         var cache = new LocalCache(cacheFolder);
-        await cache.FetchAsync(Store(), Object(), null, CancellationToken.None);
+        await cache.FetchAsync(Store(), Object(), null, TestContext.Current.CancellationToken);
 
         cache.Remove("GLBX.MDP3/trades/").ShouldBe(0);
         cache.Files().Count.ShouldBe(1);

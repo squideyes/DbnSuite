@@ -250,7 +250,7 @@ public sealed class ExportCommandTests : IDisposable
         await using var gzip = new GZipStream(File.OpenRead(Path.Combine(dbnf.Output, written)), CompressionMode.Decompress);
         using var reader = new StreamReader(gzip);
 
-        (await reader.ReadLineAsync()).ShouldBe(RecordsHeader);
+        (await reader.ReadLineAsync(TestContext.Current.CancellationToken)).ShouldBe(RecordsHeader);
     }
 
     [Fact]

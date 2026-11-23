@@ -83,7 +83,7 @@ public sealed class SessionStreamTests : IDisposable
 
         var results = new List<Result<StreamSession>>();
 
-        await foreach (var session in Stream().RunAsync(sampler, 0, CancellationToken.None))
+        await foreach (var session in Stream().RunAsync(sampler, 0, TestContext.Current.CancellationToken))
             results.Add(session);
 
         results.Count.ShouldBe(3);
@@ -116,7 +116,7 @@ public sealed class SessionStreamTests : IDisposable
     {
         var sampler = new SessionSampler(await WriteDaysAsync(), Seed);
 
-        await foreach (var session in Stream().RunAsync(sampler, 0, CancellationToken.None))
+        await foreach (var session in Stream().RunAsync(sampler, 0, TestContext.Current.CancellationToken))
             break;
 
         var delete = () => Directory.Delete(folder, recursive: true);
@@ -133,7 +133,7 @@ public sealed class SessionStreamTests : IDisposable
 
         var results = new List<Result<StreamSession>>();
 
-        await foreach (var session in Stream().RunAsync(sampler, 0, CancellationToken.None))
+        await foreach (var session in Stream().RunAsync(sampler, 0, TestContext.Current.CancellationToken))
             results.Add(session);
 
         results[^1].Error!.Code.ShouldBe(TapeErrors.Refused);
@@ -161,7 +161,7 @@ public sealed class SessionStreamTests : IDisposable
     {
         var sessions = new List<StreamSession>();
 
-        await foreach (var session in stream.RunAsync(sampler, run, CancellationToken.None))
+        await foreach (var session in stream.RunAsync(sampler, run, TestContext.Current.CancellationToken))
             sessions.Add(session.Value);
 
         return sessions;
@@ -191,7 +191,7 @@ public sealed class SessionStreamTests : IDisposable
         writer.Add(start, open, open + 2, open, open + 2, 1);
         writer.Add(start + MicrosPerSecond, open + 2, open + Move, open + 2, open + Move, 1);
 
-        await writer.SaveAsync(TapePaths.For(folder, TapeFixture.Dataset, TapeKind.S1, root, day), CancellationToken.None);
+        await writer.SaveAsync(TapePaths.For(folder, TapeFixture.Dataset, TapeKind.S1, root, day), TestContext.Current.CancellationToken);
     }
 
     private static long OpenMicros(DateOnly day) => TapeFixture.Nanos(Sessions.SessionStart(day)) / TapeFixture.NanosPerMicro;

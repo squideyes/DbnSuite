@@ -156,7 +156,7 @@ public sealed class SessionTests : IDisposable
     [Fact]
     public async Task Run_returns_what_the_work_returns()
     {
-        var exit = await session.RunAsync(OnFolder(), _ => Task.FromResult(Done), CancellationToken.None);
+        var exit = await session.RunAsync(OnFolder(), _ => Task.FromResult(Done), TestContext.Current.CancellationToken);
 
         exit.ShouldBe(Done);
     }
@@ -171,7 +171,7 @@ public sealed class SessionTests : IDisposable
             started = true;
 
             return Task.FromResult(Done);
-        }, CancellationToken.None);
+        }, TestContext.Current.CancellationToken);
 
         exit.ShouldBe(Session.Usage);
         started.ShouldBeFalse();
@@ -182,7 +182,7 @@ public sealed class SessionTests : IDisposable
     public async Task An_archive_failure_becomes_a_message_and_an_exit_code()
     {
         var exit = await session.RunAsync(OnFolder(),
-            _ => throw new ArchiveException(new Error(Errors.Denied, Reason)), CancellationToken.None);
+            _ => throw new ArchiveException(new Error(Errors.Denied, Reason)), TestContext.Current.CancellationToken);
 
         exit.ShouldBe(Session.Failed);
         error.ToString().ShouldContain(Reason);
@@ -191,7 +191,7 @@ public sealed class SessionTests : IDisposable
     [Fact]
     public async Task A_transfer_that_stops_becomes_a_message_and_an_exit_code()
     {
-        var exit = await session.RunAsync(OnFolder(), _ => throw new IOException(Reason), CancellationToken.None);
+        var exit = await session.RunAsync(OnFolder(), _ => throw new IOException(Reason), TestContext.Current.CancellationToken);
 
         exit.ShouldBe(Session.Failed);
         error.ToString().ShouldContain(Reason);
@@ -208,7 +208,7 @@ public sealed class SessionTests : IDisposable
     [MemberData(nameof(LocalTrouble))]
     public async Task A_failure_a_user_can_cause_is_a_message_not_a_stack_trace(Exception failure)
     {
-        var exit = await session.RunAsync(OnFolder(), _ => throw failure, CancellationToken.None);
+        var exit = await session.RunAsync(OnFolder(), _ => throw failure, TestContext.Current.CancellationToken);
 
         exit.ShouldBe(Session.Failed);
         error.ToString().ShouldContain(Reason);
@@ -231,7 +231,7 @@ public sealed class SessionTests : IDisposable
     public async Task A_cancellation_nobody_asked_for_is_not_swallowed()
     {
         await Should.ThrowAsync<OperationCanceledException>(() =>
-            session.RunAsync(OnFolder(), _ => throw new OperationCanceledException(), CancellationToken.None));
+            session.RunAsync(OnFolder(), _ => throw new OperationCanceledException(), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -240,7 +240,7 @@ public sealed class SessionTests : IDisposable
         using var stop = new CancellationTokenSource();
         await stop.CancelAsync();
 
-        var run = await dbnf.OnArchiveAsync("ls", stop.Token);
+        var run = await dbnf.StoppedOnArchiveAsync("ls", stop.Token);
 
         run.ExitCode.ShouldBe(Session.Cancelled);
         run.Error.ShouldContain(Stopped);

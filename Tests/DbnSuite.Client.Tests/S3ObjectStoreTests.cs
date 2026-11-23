@@ -38,7 +38,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
 
     private string endpoint = "";
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await server.StartAsync();
 
@@ -54,7 +54,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
         await PutAsync(s3, DbnSyncLayout.Data(Dataset, Definition, OtherRoot, Day(10, 30)), Content);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await server.DisposeAsync();
 
@@ -83,7 +83,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var archive = Archive();
 
-        (await archive.LayoutAsync(CancellationToken.None)).Value.ShouldBe(DbnSyncLayout.Name);
+        (await archive.LayoutAsync(TestContext.Current.CancellationToken)).Value.ShouldBe(DbnSyncLayout.Name);
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var archive = Archive();
 
-        var series = (await archive.ListSeriesAsync(CancellationToken.None)).Value;
+        var series = (await archive.ListSeriesAsync(TestContext.Current.CancellationToken)).Value;
 
         series.ShouldBe([
             new SeriesSummary(Definition, OtherRoot, 1, 0, Content.Length, Day(10, 30), Day(10, 30)),
@@ -104,10 +104,10 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var archive = Archive();
 
-        var path = (await archive.FetchAsync(Mbo, Root, Day(10, 30), null, CancellationToken.None)).Value;
-        var days = (await archive.ListDaysAsync(Mbo, Root, CancellationToken.None)).Value;
+        var path = (await archive.FetchAsync(Mbo, Root, Day(10, 30), null, TestContext.Current.CancellationToken)).Value;
+        var days = (await archive.ListDaysAsync(Mbo, Root, TestContext.Current.CancellationToken)).Value;
 
-        (await File.ReadAllBytesAsync(path)).ShouldBe(Content);
+        (await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken)).ShouldBe(Content);
         path.ShouldStartWith(cache);
         archive.Cache!.Holds(days[0].Object).ShouldBeTrue();
     }
@@ -117,7 +117,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var archive = Archive();
 
-        (await archive.FetchAsync(Mbo, Root, Day(10, 31), null, CancellationToken.None)).Error!.Code.ShouldBe(Errors.NoData);
+        (await archive.FetchAsync(Mbo, Root, Day(10, 31), null, TestContext.Current.CancellationToken)).Error!.Code.ShouldBe(Errors.NoData);
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var archive = Archive(WrongSecret);
 
-        (await archive.ListSeriesAsync(CancellationToken.None)).Error!.Code.ShouldBe(Errors.Denied);
+        (await archive.ListSeriesAsync(TestContext.Current.CancellationToken)).Error!.Code.ShouldBe(Errors.Denied);
     }
 
     [Fact]
@@ -133,7 +133,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var archive = Archive(WrongSecret);
 
-        (await archive.FetchAsync(Mbo, Root, Day(10, 30), null, CancellationToken.None)).Error!.Code.ShouldBe(Errors.Denied);
+        (await archive.FetchAsync(Mbo, Root, Day(10, 30), null, TestContext.Current.CancellationToken)).Error!.Code.ShouldBe(Errors.Denied);
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var store = Store(bucket: "no-such-bucket");
 
-        await Should.ThrowAsync<ArchiveException>(async () => await store.FoldersAsync("", CancellationToken.None).ToListAsync());
+        await Should.ThrowAsync<ArchiveException>(async () => await store.FoldersAsync("", TestContext.Current.CancellationToken).ToListAsync());
     }
 
     [Fact]
@@ -149,8 +149,8 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var nothing = DbnArchive.Open(new ArchiveOptions { Location = "http://127.0.0.1:1", AccessKey = AccessKey, SecretKey = SecretKey }, cache);
 
-        (await nothing.ListSeriesAsync(CancellationToken.None)).Error!.Code.ShouldBe(Errors.Unreachable);
-        (await nothing.FetchAsync(Mbo, Root, Day(10, 30), null, CancellationToken.None)).Error!.Code.ShouldBe(Errors.Unreachable);
+        (await nothing.ListSeriesAsync(TestContext.Current.CancellationToken)).Error!.Code.ShouldBe(Errors.Unreachable);
+        (await nothing.FetchAsync(Mbo, Root, Day(10, 30), null, TestContext.Current.CancellationToken)).Error!.Code.ShouldBe(Errors.Unreachable);
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var store = Store(prefix: $"/{Prefix}/");
 
-        var folders = await store.FoldersAsync("", CancellationToken.None).ToListAsync();
+        var folders = await store.FoldersAsync("", TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken);
 
         folders.ShouldBe([$"{Dataset}/"]);
     }
@@ -168,7 +168,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var store = Store(prefix: "");
 
-        var folders = await store.FoldersAsync("", CancellationToken.None).ToListAsync();
+        var folders = await store.FoldersAsync("", TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken);
 
         folders.ShouldBe([$"{Prefix}/"]);
     }
@@ -178,7 +178,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var store = Store();
 
-        var objects = await store.ObjectsAsync(DbnSyncLayout.Folder(Dataset, Definition, OtherRoot), CancellationToken.None).ToListAsync();
+        var objects = await store.ObjectsAsync(DbnSyncLayout.Folder(Dataset, Definition, OtherRoot), TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken);
 
         var stored = objects.ShouldHaveSingleItem();
         stored.Key.ShouldBe(DbnSyncLayout.Data(Dataset, Definition, OtherRoot, Day(10, 30)));
@@ -191,8 +191,8 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var store = Store();
 
-        (await store.FindAsync(DbnSyncLayout.Data(Dataset, Mbo, Root, Day(10, 30)), CancellationToken.None))!.Size.ShouldBe(Content.Length);
-        (await store.FindAsync("no/such/key", CancellationToken.None)).ShouldBeNull();
+        (await store.FindAsync(DbnSyncLayout.Data(Dataset, Mbo, Root, Day(10, 30)), TestContext.Current.CancellationToken))!.Size.ShouldBe(Content.Length);
+        (await store.FindAsync("no/such/key", TestContext.Current.CancellationToken)).ShouldBeNull();
     }
 
     [Fact]
@@ -201,8 +201,8 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
         using var store = Store();
         var key = DbnSyncLayout.Data(Dataset, Mbo, Root, Day(10, 30));
 
-        await using var whole = await store.OpenAsync(key, 0, CancellationToken.None);
-        await using var rest = await store.OpenAsync(key, 3, CancellationToken.None);
+        await using var whole = await store.OpenAsync(key, 0, TestContext.Current.CancellationToken);
+        await using var rest = await store.OpenAsync(key, 3, TestContext.Current.CancellationToken);
 
         (await ReadAll(whole)).ShouldBe(Content);
         (await ReadAll(rest)).ShouldBe(Content[3..]);
@@ -222,7 +222,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var store = Store();
 
-        await Should.ThrowAsync<AmazonS3Exception>(() => store.OpenAsync("no/such/key", 0, CancellationToken.None));
+        await Should.ThrowAsync<AmazonS3Exception>(() => store.OpenAsync("no/such/key", 0, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -230,13 +230,13 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var store = Store();
 
-        await using var stream = await store.OpenAsync(DbnSyncLayout.Data(Dataset, Mbo, Root, Day(10, 30)), 0, CancellationToken.None);
+        await using var stream = await store.OpenAsync(DbnSyncLayout.Data(Dataset, Mbo, Root, Day(10, 30)), 0, TestContext.Current.CancellationToken);
         var first = new byte[1];
         var second = new byte[1];
         var third = new byte[1];
 
-        (await stream.ReadAsync(first.AsMemory(), CancellationToken.None)).ShouldBe(1);
-        (await stream.ReadAsync(second, 0, 1, CancellationToken.None)).ShouldBe(1);
+        (await stream.ReadAsync(first.AsMemory(), TestContext.Current.CancellationToken)).ShouldBe(1);
+        (await stream.ReadAsync(second, 0, 1, TestContext.Current.CancellationToken)).ShouldBe(1);
         stream.Read(third, 0, 1).ShouldBe(1);
 
         new[] { first[0], second[0], third[0] }.ShouldBe(Content[..3]);
@@ -247,7 +247,7 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var store = Store();
 
-        await using var stream = await store.OpenAsync(DbnSyncLayout.Data(Dataset, Mbo, Root, Day(10, 30)), 0, CancellationToken.None);
+        await using var stream = await store.OpenAsync(DbnSyncLayout.Data(Dataset, Mbo, Root, Day(10, 30)), 0, TestContext.Current.CancellationToken);
 
         stream.CanRead.ShouldBeTrue();
         stream.CanSeek.ShouldBeFalse();
@@ -266,8 +266,8 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
     {
         using var store = Store();
 
-        (await store.FoldersAsync("no-such-folder/", CancellationToken.None).ToListAsync()).ShouldBeEmpty();
-        (await store.ObjectsAsync("no-such-folder/", CancellationToken.None).ToListAsync()).ShouldBeEmpty();
+        (await store.FoldersAsync("no-such-folder/", TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken)).ShouldBeEmpty();
+        (await store.ObjectsAsync("no-such-folder/", TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken)).ShouldBeEmpty();
     }
 
     [Fact]
@@ -282,8 +282,8 @@ public sealed class S3ObjectStoreTests : IAsyncLifetime
             async (i, cancel) => await PutAsync(s3, $"{Folder}{i}/x", []));
         using var store = Store();
 
-        (await store.ObjectsAsync(Folder, CancellationToken.None).ToListAsync()).Count.ShouldBe(MoreThanAPage);
-        (await store.FoldersAsync(Folder, CancellationToken.None).ToListAsync()).Count.ShouldBe(MoreThanAPage);
+        (await store.ObjectsAsync(Folder, TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken)).Count.ShouldBe(MoreThanAPage);
+        (await store.FoldersAsync(Folder, TestContext.Current.CancellationToken).ToListAsync(TestContext.Current.CancellationToken)).Count.ShouldBe(MoreThanAPage);
     }
 
     private S3ObjectStore Store(string bucket = Bucket, string prefix = Prefix) => new(new ArchiveOptions

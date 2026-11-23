@@ -229,8 +229,8 @@ public sealed class CatalogTests : IDisposable
     {
         var catalog = Sample();
 
-        var saved = await catalog.SaveAsync(folder, CancellationToken.None);
-        var loaded = await Catalog.LoadAsync(saved.Value, CancellationToken.None);
+        var saved = await catalog.SaveAsync(folder, TestContext.Current.CancellationToken);
+        var loaded = await Catalog.LoadAsync(saved.Value, TestContext.Current.CancellationToken);
 
         loaded.Value.Root.ShouldBe(TapeFixture.Root);
         loaded.Value.Contracts.ShouldBe(catalog.Contracts);
@@ -241,7 +241,7 @@ public sealed class CatalogTests : IDisposable
     [Fact]
     public async Task AMissingCatalogIsAnIoFailure()
     {
-        var loaded = await Catalog.LoadAsync(Path.Combine(folder, "none.json"), CancellationToken.None);
+        var loaded = await Catalog.LoadAsync(Path.Combine(folder, "none.json"), TestContext.Current.CancellationToken);
 
         loaded.Error!.Code.ShouldBe(TapeErrors.Io);
     }
@@ -253,9 +253,9 @@ public sealed class CatalogTests : IDisposable
 
         var path = Path.Combine(folder, "bad.json");
 
-        await File.WriteAllTextAsync(path, "{");
+        await File.WriteAllTextAsync(path, "{", TestContext.Current.CancellationToken);
 
-        var loaded = await Catalog.LoadAsync(path, CancellationToken.None);
+        var loaded = await Catalog.LoadAsync(path, TestContext.Current.CancellationToken);
 
         loaded.Error!.Code.ShouldBe(TapeErrors.Corrupt);
     }

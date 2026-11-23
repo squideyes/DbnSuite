@@ -30,14 +30,14 @@ public sealed class S3TapeShelfTests(RustFs s3) : IDisposable
     {
         byte[] bytes = [1, 2, 3, 4];
 
-        await File.WriteAllBytesAsync(file, bytes);
+        await File.WriteAllBytesAsync(file, bytes, TestContext.Current.CancellationToken);
 
         using var shelf = Shelf();
 
-        await shelf.EnsureReadyAsync(CancellationToken.None);
-        await shelf.PutFileAsync(Key, file, CancellationToken.None);
+        await shelf.EnsureReadyAsync(TestContext.Current.CancellationToken);
+        await shelf.PutFileAsync(Key, file, TestContext.Current.CancellationToken);
 
-        (await shelf.ReadAsync(Key, CancellationToken.None)).ShouldBe(bytes);
+        (await shelf.ReadAsync(Key, TestContext.Current.CancellationToken)).ShouldBe(bytes);
     }
 
     [Fact]
@@ -45,11 +45,11 @@ public sealed class S3TapeShelfTests(RustFs s3) : IDisposable
     {
         using var shelf = Shelf("desk/tapes");
 
-        await shelf.EnsureReadyAsync(CancellationToken.None);
-        await shelf.PutBytesAsync(LedgerKey, [1], CancellationToken.None);
-        await shelf.PutBytesAsync(LedgerKey, [2], CancellationToken.None);
+        await shelf.EnsureReadyAsync(TestContext.Current.CancellationToken);
+        await shelf.PutBytesAsync(LedgerKey, [1], TestContext.Current.CancellationToken);
+        await shelf.PutBytesAsync(LedgerKey, [2], TestContext.Current.CancellationToken);
 
-        (await shelf.ReadAsync(LedgerKey, CancellationToken.None)).ShouldBe([(byte)2]);
+        (await shelf.ReadAsync(LedgerKey, TestContext.Current.CancellationToken)).ShouldBe([(byte)2]);
     }
 
     [Fact]
@@ -57,9 +57,9 @@ public sealed class S3TapeShelfTests(RustFs s3) : IDisposable
     {
         using var shelf = Shelf();
 
-        await shelf.EnsureReadyAsync(CancellationToken.None);
+        await shelf.EnsureReadyAsync(TestContext.Current.CancellationToken);
 
-        (await shelf.ReadAsync(Key, CancellationToken.None)).ShouldBeNull();
+        (await shelf.ReadAsync(Key, TestContext.Current.CancellationToken)).ShouldBeNull();
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public sealed class S3TapeShelfTests(RustFs s3) : IDisposable
     {
         using var shelf = Shelf();
 
-        await shelf.EnsureReadyAsync(CancellationToken.None);
-        await shelf.EnsureReadyAsync(CancellationToken.None);
+        await shelf.EnsureReadyAsync(TestContext.Current.CancellationToken);
+        await shelf.EnsureReadyAsync(TestContext.Current.CancellationToken);
     }
 }

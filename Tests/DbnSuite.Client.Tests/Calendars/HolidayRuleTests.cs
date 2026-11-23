@@ -227,13 +227,13 @@ public sealed class HolidayRuleTests
     {
         var good = Path.Combine(Path.GetTempPath(), $"dbnsuite-announcements-{Guid.NewGuid():N}.json");
         var bad = Path.Combine(Path.GetTempPath(), $"dbnsuite-announcements-{Guid.NewGuid():N}.json");
-        await File.WriteAllTextAsync(good, """{ "changes": [ { "tradeDate": "2027-03-26", "kind": "earlyClose", "at": "2027-03-26T08:15", "note": "Jobs report" } ] }""", CancellationToken.None);
-        await File.WriteAllTextAsync(bad, """{ "changes": [ { "kind": "closed" } ] }""", CancellationToken.None);
+        await File.WriteAllTextAsync(good, """{ "changes": [ { "tradeDate": "2027-03-26", "kind": "earlyClose", "at": "2027-03-26T08:15", "note": "Jobs report" } ] }""", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(bad, """{ "changes": [ { "kind": "closed" } ] }""", TestContext.Current.CancellationToken);
 
         try
         {
-            var read = await RuleCalendar.LoadAnnouncementsAsync(good, CancellationToken.None);
-            var refused = await RuleCalendar.LoadAnnouncementsAsync(bad, CancellationToken.None);
+            var read = await RuleCalendar.LoadAnnouncementsAsync(good, TestContext.Current.CancellationToken);
+            var refused = await RuleCalendar.LoadAnnouncementsAsync(bad, TestContext.Current.CancellationToken);
 
             read.Error.ShouldBeNull();
             read.Value.Changes.ShouldHaveSingleItem().Note.ShouldBe("Jobs report");

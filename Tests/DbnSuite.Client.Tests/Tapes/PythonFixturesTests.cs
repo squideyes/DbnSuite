@@ -52,7 +52,7 @@ public sealed class PythonFixturesTests
             foreach (var date in TapeDates)
             {
                 var path = TapePaths.For(Tapes, Dataset, kind, Root, date);
-                var loaded = await Tape.LoadAsync(path, CancellationToken.None);
+                var loaded = await Tape.LoadAsync(path, TestContext.Current.CancellationToken);
                 loaded.IsSuccess.ShouldBeTrue(loaded.Error?.Message);
 
                 var json = Decoded(loaded.Value);
@@ -138,7 +138,7 @@ public sealed class PythonFixturesTests
             {
                 var sessions = new List<string>();
 
-                await foreach (var session in stream.RunAsync(sampler, run, CancellationToken.None))
+                await foreach (var session in stream.RunAsync(sampler, run, TestContext.Current.CancellationToken))
                 {
                     session.IsSuccess.ShouldBeTrue(session.Error?.Message);
 
@@ -258,7 +258,7 @@ public sealed class PythonFixturesTests
     {
         writer.Refusal.ShouldBeNull(writer.Refusal?.Message);
 
-        var saved = await writer.SaveAsync(TapePaths.For(Tapes, Dataset, kind, Root, date), CancellationToken.None);
+        var saved = await writer.SaveAsync(TapePaths.For(Tapes, Dataset, kind, Root, date), TestContext.Current.CancellationToken);
 
         saved.IsSuccess.ShouldBeTrue(saved.Error?.Message);
     }

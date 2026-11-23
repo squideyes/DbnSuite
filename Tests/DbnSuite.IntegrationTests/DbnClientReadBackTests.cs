@@ -66,8 +66,8 @@ public sealed class DbnClientReadBackTests(RustFs s3) : IDisposable
         await using var sync = await ArchiveAsync();
         using var archive = Open(sync);
 
-        var layout = await archive.LayoutAsync(CancellationToken.None);
-        var series = (await archive.ListSeriesAsync(CancellationToken.None)).Value;
+        var layout = await archive.LayoutAsync(TestContext.Current.CancellationToken);
+        var series = (await archive.ListSeriesAsync(TestContext.Current.CancellationToken)).Value;
 
         layout.Value.ShouldBe(DbnSyncLayout.Name);
         series.Select(s => s.Schema).ShouldBe([Definition, Mbo, Ohlcv], ignoreOrder: true);
@@ -82,9 +82,9 @@ public sealed class DbnClientReadBackTests(RustFs s3) : IDisposable
         await using var sync = await ArchiveAsync();
         using var archive = Open(sync);
 
-        var path = await archive.FetchAsync(Mbo, Mnq, Monday, null, CancellationToken.None);
+        var path = await archive.FetchAsync(Mbo, Mnq, Monday, null, TestContext.Current.CancellationToken);
 
-        (await File.ReadAllBytesAsync(path.Value)).ShouldBe(
+        (await File.ReadAllBytesAsync(path.Value, TestContext.Current.CancellationToken)).ShouldBe(
             sync.Gateway.Jobs.Single(j => j.Spec.Schema == Mbo).DataFile(Monday).Bytes);
     }
 
@@ -94,8 +94,8 @@ public sealed class DbnClientReadBackTests(RustFs s3) : IDisposable
         await using var sync = await ArchiveAsync();
         using var archive = Open(sync);
 
-        var weekend = await archive.FetchAsync(Mbo, Mnq, Saturday, null, CancellationToken.None);
-        var unfetched = await archive.FetchAsync(Mbo, Mnq, FirstDay.AddDays(-1), null, CancellationToken.None);
+        var weekend = await archive.FetchAsync(Mbo, Mnq, Saturday, null, TestContext.Current.CancellationToken);
+        var unfetched = await archive.FetchAsync(Mbo, Mnq, FirstDay.AddDays(-1), null, TestContext.Current.CancellationToken);
 
         weekend.Error!.Code.ShouldBe(DbnSuite.Client.Errors.NoData);
         unfetched.Error!.Code.ShouldBe(DbnSuite.Client.Errors.NotStored);
@@ -108,9 +108,9 @@ public sealed class DbnClientReadBackTests(RustFs s3) : IDisposable
         using var archive = Open(sync);
         var trades = 0;
 
-        await using var reader = (await archive.OpenAsync(Mbo, Mnq, Monday, CancellationToken.None)).Value;
+        await using var reader = (await archive.OpenAsync(Mbo, Mnq, Monday, TestContext.Current.CancellationToken)).Value;
 
-        await foreach (var record in reader.ReadAsync(CancellationToken.None))
+        await foreach (var record in reader.ReadAsync(TestContext.Current.CancellationToken))
             trades += record is MboRecord { Action: 'T' } ? 1 : 0;
 
         trades.ShouldBe(BatchFactory.TradesPerDay);
@@ -122,7 +122,7 @@ public sealed class DbnClientReadBackTests(RustFs s3) : IDisposable
         await using var sync = await ArchiveAsync();
         using var archive = Open(sync);
 
-        var contracts = (await archive.ContractsAsync(Mnq, null, CancellationToken.None)).Value;
+        var contracts = (await archive.ContractsAsync(Mnq, null, TestContext.Current.CancellationToken)).Value;
 
         contracts.Single(c => c.InstrumentId == BatchFactory.FrontId).Symbol.ShouldBe(BatchFactory.FrontContract(Mnq));
         contracts.Count(c => c.IsSpread).ShouldBe(1);
@@ -134,10 +134,10 @@ public sealed class DbnClientReadBackTests(RustFs s3) : IDisposable
         await using var sync = await ArchiveAsync();
         using var archive = Open(sync);
 
-        var export = await new Exporter(archive).RunAsync(Export(Ohlcv), null, CancellationToken.None);
+        var export = await new Exporter(archive).RunAsync(Export(Ohlcv), null, TestContext.Current.CancellationToken);
 
         export.Value.Rows.ShouldBe(BatchFactory.BarsPerDay * TradingDays.Length);
-        var lines = await File.ReadAllLinesAsync(export.Value.Files.Single());
+        var lines = await File.ReadAllLinesAsync(export.Value.Files.Single(), TestContext.Current.CancellationToken);
         lines[0].ShouldBe("ts_event,symbol,instrument_id,open,high,low,close,volume");
         lines[1].ShouldContain($"{BatchFactory.FrontContract(Mnq)},{BatchFactory.FrontId},{BatchFactory.OpenPrice}");
     }
@@ -148,7 +148,7 @@ public sealed class DbnClientReadBackTests(RustFs s3) : IDisposable
         await using var sync = await ArchiveAsync();
         using var archive = Open(sync);
 
-        var export = await new Exporter(archive).RunAsync(Export(Mbo) with { As = Trades }, null, CancellationToken.None);
+        var export = await new Exporter(archive).RunAsync(Export(Mbo) with { As = Trades }, null, TestContext.Current.CancellationToken);
 
         export.Value.Rows.ShouldBe(BatchFactory.TradesPerDay * TradingDays.Length);
         export.Value.MissingDays.ShouldBe([FirstDay.AddDays(-1)]);
@@ -161,10 +161,10 @@ public sealed class DbnClientReadBackTests(RustFs s3) : IDisposable
         using var archive = Open(sync);
         var request = Export(Ohlcv) with { Format = OutputFormat.Parquet };
 
-        var export = await new Exporter(archive).RunAsync(request, null, CancellationToken.None);
+        var export = await new Exporter(archive).RunAsync(request, null, TestContext.Current.CancellationToken);
 
         await using var file = File.OpenRead(export.Value.Files.Single());
-        await using var reader = await ParquetReader.CreateAsync(file);
+        await using var reader = await ParquetReader.CreateAsync(file, cancellationToken: TestContext.Current.CancellationToken);
         using var group = reader.OpenRowGroupReader(0);
         group.RowCount.ShouldBe(export.Value.Rows);
     }
@@ -175,7 +175,7 @@ public sealed class DbnClientReadBackTests(RustFs s3) : IDisposable
         await using var sync = await ArchiveAsync(Prefix);
         using var archive = Open(sync);
 
-        var days = (await archive.ListDaysAsync(Mbo, Mnq, CancellationToken.None)).Value;
+        var days = (await archive.ListDaysAsync(Mbo, Mnq, TestContext.Current.CancellationToken)).Value;
 
         days.Select(d => d.Day).ShouldBe([FirstDay, Saturday, Sunday, Monday, LastDay]);
         days.Where(d => d.Empty).Select(d => d.Day).ShouldBe([Saturday, Sunday]);

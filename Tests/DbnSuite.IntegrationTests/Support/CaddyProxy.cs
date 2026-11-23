@@ -40,7 +40,7 @@ public sealed class CaddyProxy : IAsyncLifetime
         return new FileInfo(Path.Combine(folder!.FullName, "Deploy", "Caddyfile"));
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await network.CreateAsync();
 
@@ -69,7 +69,7 @@ public sealed class CaddyProxy : IAsyncLifetime
         await proxy.StartAsync();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await proxy.DisposeAsync();
         await worker.DisposeAsync();
