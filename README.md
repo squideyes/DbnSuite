@@ -340,7 +340,8 @@ dbnf export ohlcv-1s ES.v.0 --bars 5m --session rth --since 2026-01-01 --adjust 
   settlement gap at each roll; a roll with no settlement stops an adjusted
   export. `mbo` holds `n.0` and `n.1` only, and keeps raw prices, so `--adjust`
   on an `mbo` series is refused.
-- **Hours:** `--session eth` (default) or `rth`, or your own with
+- **Hours:** `--session eth` (default) or `rth`, the root's
+  [regular hours](https://dbnsuite.squideyes.com/docs/dbntape#rth), or your own with
   `--hours 09:30-16:00 --hours-tz America/New_York`.
 - **Bars:** `--bars` 5s, 1m, 15m, 1h, 1d, 1w or 1mo from `ohlcv-1s`, or
   500t (trades) and 1000v (volume) from `mbo`. Bars count from the session's

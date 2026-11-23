@@ -74,7 +74,8 @@ public static class Sessions
         ["ES"] = Equity, ["MES"] = Equity, ["NQ"] = Equity, ["MNQ"] = Equity,
         ["YM"] = Equity, ["MYM"] = Equity, ["RTY"] = Equity, ["M2K"] = Equity,
         ["CL"] = new(new(8, 0), new(13, 30)), ["MCL"] = new(new(8, 0), new(13, 30)),
-        ["GC"] = new(new(7, 20), new(12, 30)), ["MGC"] = new(new(7, 20), new(12, 30))
+        ["GC"] = new(new(7, 20), new(12, 30)), ["MGC"] = new(new(7, 20), new(12, 30)),
+        ["ZN"] = new(new(7, 20), new(14, 0)), ["6E"] = new(new(7, 20), new(14, 0))
     };
 
     private static Hours Equity => new(new(8, 30), new(15, 0));
