@@ -289,9 +289,16 @@ public sealed class FileToolsTests : IDisposable
         (await run.RefusedAsync("tape_pull", new() { ["root"] = Es, ["kinds"] = new[] { "orders" } })).ShouldStartWith("input.bad_tape_kind");
     }
 
+    /// <summary>
+    /// Waits for notifications, which reach the client on their own and can land after the call's
+    /// result: well within a second here, but busy CI runners have taken several. A notification
+    /// that never comes still fails the test, after 30 seconds.
+    /// </summary>
     private static async Task WaitAsync(Func<bool> done)
     {
-        for (var tries = 0; tries < 100 && !done(); tries++)
+        var until = DateTime.UtcNow.AddSeconds(30);
+
+        while (!done() && DateTime.UtcNow < until)
             await Task.Delay(20);
     }
 
