@@ -17,6 +17,7 @@ and the changelog.
 | `Core/DbnSuite.Fetch` | `dbnf`, the command-line tool | NuGet `DbnSuite.Fetch`, plus native binaries |
 | `Core/DbnSuite.Sync.*` | DbnSync, the archiving worker | `ghcr.io/squideyes/dbnsync-worker` |
 | `Core/DbnSuite.Spool` | DbnSpool, the tape worker | `ghcr.io/squideyes/dbnspool-worker` |
+| `Core/DbnSuite.Alerts` | Alert emails for both workers | Inside both worker images |
 | `Core/DbnSuite.Site` | Blazor WebAssembly site | GitHub Pages, dbnsuite.squideyes.com |
 | `Aspire/AppHost` | Local orchestration | Not shipped |
 | `Deploy` | Self-hosting: RustFS, Seq, Caddy | Compose files |

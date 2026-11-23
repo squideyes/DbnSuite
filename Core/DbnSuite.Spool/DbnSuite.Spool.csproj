@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\DbnSuite.Client\DbnSuite.Client.csproj" />
     <ProjectReference Include="..\..\Aspire\ServiceDefaults\DbnSuite.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\DbnSuite.Alerts\DbnSuite.Alerts.csproj" />
   </ItemGroup>
 
   <ItemGroup>
