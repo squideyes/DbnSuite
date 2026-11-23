@@ -6,12 +6,14 @@ DbnClient and DbnFetch. Breaking changes come first in each
 release. The format follows [Keep a Changelog](https://keepachangelog.com), and
 versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.5.1 (2026-11-23)
 
 ### Changed
 
 - Each package has a README of its own on nuget.org, about that package,
-  in place of the repository's whole README.
+  in place of the repository's whole README. Their descriptions use the
+  DbnSuite.Client and DbnSuite.Fetch names, and DbnSuite.Fetch's mentions
+  its MCP server for AI agents.
 
 ## 0.5.0 (2026-11-22)
 
