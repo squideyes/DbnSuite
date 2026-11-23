@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.CommandLine;
 using System.CommandLine.Parsing;
 using System.IO.Pipelines;
@@ -29,6 +30,13 @@ internal sealed class McpRun : IAsyncDisposable
 
     public StringWriter Error { get; } = new();
 
+    /// <summary>
+    /// Every progress notification the client has received. The SDK stops listening for a call's
+    /// progress once its result arrives, and can hand a notification on after that, so a test
+    /// reads progress here, where nothing is dropped.
+    /// </summary>
+    public ConcurrentQueue<ProgressNotificationValue> Progress { get; } = new();
+
     public McpClient Client => client ?? throw new InvalidOperationException("The server has not started.");
 
     /// <summary>Starts <c>dbnf mcp</c> with <paramref name="options"/>, in <paramref name="dbnf"/>'s home, and connects to it.</summary>
@@ -55,6 +63,14 @@ internal sealed class McpRun : IAsyncDisposable
         run.client = await McpClient.CreateAsync(
             new StreamClientTransport(run.toServer.Writer.AsStream(), run.toClient.Reader.AsStream()),
             cancellationToken: new CancellationTokenSource(Patience).Token);
+
+        run.client.RegisterNotificationHandler(NotificationMethods.ProgressNotification, (notification, _) =>
+        {
+            if (notification.Params.Deserialize<ProgressNotificationParams>(McpJsonUtilities.DefaultOptions) is { } sent)
+                run.Progress.Enqueue(sent.Progress);
+
+            return ValueTask.CompletedTask;
+        });
 
         return run;
     }

@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using DbnSuite.Client.Archive;
 using DbnSuite.Client.Tape;
 using DbnSuite.UnitTests.TapeFormatTests;
@@ -208,15 +207,13 @@ public sealed class FileToolsTests : IDisposable
         dbnf.Archive.AddDefinitions(Day(10, 29));
         await using var run = await StartAsync();
 
-        var steps = new ConcurrentQueue<ProgressNotificationValue>();
-
         await run.CallAsync("pull", new() { ["schemas"] = Definition, ["roots"] = Root, ["from"] = "2026-10-29", ["to"] = Date },
-            new Steps(steps));
+            new Progress<ProgressNotificationValue>());
 
-        await WaitAsync(() => steps.Count == 2);
+        await WaitAsync(() => run.Progress.Count == 2);
 
-        steps.Select(s => s.Progress).Order().ShouldBe([1f, 2f]);
-        steps.ShouldAllBe(s => s.Total == 2);
+        run.Progress.Select(s => s.Progress).Order().ShouldBe([1f, 2f]);
+        run.Progress.ShouldAllBe(s => s.Total == 2);
     }
 
     [Fact]
@@ -290,9 +287,8 @@ public sealed class FileToolsTests : IDisposable
     }
 
     /// <summary>
-    /// Waits for notifications, which reach the client on their own and can land after the call's
-    /// result: well within a second here, but busy CI runners have taken several. A notification
-    /// that never comes still fails the test, after 30 seconds.
+    /// Waits for notifications, which the client hands on by themselves and can after the call's
+    /// result. A notification that never comes still fails the test, after 30 seconds.
     /// </summary>
     private static async Task WaitAsync(Func<bool> done)
     {
@@ -300,11 +296,5 @@ public sealed class FileToolsTests : IDisposable
 
         while (!done() && DateTime.UtcNow < until)
             await Task.Delay(20);
-    }
-
-    /// <summary>Keeps each progress notification as it arrives.</summary>
-    private sealed class Steps(ConcurrentQueue<ProgressNotificationValue> steps) : IProgress<ProgressNotificationValue>
-    {
-        public void Report(ProgressNotificationValue value) => steps.Enqueue(value);
     }
 }
