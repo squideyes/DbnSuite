@@ -53,6 +53,12 @@ public sealed class Session
         init;
     }
 
+    /// <summary>Standard input as bytes, which <c>dbnf mcp</c> reads the protocol from.</summary>
+    public Func<Stream> OpenInput { get; init; } = Console.OpenStandardInput;
+
+    /// <summary>Standard output as bytes, which belongs to the protocol while <c>dbnf mcp</c> serves.</summary>
+    public Func<Stream> OpenOutput { get; init; } = Console.OpenStandardOutput;
+
     /// <summary>The next key pressed, unseen; null when input is piped and nobody can be asked.</summary>
     public Func<ConsoleKeyInfo>? Keyboard { get; init; } =
         Console.IsInputRedirected ? null : () => Console.ReadKey(intercept: true);
@@ -60,13 +66,23 @@ public sealed class Session
     /// <summary>The archive the command line points at: <c>--archive</c>, else the login.</summary>
     public Result<DbnArchive> Open(ParseResult parse)
     {
+        var options = Options(parse);
+
+        return options.IsSuccess ? DbnArchive.Open(options.Value, CacheOf(parse)) : options.Error!;
+    }
+
+    /// <summary>Where this login's raw files are cached: a folder of its own under <c>--cache</c>.</summary>
+    public string CacheOf(ParseResult parse) => Path.Combine(parse.GetValue(Cache)!, parse.GetValue(Profile)!);
+
+    /// <summary>Where the archive the command line points at is, and the key that reads it, ready to open.</summary>
+    public Result<ArchiveOptions> Options(ParseResult parse)
+    {
         var profile = parse.GetValue(Profile)!;
-        var cache = Path.Combine(parse.GetValue(Cache)!, profile);
 
         if (parse.GetValue(Archive) is { } folder)
         {
             return Directory.Exists(folder)
-                ? DbnArchive.Open(new ArchiveOptions { Location = Path.GetFullPath(folder) }, cache)
+                ? new ArchiveOptions { Location = Path.GetFullPath(folder) }
                 : new Error("cli.no_folder", $"There is no folder {Path.GetFullPath(folder)}.");
         }
 
@@ -82,7 +98,7 @@ public sealed class Session
                 : $"No login named {profile}. Run dbnf login --profile {profile} first.");
         }
 
-        return Usable(options, profile) is { } problem ? problem : DbnArchive.Open(options, cache);
+        return Usable(options, profile) is { } problem ? problem : options;
     }
 
     /// <summary>What stops a login being opened, or null: a folder that is gone, or a key with no secret to sign with.</summary>
@@ -119,27 +135,9 @@ public sealed class Session
         {
             return await work(opened).ConfigureAwait(false);
         }
-        catch (ArchiveException e)
+        catch (Exception e) when (ErrorOf(e) is { } error)
         {
-            return await FailAsync(e.Error).ConfigureAwait(false);
-        }
-        catch (InvalidDataException e)
-        {
-            return await FailAsync(new Error(Errors.Corrupt, $"A file is damaged: {e.Message}")).ConfigureAwait(false);
-        }
-        catch (IOException e)
-        {
-            // A connection dropped part way through a file; the next run carries on from there.
-            return await FailAsync(new Error(Errors.Unreachable, $"The transfer stopped: {e.Message}")).ConfigureAwait(false);
-        }
-        catch (UnauthorizedAccessException e)
-        {
-            return await FailAsync(new Error(LocalFile, $"A file or folder on this computer refused: {e.Message}")).ConfigureAwait(false);
-        }
-        catch (Amazon.S3.AmazonS3Exception e)
-        {
-            return await FailAsync(new Error(Errors.Unreachable,
-                $"The archive answered with an error ({(int)e.StatusCode} {e.ErrorCode}): {e.Message}")).ConfigureAwait(false);
+            return await FailAsync(error).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested)
         {
@@ -148,6 +146,20 @@ public sealed class Session
             return Cancelled;
         }
     }
+
+    /// <summary>The expected failure an exception from reading the archive stands for, or null when it is a bug.</summary>
+    internal static Error? ErrorOf(Exception exception) => exception switch
+    {
+        ArchiveException e => e.Error,
+        InvalidDataException e => new Error(Errors.Corrupt, $"A file is damaged: {e.Message}"),
+
+        // A connection dropped part way through a file; the next run carries on from there.
+        IOException e => new Error(Errors.Unreachable, $"The transfer stopped: {e.Message}"),
+        UnauthorizedAccessException e => new Error(LocalFile, $"A file or folder on this computer refused: {e.Message}"),
+        Amazon.S3.AmazonS3Exception e => new Error(Errors.Unreachable,
+            $"The archive answered with an error ({(int)e.StatusCode} {e.ErrorCode}): {e.Message}"),
+        _ => null
+    };
 
     /// <summary>A schema name as DBN spells it, or an error naming the ones there are.</summary>
     public static Result<string> Schema(string text)

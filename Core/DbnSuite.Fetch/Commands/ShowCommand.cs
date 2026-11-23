@@ -25,79 +25,111 @@ public static class ShowCommand
 
         command.SetAction((parse, cancel) => session.RunAsync(parse, async archive =>
         {
-            var spec = SymbolSpec.Parse(parse.GetValue(symbol)!);
+            var request = new ShowRequest(parse.GetValue(schema)!, parse.GetValue(symbol)!, parse.GetValue(day),
+                parse.GetValue(limit), parse.GetValue(zone)!);
 
-            if (!spec.IsSuccess)
-                return await session.FailAsync(spec.Error!).ConfigureAwait(false);
-
-            var tz = Zones.Find(parse.GetValue(zone)!);
-
-            if (!tz.IsSuccess)
-                return await session.FailAsync(tz.Error!).ConfigureAwait(false);
-
-            var checkedSchema = Session.Schema(parse.GetValue(schema)!);
-
-            if (!checkedSchema.IsSuccess)
-                return await session.FailAsync(checkedSchema.Error!).ConfigureAwait(false);
-
-            var name = checkedSchema.Value;
-            var date = parse.GetValue(day);
-            var opened = await archive.OpenAsync(name, spec.Value.Root, date, cancel).ConfigureAwait(false);
-
-            if (!opened.IsSuccess)
-                return await session.FailAsync(opened.Error!).ConfigureAwait(false);
-
-            await using var reader = opened.Value;
-
-            // The definitions name each instrument; without them, the file's own mapping will do.
-            var instruments = await archive.InstrumentsAsync(spec.Value.Root, date, cancel).ConfigureAwait(false);
-
-            if (instruments.Error is { Code: not (Errors.NotStored or Errors.NoData) } unread)
-                return await session.FailAsync(unread).ConfigureAwait(false);
-
-            var contracts = instruments.IsSuccess ? instruments.Value : new Dictionary<uint, Contract>();
-
-            string NameOf(uint id) => contracts.TryGetValue(id, out var c) ? c.Symbol : reader.Metadata.SymbolOf(id);
-
-            var wanted = Filter(spec.Value, reader.Metadata, contracts);
-
-            if (!wanted.IsSuccess)
-                return await session.FailAsync(wanted.Error!).ConfigureAwait(false);
-
-            var metadata = reader.Metadata;
-
-            await session.Out.WriteLineAsync(Text.Invariant(
-                $"{metadata.Dataset} {metadata.Schema}, DBN v{metadata.Version}, {Text.Day(date)} UTC, requested as {string.Join(", ", metadata.Requested)}, times in {tz.Value.Id}")).ConfigureAwait(false);
-            await session.Out.WriteLineAsync().ConfigureAwait(false);
-
-            var max = parse.GetValue(limit);
-            var shown = 0;
-            var matched = 0L;
-            var total = 0L;
-
-            await foreach (var record in reader.ReadAsync(cancel).ConfigureAwait(false))
-            {
-                total++;
-
-                if (!wanted.Value(record.InstrumentId))
-                    continue;
-
-                matched++;
-
-                if (shown < max)
+            var shown = await ReadAsync(archive, request,
+                async heading =>
                 {
-                    await session.Out.WriteLineAsync(RecordText.Format(record, NameOf(record.InstrumentId), tz.Value)).ConfigureAwait(false);
-                    shown++;
-                }
-            }
+                    await session.Out.WriteLineAsync(heading).ConfigureAwait(false);
+                    await session.Out.WriteLineAsync().ConfigureAwait(false);
+                },
+                line => session.Out.WriteLineAsync(line),
+                cancel).ConfigureAwait(false);
+
+            if (!shown.IsSuccess)
+                return await session.FailAsync(shown.Error!).ConfigureAwait(false);
+
+            var s = shown.Value;
 
             await session.Out.WriteLineAsync(Text.Invariant(
-                $"\nShowed {Text.Count(shown)} of {Text.Count(matched)} records for {spec.Value.Text} ({Text.Count(total)} in the file).")).ConfigureAwait(false);
+                $"\nShowed {Text.Count(s.Shown)} of {Text.Count(s.Matched)} records for {s.Symbol} ({Text.Count(s.Total)} in the file).")).ConfigureAwait(false);
 
             return Session.Ok;
         }, cancel));
 
         return command;
+    }
+
+    /// <summary>What to show: a schema's records of a symbol on one UTC day, up to a limit, with times in a zone.</summary>
+    internal sealed record ShowRequest(string Schema, string Symbol, DateOnly Day, int Limit, string Zone);
+
+    /// <summary>How many records were shown, how many matched the symbol, and how many the file holds.</summary>
+    internal sealed record ShowSummary(string Symbol, long Shown, long Matched, long Total);
+
+    /// <summary>
+    /// Reads one day's file, handing <paramref name="heading"/> a line about the file, then
+    /// <paramref name="record"/> a line for each record of the symbol, up to the limit. Every record
+    /// is read, so the summary counts them all.
+    /// </summary>
+    internal static async Task<Result<ShowSummary>> ReadAsync(DbnArchive archive, ShowRequest request,
+        Func<string, Task> heading, Func<string, Task> record, CancellationToken cancel)
+    {
+        var spec = SymbolSpec.Parse(request.Symbol);
+
+        if (!spec.IsSuccess)
+            return spec.Error!;
+
+        var tz = Zones.Find(request.Zone);
+
+        if (!tz.IsSuccess)
+            return tz.Error!;
+
+        var checkedSchema = Session.Schema(request.Schema);
+
+        if (!checkedSchema.IsSuccess)
+            return checkedSchema.Error!;
+
+        var name = checkedSchema.Value;
+        var date = request.Day;
+        var opened = await archive.OpenAsync(name, spec.Value.Root, date, cancel).ConfigureAwait(false);
+
+        if (!opened.IsSuccess)
+            return opened.Error!;
+
+        await using var reader = opened.Value;
+
+        // The definitions name each instrument; without them, the file's own mapping will do.
+        var instruments = await archive.InstrumentsAsync(spec.Value.Root, date, cancel).ConfigureAwait(false);
+
+        if (instruments.Error is { Code: not (Errors.NotStored or Errors.NoData) } unread)
+            return unread;
+
+        var contracts = instruments.IsSuccess ? instruments.Value : new Dictionary<uint, Contract>();
+
+        string NameOf(uint id) => contracts.TryGetValue(id, out var c) ? c.Symbol : reader.Metadata.SymbolOf(id);
+
+        var wanted = Filter(spec.Value, reader.Metadata, contracts);
+
+        if (!wanted.IsSuccess)
+            return wanted.Error!;
+
+        var metadata = reader.Metadata;
+
+        await heading(Text.Invariant(
+            $"{metadata.Dataset} {metadata.Schema}, DBN v{metadata.Version}, {Text.Day(date)} UTC, requested as {string.Join(", ", metadata.Requested)}, times in {tz.Value.Id}")).ConfigureAwait(false);
+
+        var shown = 0;
+        var matched = 0L;
+        var total = 0L;
+
+        await foreach (var next in reader.ReadAsync(cancel).ConfigureAwait(false))
+        {
+            total++;
+
+            if (!wanted.Value(next.InstrumentId))
+                continue;
+
+            matched++;
+
+            if (shown < request.Limit)
+            {
+                await record(RecordText.Format(next, NameOf(next.InstrumentId), tz.Value)).ConfigureAwait(false);
+                shown++;
+            }
+        }
+
+        return new ShowSummary(spec.Value.Text, shown, matched, total);
     }
 
     /// <summary>Which instrument ids the symbol asks for.</summary>

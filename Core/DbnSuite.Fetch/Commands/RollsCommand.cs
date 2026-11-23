@@ -21,13 +21,10 @@ public static class RollsCommand
 
         command.SetAction((parse, cancel) => session.RunAsync(parse, async archive =>
         {
-            var spec = SymbolSpec.Parse(parse.GetValue(symbol)!);
+            var spec = Series(parse.GetValue(symbol)!);
 
             if (!spec.IsSuccess)
                 return await session.FailAsync(spec.Error!).ConfigureAwait(false);
-
-            if (spec.Value.Kind != SymbolKind.Continuous)
-                return await session.FailAsync(new DbnSuite.Client.Error("input.bad_series", $"{spec.Value.Text} is not a continuous name such as ES.v.0.")).ConfigureAwait(false);
 
             var span = range.Resolve(parse);
 
@@ -67,6 +64,19 @@ public static class RollsCommand
         }, cancel));
 
         return command;
+    }
+
+    /// <summary>A continuous name, such as ES.v.0, or an error saying it is not one.</summary>
+    internal static DbnSuite.Client.Result<SymbolSpec> Series(string text)
+    {
+        var spec = SymbolSpec.Parse(text);
+
+        if (!spec.IsSuccess)
+            return spec;
+
+        return spec.Value.Kind == SymbolKind.Continuous
+            ? spec
+            : new DbnSuite.Client.Error("input.bad_series", $"{spec.Value.Text} is not a continuous name such as ES.v.0.");
     }
 
     private static string Price(decimal? price) =>

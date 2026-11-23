@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using DbnSuite.Fetch.Commands;
+using DbnSuite.Fetch.Mcp;
 
 namespace DbnSuite.Fetch;
 
@@ -27,7 +28,8 @@ public static class App
         ExportCommand.Create(session),
         TapeCommand.Create(session),
         RollsCommand.Create(session),
-        CacheCommand.Create(session)
+        CacheCommand.Create(session),
+        McpCommand.Create(session)
     };
 
     /// <summary>

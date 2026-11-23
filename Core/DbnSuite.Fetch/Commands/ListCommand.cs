@@ -1,4 +1,5 @@
 using System.CommandLine;
+using DbnSuite.Client.Archive;
 
 namespace DbnSuite.Fetch.Commands;
 
@@ -22,11 +23,7 @@ public static class ListCommand
             if (!listed.IsSuccess)
                 return await session.FailAsync(listed.Error!).ConfigureAwait(false);
 
-            var series = listed.Value
-                .Where(s => parse.GetValue(schema) is not { } wanted || string.Equals(s.Schema, wanted, StringComparison.OrdinalIgnoreCase))
-                .Where(s => parse.GetValue(root) is not { } wanted || string.Equals(s.Root, wanted, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(s => s.Root, StringComparer.Ordinal).ThenBy(s => s.Schema, StringComparer.Ordinal)
-                .ToList();
+            var series = Select(listed.Value, parse.GetValue(schema), parse.GetValue(root));
 
             if (series.Count == 0)
             {
@@ -52,4 +49,11 @@ public static class ListCommand
 
         return command;
     }
+
+    /// <summary>The series of one schema or one root, or both, by root then schema; every series when neither is given.</summary>
+    internal static List<SeriesSummary> Select(IEnumerable<SeriesSummary> series, string? schema, string? root) =>
+        [.. series
+            .Where(s => schema is null || string.Equals(s.Schema, schema, StringComparison.OrdinalIgnoreCase))
+            .Where(s => root is null || string.Equals(s.Root, root, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(s => s.Root, StringComparer.Ordinal).ThenBy(s => s.Schema, StringComparer.Ordinal)];
 }
