@@ -124,11 +124,22 @@
     <code>tape build</code>, <code>tape pull</code> and DbnSpool also delete any tape an older version left for such a
     date, so a tape folder or store holds only what the rule allows.
 </p>
-<p>
+<p id="rth">
     RTH is a marked stretch of the same file, because <code>status</code> has no RTH event. The hours come from
     <code>Sessions.RegularHours</code> for each root, cut to the session. A root with no regular hours there has no
     marks, and asking for RTH replays nothing.
 </p>
+<div class="table">
+    <table>
+        <thead><tr><th>Roots</th><th>Regular hours, Chicago time</th></tr></thead>
+        <tbody>
+            <tr><td>ES, MES, NQ, MNQ, YM, MYM, RTY, M2K</td><td>08:30 to 15:00</td></tr>
+            <tr><td>CL, MCL</td><td>08:00 to 13:30</td></tr>
+            <tr><td>GC, MGC</td><td>07:20 to 12:30</td></tr>
+            <tr><td>ZN, 6E</td><td>07:20 to 14:00</td></tr>
+        </tbody>
+    </table>
+</div>
 <div class="table">
     <table>
         <thead><tr><th>Window</th><th>What it does</th></tr></thead>

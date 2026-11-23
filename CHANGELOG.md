@@ -6,6 +6,13 @@ DbnClient and DbnFetch. Breaking changes come first in each
 release. The format follows [Keep a Changelog](https://keepachangelog.com), and
 versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+
+- **Regular hours for ZN and 6E**, 07:20 to 14:00 Chicago time, so
+  `--session rth`, `Window.Rth` and their tapes' RTH marks work for them.
+
 ## 0.5.1 (2026-11-23)
 
 ### Changed

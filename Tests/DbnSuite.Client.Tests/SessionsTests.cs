@@ -8,6 +8,9 @@ public sealed class SessionsTests
 {
     private const string Es = "ES";
 
+    /// <summary>A root with no regular hours of its own.</summary>
+    private const string NoHours = "ZZ";
+
     /// <summary>A DBN time from a Chicago wall-clock time.</summary>
     private static ulong Chicago(int month, int day, int hour, int minute)
     {
@@ -70,7 +73,7 @@ public sealed class SessionsTests
     [Fact]
     public void A_root_without_regular_hours_must_be_given_some()
     {
-        SessionFilter.Create(new DateSpan(Day(10, 28), Day(10, 28)), SessionKind.Rth, "ZN").IsSuccess.ShouldBeFalse();
+        SessionFilter.Create(new DateSpan(Day(10, 28), Day(10, 28)), SessionKind.Rth, NoHours).IsSuccess.ShouldBeFalse();
     }
 
     [Theory]
@@ -124,6 +127,8 @@ public sealed class SessionsTests
     [InlineData("MCL", 8, 0, 13, 30)]
     [InlineData("GC", 7, 20, 12, 30)]
     [InlineData("MGC", 7, 20, 12, 30)]
+    [InlineData("ZN", 7, 20, 14, 0)]
+    [InlineData("6E", 7, 20, 14, 0)]
     public void Each_root_has_its_own_regular_hours(string root, int startHour, int startMinute, int endHour, int endMinute)
     {
         Sessions.RegularHours(root).ShouldBe(new Hours(new TimeOnly(startHour, startMinute), new TimeOnly(endHour, endMinute)));
@@ -132,16 +137,16 @@ public sealed class SessionsTests
     [Fact]
     public void A_root_without_regular_hours_has_none()
     {
-        Sessions.RegularHours("ZN").ShouldBeNull();
+        Sessions.RegularHours(NoHours).ShouldBeNull();
     }
 
     [Fact]
     public void The_error_for_a_root_without_regular_hours_names_it()
     {
-        var error = SessionFilter.Create(new DateSpan(Day(10, 28), Day(10, 28)), SessionKind.Rth, "ZN").Error!;
+        var error = SessionFilter.Create(new DateSpan(Day(10, 28), Day(10, 28)), SessionKind.Rth, NoHours).Error!;
 
         error.Code.ShouldBe("input.no_rth");
-        error.Message.ShouldContain("ZN");
+        error.Message.ShouldContain(NoHours);
     }
 
     [Fact]
