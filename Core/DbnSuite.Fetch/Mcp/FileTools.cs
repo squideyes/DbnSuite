@@ -5,6 +5,7 @@ using DbnSuite.Client.Export;
 using DbnSuite.Client.Time;
 using DbnSuite.Fetch.Commands;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace DbnSuite.Fetch.Mcp;
@@ -53,9 +54,10 @@ internal sealed class FileTools(ToolHost host)
         [Description("For a root: false leaves out spreads.")] bool spreads = true,
         [Description(DryRun)] bool dry_run = false,
         [Description(Confirm)] bool confirm = false,
-        IProgress<ProgressNotificationValue>? progress = null,
+        RequestContext<CallToolRequestParams>? call = null,
         CancellationToken cancel = default)
     {
+        var progress = ToolProgress.Of(call);
         var output = Folder(folder);
 
         var request = ExportCommand.Request(new ExportCommand.ExportChoices
@@ -85,7 +87,7 @@ internal sealed class FileTools(ToolHost host)
 
         var r = request.Value;
 
-        return await host.RunAsync<ExportResult>(async archive =>
+        var result = await host.RunAsync<ExportResult>(async archive =>
         {
             var days = await archive.ListDaysAsync(r.Schema, r.Symbol.Root, cancel).ConfigureAwait(false);
 
@@ -113,6 +115,10 @@ internal sealed class FileTools(ToolHost host)
             return new ExportResult(output, false, sourceBytes, sources.Count, exported.Value.Rows, files.Sum(f => f.Bytes),
                 files, exported.Value.MissingDays);
         }).ConfigureAwait(false);
+
+        await ToolProgress.SentAsync(progress).ConfigureAwait(false);
+
+        return result;
     }
 
     [McpServerTool(Name = "pull", Destructive = false, UseStructuredContent = true)]
@@ -128,16 +134,17 @@ internal sealed class FileTools(ToolHost host)
         [Description("Also write the archive's .empty markers for days with no data, so the folder can be read as an archive.")] bool markers = false,
         [Description(DryRun)] bool dry_run = false,
         [Description(Confirm)] bool confirm = false,
-        IProgress<ProgressNotificationValue>? progress = null,
+        RequestContext<CallToolRequestParams>? call = null,
         CancellationToken cancel = default)
     {
+        var progress = ToolProgress.Of(call);
         var output = Folder(folder);
         var span = Range(from, to);
 
         if (!span.IsSuccess)
             throw host.Refuse(span.Error!);
 
-        return await host.RunAsync<PullResult>(async archive =>
+        var result = await host.RunAsync<PullResult>(async archive =>
         {
             var target = new LocalCache(output);
             var planned = await PullCommand.PlanAsync(archive, schemas, roots, span.Value, target, false, cancel).ConfigureAwait(false);
@@ -173,6 +180,10 @@ internal sealed class FileTools(ToolHost host)
 
             return new PullResult(output, false, plan.Wanted.Count, plan.Already, plan.Fetch.Count, plan.Empty.Count, plan.Bytes, paths);
         }).ConfigureAwait(false);
+
+        await ToolProgress.SentAsync(progress).ConfigureAwait(false);
+
+        return result;
     }
 
     [McpServerTool(Name = "tape_pull", Destructive = false, UseStructuredContent = true)]
@@ -189,9 +200,10 @@ internal sealed class FileTools(ToolHost host)
         [Description(Subfolder)] string? folder = null,
         [Description(DryRun)] bool dry_run = false,
         [Description(Confirm)] bool confirm = false,
-        IProgress<ProgressNotificationValue>? progress = null,
+        RequestContext<CallToolRequestParams>? call = null,
         CancellationToken cancel = default)
     {
+        var progress = ToolProgress.Of(call);
         var output = Folder(folder);
         var name = root.Trim().ToUpperInvariant();
         var wanted = kinds is { Length: > 0 } named ? named.Select(k => k.Trim().ToLowerInvariant()).ToArray() : TapePullCommand.Kinds;
@@ -199,7 +211,7 @@ internal sealed class FileTools(ToolHost host)
         if (wanted.FirstOrDefault(k => !TapePullCommand.Kinds.Contains(k)) is { } bad)
             throw host.Refuse(new Error("input.bad_tape_kind", $"\"{bad}\" is not a kind. A kind is s1, trade or l1."));
 
-        return await host.RunAsync<TapePullResult>(async archive =>
+        var result = await host.RunAsync<TapePullResult>(async archive =>
         {
             var planned = await TapePullCommand.PlanAsync(archive, name, output, from, to, wanted, cancel).ConfigureAwait(false);
 
@@ -221,6 +233,10 @@ internal sealed class FileTools(ToolHost host)
 
             return new TapePullResult(output, false, plan.CatalogCopied, plan.Copy.Count, plan.Skipped, plan.Bytes, paths);
         }).ConfigureAwait(false);
+
+        await ToolProgress.SentAsync(progress).ConfigureAwait(false);
+
+        return result;
     }
 
     /// <summary>The folder a tool writes into, made if need be; a path that would leave <c>--out</c> is refused.</summary>

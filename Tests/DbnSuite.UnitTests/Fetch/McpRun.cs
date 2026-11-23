@@ -22,7 +22,9 @@ internal sealed class McpRun : IAsyncDisposable
     private readonly Pipe toClient = new();
     private readonly CancellationTokenSource stop = new();
     private Task<int> exit = Task.FromResult(0);
+    private readonly List<IAsyncDisposable> listeners = [];
     private McpClient? client;
+    private int calls;
 
     /// <summary>What dbnf wrote to its text output, which must stay empty: standard output belongs to the protocol.</summary>
     public StringWriter Out { get; } = new();
@@ -93,9 +95,37 @@ internal sealed class McpRun : IAsyncDisposable
     }
 
     /// <summary>Calls a tool and returns the whole result, as a client receives it.</summary>
-    public Task<CallToolResult> RawAsync(string tool, Dictionary<string, object?>? arguments = null,
-        IProgress<ProgressNotificationValue>? progress = null) =>
-        Client.CallToolAsync(tool, arguments ?? [], progress, cancellationToken: new CancellationTokenSource(Patience).Token).AsTask();
+    public async Task<CallToolResult> RawAsync(string tool, Dictionary<string, object?>? arguments = null,
+        IProgress<ProgressNotificationValue>? progress = null)
+    {
+        var options = new RequestOptions();
+
+        if (progress is not null)
+            options.ProgressToken = Listen(progress);
+
+        return await Client.CallToolAsync(tool, arguments ?? [], null, options, new CancellationTokenSource(Patience).Token);
+    }
+
+    /// <summary>
+    /// Reports a call's progress to <paramref name="progress"/> until the run ends. The SDK's client handles each message
+    /// on a task of its own and stops listening once a call has its result, so it can drop progress the server sent
+    /// before that result. Listening for the whole run sees everything the server sent, as a client reading in order does.
+    /// </summary>
+    private ProgressToken Listen(IProgress<ProgressNotificationValue> progress)
+    {
+        var token = new ProgressToken($"call-{Interlocked.Increment(ref calls)}");
+
+        listeners.Add(Client.RegisterNotificationHandler(NotificationMethods.ProgressNotification, (notification, _) =>
+        {
+            if (notification.Params.Deserialize<ProgressNotificationParams>(McpJsonUtilities.DefaultOptions) is { } sent
+                && sent.ProgressToken == token)
+                progress.Report(sent.Progress);
+
+            return ValueTask.CompletedTask;
+        }));
+
+        return token;
+    }
 
     public static string TextOf(CallToolResult result) =>
         string.Join("\n", result.Content.OfType<TextContentBlock>().Select(c => c.Text));
@@ -103,6 +133,11 @@ internal sealed class McpRun : IAsyncDisposable
     /// <summary>The client goes away, as Claude Code does at the end of a session; dbnf then exits on its own.</summary>
     public async Task<int> StopAsync()
     {
+        foreach (var listener in listeners)
+            await listener.DisposeAsync();
+
+        listeners.Clear();
+
         if (client is not null)
             await client.DisposeAsync();
 
