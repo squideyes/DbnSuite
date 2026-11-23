@@ -27,7 +27,7 @@
         <tbody>
             <tr><td><strong>Endpoint</strong></td><td><code>http://&lt;server&gt;:9000</code> on your network, or your HTTPS name from outside (<a href="docs/dbnsync#internet">how</a>)</td></tr>
             <tr><td><strong>Bucket</strong></td><td><code>dbn</code></td></tr>
-            <tr><td><strong>Region</strong></td><td><code>us-east-1</code>; RustFS ignores it, but clients want one</td></tr>
+            <tr><td><strong>Region</strong></td><td><code>us-east-1</code>, RustFS's own. Set it in your client; some otherwise take it from <code>AWS_REGION</code></td></tr>
             <tr><td><strong>Addressing</strong></td><td>Path-style</td></tr>
             <tr><td><strong>Key</strong></td><td>A read-only key for the bucket (<a href="docs/dbnsync#keys">how to make one</a>)</td></tr>
         </tbody>
@@ -39,7 +39,7 @@
 <ul>
     <li>Keys follow <code>GLBX.MDP3/{schema}/{root}/{yyyy}/{root}.{schema}.{yyyyMMdd}.dbn.zst</code>, one per UTC day.</li>
     <li><code>.empty</code> objects mark days that were asked for and had no data. Skip them when downloading.</li>
-    <li><code>_dbnsync/</code> holds the worker's own records of jobs and passes. Readers can ignore it.</li>
+    <li><code>_dbnsync/</code> holds the worker's own records of jobs, passes and spending. Readers can ignore it.</li>
 </ul>
 
 <h2 id="files">What is in a file</h2>
@@ -48,7 +48,7 @@
     zstd-compressed <a href="@Links.DbnFormat">DBN</a>, version 3.
 </p>
 <ul>
-    <li><strong>The metadata block</strong> says what was requested (<code>MNQ.n.0</code>, <code>MNQ.n.1</code> and, in files from November 2026, <code>MNQ.v.0</code> for <code>mbo</code>; <code>MNQ.FUT</code> for the rest) and maps each instrument id in the file back to it. Records name instruments only by id.</li>
+    <li><strong>The metadata block</strong> says what was requested (<code>MNQ.n.0</code>, <code>MNQ.n.1</code> and, in files from November 2026, <code>MNQ.v.0</code> for <code>mbo</code>, <code>mbp-1</code>, <code>mbp-10</code>, <code>tbbo</code> and <code>bbo-*</code>; <code>MNQ.FUT</code> for the rest) and maps each instrument id in the file back to it. Records name instruments only by id.</li>
     <li><strong><code>mbo</code></strong> holds only the two leading outrights. Which contract <code>MNQ.n.0</code> is changes at each roll; the mapping in each day's file says which it was that day, and that day's <code>definition</code> file names it.</li>
     <li><strong>Prices</strong> are integers in units of 1e-9, and <strong>times</strong> nanoseconds since the UNIX epoch, UTC. DBN readers convert both.</li>
 </ul>
@@ -61,7 +61,7 @@
 <p>With <code>boto3</code> and Databento's own <code>databento</code> package, which reads DBN into a pandas DataFrame:</p>
 <CodeBlock Title="Python" Text="@Python" />
 <p>
-    <strong>The Python client</strong>, in <a href="@Links.PythonClient">Clients/python</a>, wraps that in the
+    <strong>The <a href="docs/python">Python client</a></strong> wraps that in the
     <a href="docs/layout">layout</a>'s rules, so a day never fetched is never taken for a day without trading. It
     also reads DbnTape tapes and deals Monte Carlo sessions exactly as C# does. It is contributed and
     <strong>largely untested</strong>: its tests check it against C# on synthetic data, but nobody has yet used it
@@ -78,7 +78,7 @@
 <CodeBlock Title="~/.config/rclone/rclone.conf" Text="@Rclone" />
 <CodeBlock Title="Any terminal" Text="@RcloneSync" />
 
-<div class="next"><a href="docs/dbnclient">← DbnSuite.Client</a><a href="docs/layout">Data layout →</a></div>
+<div class="next"><a href="docs/python">← Python client</a><a href="docs/layout">Data layout →</a></div>
 
 @code {
     private const string Layout = """

@@ -12,7 +12,8 @@
                 DbnSuite.Client turn that archive into bars, rebuilt order books and, for futures, back-adjusted continuous
                 series, for your research, your backtests and trading platforms such as NinjaTrader, MetaTrader and
                 TradeStation. DbnTape packs futures into compact tapes for fast, exact backtests, and the optional
-                DbnSpool keeps those tapes up to date.
+                DbnSpool keeps those tapes up to date. A contributed, largely untested Python client reads the archive
+                and tapes from Python.
             </p>
             <div class="actions">
                 <a class="button" href="docs">Read the docs</a>
@@ -63,7 +64,7 @@
     <h2>Datasets</h2>
     <p class="lead">
         DbnSuite is built for Databento's whole corpus. Each dataset is described by a profile, archived by DbnSync,
-        laid out by the same rules and read by DbnSuite.Fetch and DbnSuite.Client. A verified profile is run by the maintainer every
+        laid out by the same rules and read by DbnSuite.Fetch, DbnSuite.Client and the Python client. A verified profile is run by the maintainer every
         day; a contributed one is run by whoever subscribes to that dataset.
     </p>
     <div class="table">
@@ -86,6 +87,7 @@
         <li><strong>A Databento subscription</strong>One whose plan includes the historical data you want, from a supported dataset. By default DbnSync asks only for what that plan covers at no extra charge.</li>
         <li><strong>Somewhere to run Docker</strong>A small cloud server such as a DigitalOcean Droplet, a NAS or a home server for DbnSync, with S3 storage.</li>
         <li><strong>The .NET 11 SDK</strong>For DbnSuite.Fetch and DbnSuite.Client, on Windows, macOS or Linux. The standalone dbnf binaries need nothing.</li>
+        <li><strong>Python 3.10 or later</strong>Only for the contributed Python client, installed from a clone until it's on PyPI.</li>
     </ul>
 </section>
 
@@ -125,7 +127,7 @@
                 new("Any S3 store", "Ships with RustFS in its Docker Compose file, and works the same with MinIO, Garage, SeaweedFS or DigitalOcean Spaces. One object per root, schema and day, in a plain layout."),
                 new("A dashboard that explains itself", "Coverage of every root and schema, every day of a series at a glance, an ETA for the backfill, and each warning explained: what it means, what DbnSync does about it, and whether it needs you."),
             ]),
-        new("dbnfetch", "Command line", "DbnFetch",
+        new("dbnfetch", "Command line", "DbnSuite.Fetch",
             "The dbnf command: browse the archive, download raw files and export research-ready data.",
             "The dbnf command reads a DbnSync archive, or any folder of DBN files, and writes the data your research tools want.",
             [
@@ -137,9 +139,9 @@
                 new("Order books rebuilt from MBO", "trades, tbbo, mbp-1, mbp-10, bbo-1s and bbo-1m, built from the full order book. The rebuilt book is never crossed during trading, and its trades add up to the archive's own volume."),
                 new("Formats your tools read", "CSV, Parquet, JSON Lines and DBN for research stacks and trading platforms alike, NinjaTrader 8's own import format, gzip or zstd compression, and partitioned folders that DuckDB and Polars read as one table."),
                 new("Your columns, your units", "Pick the columns and their order, prices as decimals, ticks or Databento's integers, and times as ISO, UNIX or Excel, in one column or two."),
-                new("Native on every desktop", "A native binary for Windows (x64 and ARM64), macOS on Apple silicon and Linux x64 that starts instantly. Your key's secret is encrypted on Windows and private to you elsewhere."),
+                new("Ask from an AI agent", "dbnf mcp is an MCP server, so Claude or any other agent that speaks MCP can answer questions about your archive. Market data never leaves your machine unless you start it with --allow-data."),                new("Native on every desktop", "A native binary for Windows, macOS and Linux, each on x64 and ARM64, that starts instantly. Your key's secret is kept encrypted on Windows, in the Keychain on macOS and in your keyring on Linux, or in a file only you can read where there is none."),
             ]),
-        new("dbnclient", "C# library", "DbnClient",
+        new("dbnclient", "C# library", "DbnSuite.Client",
             "The engine under dbnf, as a NuGet package for your own .NET systems.",
             "Everything dbnf does, as a library for your own C# research tools, services and trading systems.",
             [
@@ -147,8 +149,19 @@
                 new("A typed DBN reader", "Streams DBN version 3 records as C# records through IAsyncEnumerable: order book events, bars, definitions, statistics and status, with prices as decimals."),
                 new("Market building blocks", "Instruments from definitions, sessions and trading days, an order book and a bar builder, and for futures, contracts and roll schedules, each usable on its own."),
                 new("The whole exporter", "One ExportRequest does whatever dbnf export does: bars, continuous series, rebuilt books, every format."),
-                new("Lean and AOT-ready", "Native AOT compatible, with only the AWS S3 SDK and a zstd library as dependencies. Parquet is written by its own code."),
+                new("Lean and AOT-ready", "Native AOT compatible, with only the AWS S3 SDK and System.IO.Hashing as dependencies; zstd comes with .NET. Parquet is written by its own code."),
                 new("Errors you can branch on", "Expected failures, such as a day never stored or a key refused, come back as results with stable codes rather than exceptions."),
+            ]),
+        new("python", "Python library", "Python client",
+            "Read the archive and tapes from Python. Contributed and largely untested: Python users wanted.",
+            "A contributed Python package, dbnsuite, for research in numpy and pandas. It's new and largely untested, so it needs Python users to adopt it, try it on real data and say what's wrong.",
+            [
+                new("Archive access", "List what an archive in S3 or a folder holds, find the days never fetched, and open a day with Databento's own databento package, through a local cache."),
+                new("The layout's rules", "A day never fetched is never taken for a day without trading, just as in C#."),
+                new("Tapes in numpy", "S1, Trade and L1 tapes load into numpy structured arrays or pandas DataFrames, with their checksums checked."),
+                new("The same Monte Carlo runs", "Sessions are dealt with the same seeded shuffle as C# and stitched with the same offsets, so a seed gives the same run in both languages."),
+                new("Checked against C#", "Its fixtures are written by the C# tests, so a change on either side that breaks the other fails the build."),
+                new("One engine for the hard parts", "Order books, bars and back-adjustment stay in C#: run dbnf export and read its Parquet, so every language gets the same numbers."),
             ]),
         new("dbntape", "Backtest tapes", "DbnTape",
             "Compact tapes of each trade date, for its most traded contract, for fast and exact backtests.",

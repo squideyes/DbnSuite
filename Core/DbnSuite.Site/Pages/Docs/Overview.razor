@@ -4,7 +4,7 @@
 
 <h1>Documentation</h1>
 <p class="lead">
-    DbnSuite is five tools around one archive. DbnSync fills it; DbnSuite.Fetch and DbnSuite.Client read it; DbnTape turns it into
+    DbnSuite is a set of tools around one archive. DbnSync fills it; DbnSuite.Fetch, DbnSuite.Client and the Python client read it; DbnTape turns it into
     compact tapes for backtesting; and the optional DbnSpool keeps those tapes up to date in a second store. You can
     run all of them, or only the readers against an archive your team keeps under the same Databento® licence.
 </p>
@@ -25,9 +25,10 @@
         and reads DBN can use it, without DbnSync running. See <a href="docs/archive">The archive</a>.
     </li>
     <li>
-        <strong>DbnSuite.Fetch and DbnSuite.Client read it.</strong>
+        <strong>DbnSuite.Fetch, DbnSuite.Client and the Python client read it.</strong>
         Each person gets a read-only key. <code>dbnf</code> lists the archive, downloads raw files and exports
-        processed data; DbnSuite.Client does the same from your own C#.
+        processed data; DbnSuite.Client does the same from your own C#. The Python client, contributed and largely
+        untested, lists and fetches days and reads tapes from Python.
     </li>
     <li>
         <strong>DbnTape makes backtest tapes, and DbnSpool keeps them current.</strong>
@@ -47,7 +48,8 @@
             <tr><td>Read the archive from your own .NET code</td><td><a href="docs/dbnclient">DbnSuite.Client</a>: the library, with examples</td></tr>
             <tr><td>Backtest CME futures from compact files</td><td><a href="docs/dbntape">DbnTape</a>: build, replay and prove tapes</td></tr>
             <tr><td>Keep tapes up to date in a cloud store</td><td><a href="docs/dbnspool">DbnSpool</a>: an optional worker most people won't need</td></tr>
-            <tr><td>Read the archive from Python, the AWS CLI or anything else</td><td><a href="docs/archive">The archive</a>: layout, file format and other clients, including a <a href="@Links.PythonClient">Python client</a> that is contributed and largely untested, and needs Python users to adopt and review it. Clients in other languages are a <a href="@Links.Contributing">welcome contribution</a>.</td></tr>
+            <tr><td>Read the archive or tapes from Python</td><td><a href="docs/python">Python client</a>: contributed and largely untested, and needs Python users to adopt and review it</td></tr>
+            <tr><td>Read the archive from the AWS CLI, rclone or anything else</td><td><a href="docs/archive">The archive</a>: layout, file format and other clients. Clients in other languages are a <a href="@Links.Contributing">welcome contribution</a>.</td></tr>
         </tbody>
     </table>
 </div>
@@ -60,6 +62,7 @@
             <tr><td>DbnSync</td><td>A Databento subscription that includes historical data from a <a href="docs#datasets">supported dataset</a>; Docker with Compose v2; disk for the archive (about 90 GB to start with the defaults, growing about 750 GB a year).</td></tr>
             <tr><td>DbnSuite.Fetch</td><td>The <a href="@Links.DotNet">.NET 11 SDK</a> on Windows, macOS or Linux, or a standalone binary from <a href="@Links.Releases">Releases</a>; a read-only key to an archive.</td></tr>
             <tr><td>DbnSuite.Client</td><td>A .NET 11 project.</td></tr>
+            <tr><td>Python client</td><td>Python 3.10 or later, and a clone of the repository until it's on PyPI.</td></tr>
         </tbody>
     </table>
 </div>
@@ -84,7 +87,7 @@
     <li><strong>Data:</strong> processed files (bars, back-adjusted series, rebuilt order books) come from code that can be wrong. Check them against your own expectations before you research, trade or report on them.</li>
     <li><strong>Licensing:</strong> Databento's terms apply to every file DbnSync stores. Sharing an archive with anyone your Databento licence doesn't cover may breach it; that is between you and Databento.</li>
     <li><strong>Security:</strong> the archive, its keys and anything you expose to the internet are yours to secure. Follow <a href="docs/dbnsync#keys">Keys</a> and <a href="docs/dbnsync#internet">Reaching it from the internet</a>.</li>
-    <li><strong>Libraries:</strong> if you build DbnSuite.Client into your own software, you adopt it at your own risk, and its behaviour may change between versions.</li>
+    <li><strong>Libraries:</strong> if you build DbnSuite.Client or the Python client into your own software, you adopt it at your own risk, and its behaviour may change between versions. The Python client's API is expected to change.</li>
 </ul>
 
 <h2 id="terms">Terms used here</h2>

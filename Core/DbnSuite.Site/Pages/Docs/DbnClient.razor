@@ -59,7 +59,7 @@
         <thead><tr><th>Record</th><th>Schemas</th></tr></thead>
         <tbody>
             <tr><td><code>MboRecord</code></td><td><code>mbo</code>: an order added, modified, cancelled, filled or traded. <code>Action</code> is <code>A</code>, <code>M</code>, <code>C</code>, <code>F</code>, <code>T</code> or <code>R</code> (clear).</td></tr>
-            <tr><td><code>OhlcvRecord</code></td><td><code>ohlcv-1s</code>, <code>-1m</code>, <code>-1h</code>, <code>-1d</code></td></tr>
+            <tr><td><code>OhlcvRecord</code></td><td><code>ohlcv-1s</code>, <code>-1m</code>, <code>-1h</code>, <code>-1d</code>, <code>-eod</code></td></tr>
             <tr><td><code>DefinitionRecord</code></td><td><code>definition</code>: symbol, expiry, tick size and the rest.</td></tr>
             <tr><td><code>StatRecord</code></td><td><code>statistics</code>: settlement, open interest, session high and low, and more.</td></tr>
             <tr><td><code>StatusRecord</code></td><td><code>status</code>: trading halts, pre-open, open and close.</td></tr>
@@ -133,7 +133,8 @@
     and <code>Exporter.RunAsync</code>. Only the reader itself throws: if the damage is further in than
     <code>OpenAsync</code> looked, <code>reader.ReadAsync</code> throws <code>ArchiveException</code>, whose
     <code>Error</code> is the same one. A <code>DbnReader</code> you open on a stream of your own throws
-    <code>InvalidDataException</code>.
+    <code>InvalidDataException</code>. Tape cursors throw <code>InvalidDataException</code> on a body the hash didn't
+    cover, as after an RTH-only load or one with <code>verifyHash</code> false.
 </p>
 <CodeBlock Title="C#" Text="@Errors" />
 <div class="table">
@@ -147,7 +148,9 @@
             <tr><td><code>UnknownLayout</code></td><td><code>archive.unknown_layout</code></td><td>The files are in a layout this version doesn't know.</td></tr>
             <tr><td><code>Corrupt</code></td><td><code>archive.corrupt</code></td><td>A day's file is damaged. The message names it and says what to do.</td></tr>
             <tr><td><code>NoSettlement</code></td><td><code>export.no_settlement</code></td><td>An adjusted export crosses a roll with no gap or ratio. The message names the roll and its contracts.</td></tr>
+            <tr><td><code>NoTickSize</code></td><td><code>export.no_tick_size</code></td><td>Prices were asked for in ticks, and an instrument's tick size isn't known.</td></tr>
             <tr><td><code>BadSymbol</code></td><td><code>input.bad_symbol</code></td><td>Not a root, a contract or a continuous name.</td></tr>
+            <tr><td><code>UnsupportedDataset</code></td><td><code>input.unsupported_dataset</code></td><td>The archive's dataset has no trading day this version knows, so it can't be exported or rolled.</td></tr>
         </tbody>
     </table>
 </div>
@@ -157,17 +160,18 @@
     <table>
         <tbody>
             <tr><td><code>DbnSuite.Client</code></td><td><code>Result&lt;T&gt;</code>, <code>Error</code>, <code>Errors</code></td></tr>
-            <tr><td><code>DbnSuite.Client.Archive</code></td><td><code>DbnArchive</code>, <code>ArchiveOptions</code>, the S3 and folder stores, <code>LocalCache</code></td></tr>
-            <tr><td><code>DbnSuite.Client.Dbn</code></td><td><code>DbnReader</code>, the records, <code>DbnPrice</code>, <code>DbnTime</code></td></tr>
-            <tr><td><code>DbnSuite.Client.Contracts</code></td><td><code>Contract</code>, <code>SymbolSpec</code>, <code>RollSchedule</code>, <code>Adjustment</code></td></tr>
-            <tr><td><code>DbnSuite.Client.Time</code></td><td><code>DateSpan</code>, <code>Sessions</code>, <code>SessionFilter</code>, <code>Zones</code></td></tr>
+            <tr><td><code>DbnSuite.Client.Archive</code></td><td><code>DbnArchive</code>, <code>ArchiveOptions</code>, <code>IObjectStore</code> and the S3 and folder stores, <code>LocalCache</code>, <code>DbnSyncLayout</code>, <code>StoredDay</code>, <code>SeriesSummary</code>, <code>ArchiveException</code></td></tr>
+            <tr><td><code>DbnSuite.Client.Dbn</code></td><td><code>DbnReader</code>, <code>DbnMetadata</code>, the records, <code>DbnPrice</code>, <code>DbnTime</code></td></tr>
+            <tr><td><code>DbnSuite.Client.Contracts</code></td><td><code>Contract</code>, <code>ContractSymbol</code>, <code>SymbolSpec</code>, <code>RollSchedule</code>, <code>Roll</code>, <code>CalendarRule</code>, <code>RollAnchor</code>, <code>Adjustment</code></td></tr>
+            <tr><td><code>DbnSuite.Client.Time</code></td><td><code>DateSpan</code>, <code>Sessions</code>, <code>SessionFilter</code>, <code>SessionKind</code>, <code>Hours</code>, <code>Zones</code></td></tr>
+            <tr><td><code>DbnSuite.Client.Calendars</code></td><td><code>RuleCalendar</code> (holiday and early-close rules, such as <code>RuleCalendar.CmeUsEquityIndex</code>), <code>CalendarErrors</code></td></tr>
             <tr><td><code>DbnSuite.Client.Export</code></td><td><code>Exporter</code>, <code>ExportRequest</code>, <code>BarSpec</code>, <code>BarBuilder</code>, <code>OrderBook</code>, <code>MboTransform</code></td></tr>
-            <tr><td><code>DbnSuite.Client.Tape</code></td><td><code>Tape</code>, the cursors, <code>Window</code>, <code>Catalog</code>, <code>TapeBuilder</code>, <code>SessionSampler</code>, <code>SessionStream</code>, <code>TapeProof</code></td></tr>
+            <tr><td><code>DbnSuite.Client.Tape</code></td><td><code>Tape</code>, <code>TapeHeader</code>, the cursors, <code>Window</code>, <code>Catalog</code>, <code>TapeBuilder</code>, the writers (<code>S1Writer</code>, <code>TradeWriter</code>, <code>L1Writer</code>), <code>TapePaths</code>, <code>SessionCalendar</code>, <code>SessionSampler</code>, <code>SessionStream</code>, <code>TapeProof</code>, <code>TapeErrors</code></td></tr>
         </tbody>
     </table>
 </div>
 
-<div class="next"><a href="docs/dbnfetch">← DbnSuite.Fetch</a><a href="docs/archive">The archive →</a></div>
+<div class="next"><a href="docs/dbnfetch">← DbnSuite.Fetch</a><a href="docs/python">Python client →</a></div>
 
 @code {
     private const string Open = """
