@@ -224,13 +224,7 @@ public sealed class WindowTests
 
         var tape = await TapeFixture.RoundTripAsync(writer);
 
-        WalkL1(tape);
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-
-        WalkL1(tape);
-
-        (GC.GetAllocatedBytesForCurrentThread() - before).ShouldBe(0);
+        Allocations.Least(() => WalkL1(tape)).ShouldBe(0);
     }
 
     private static long WalkL1(Tape tape)

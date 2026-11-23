@@ -219,14 +219,8 @@ public sealed class BarStreamTests
         var (tape, _) = await RandomBarsAsync();
         var spec = Spec("1m");
 
-        Walk(tape, spec);
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-
-        Walk(tape, spec);
-
         // The roller is made once per stream; the bars themselves cost nothing.
-        (GC.GetAllocatedBytesForCurrentThread() - before).ShouldBeLessThan(512);
+        Allocations.Least(() => Walk(tape, spec)).ShouldBeLessThan(512);
     }
 
     private static long Walk(Tape tape, BarSpec spec)
