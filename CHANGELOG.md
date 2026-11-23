@@ -1,10 +1,17 @@
 # Changelog
 
-What changed in each release of the **DbnClient** library and the **DbnFetch**
-(`dbnf`) tool on NuGet, newest first; since 0.3.0 the packages are named
-`DbnSuite.Client` and `DbnSuite.Fetch`. Breaking changes come first in each
+What changed in each release of the **DbnSuite.Client** library and the
+**DbnSuite.Fetch** (`dbnf`) tool on NuGet, newest first. Before 0.3.0 they were
+DbnClient and DbnFetch. Breaking changes come first in each
 release. The format follows [Keep a Changelog](https://keepachangelog.com), and
 versions follow [Semantic Versioning](https://semver.org).
+
+## Unreleased
+
+### Changed
+
+- Each package has a README of its own on nuget.org, about that package,
+  in place of the repository's whole README.
 
 ## 0.5.0 (2026-11-22)
 

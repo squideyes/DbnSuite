@@ -41,14 +41,14 @@ same pull request as the code, never in a later one.
 
   | What changed | Where it's described |
   |---|---|
-  | `dbnf` commands, options, MCP tools | `Pages/Docs/DbnFetch.razor`, the README's DbnSuite.Fetch sections |
-  | DbnSuite.Client's public API | `Pages/Docs/DbnClient.razor`: samples, errors table, namespaces |
+  | `dbnf` commands, options, MCP tools | `Pages/Docs/DbnFetch.razor`, the README's DbnSuite.Fetch sections, `Core/DbnSuite.Fetch/README.md` |
+  | DbnSuite.Client's public API | `Pages/Docs/DbnClient.razor`: samples, errors table, namespaces; `Core/DbnSuite.Client/README.md` |
   | Tapes, the catalog, sampling | `Pages/Docs/Tapes.razor`, and the Python client if the format changes |
   | The archive's keys and layout | `Pages/Docs/Layout.razor`, `Pages/Docs/Archive.razor` |
   | DbnSync settings, `.env`, Compose | `Pages/Docs/DbnSync.razor`, the README, `Deploy/**/.env.example`, the `dbnsync-deploy` skill |
   | DbnSpool | `Pages/Docs/DbnSpool.razor`, `Deploy/digitalocean` |
   | The Python client | `Clients/python/README.md`, `Pages/Docs/Python.razor` |
-  | A new piece, platform or headline feature | `Pages/Home.razor`, `Pages/Docs/Overview.razor`, `Layout/DocsLayout.razor`, the README's table |
+  | A new piece, platform or headline feature | `Pages/Home.razor`, `Pages/Docs/Overview.razor`, `Layout/DocsLayout.razor`, the README's table, the package READMEs |
 
 - **Check claims against the code, not memory.** Before writing a default, a range or a name,
   read it in the code. Sample output comes from a real run, and C# samples must compile against
@@ -56,8 +56,9 @@ same pull request as the code, never in a later one.
 - **Renames sweep everything.** After renaming anything user-facing, search the whole repo,
   including `Core/DbnSuite.Site`, `README.md`, `CONTRIBUTING.md`, `Deploy/` and
   `Clients/python`, for the old name.
-- **The packages ship the README.** NuGet shows the root `README.md` for both packages, so it
-  must be right on the day of a release.
+- **Each package ships its own README.** NuGet shows `Core/DbnSuite.Client/README.md` and
+  `Core/DbnSuite.Fetch/README.md`, so they must be right on the day of a release. Their links
+  are absolute, since nuget.org can't follow a relative one.
 - **Audit before a release.** Before tagging, compare each docs page against the code, one
   page or area at a time, and fix what has drifted in the release PR. After `pages.yml` runs,
   open the live site and check the pages that changed.
