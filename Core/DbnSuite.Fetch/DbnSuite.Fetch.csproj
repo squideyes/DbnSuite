@@ -8,13 +8,13 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>dbnf</ToolCommandName>
     <PackageId>DbnSuite.Fetch</PackageId>
-    <Description>DbnFetch (dbnf): download raw and processed market data from a DbnSync archive of Databento® files. An independent project with no official connection with Databento, Inc., owner of the registered Databento trademark; for use only as your Databento agreements allow. Provided as is, at your own risk: see NOTICE.md.</Description>
+    <Description>DbnSuite.Fetch (dbnf): download raw and processed market data from a DbnSync archive of Databento® files, and answer questions about it through an MCP server for AI agents. An independent project with no official connection with Databento, Inc., owner of the registered Databento trademark; for use only as your Databento agreements allow. Provided as is, at your own risk: see NOTICE.md.</Description>
     <PublishAot>true</PublishAot>
     <ToolPackageRuntimeIdentifiers>win-x64;win-arm64;osx-arm64;osx-x64;linux-x64;linux-arm64;any</ToolPackageRuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
     <None Include="..\..\NOTICE.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
