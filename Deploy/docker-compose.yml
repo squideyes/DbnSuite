@@ -24,7 +24,7 @@ x-logging: &logging
 
 services:
   s3:
-    image: rustfs/rustfs:1.0.5
+    image: rustfs/rustfs:1.0.6
     restart: unless-stopped
     logging: *logging
     environment:
